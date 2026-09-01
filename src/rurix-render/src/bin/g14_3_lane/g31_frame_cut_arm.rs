@@ -76,7 +76,9 @@ impl FrameCutArmOpt {
 
 /// G38 T3 扩展选项(**新类型**承载——`FrameCutArmOpt` 字段集冻结,窗口 bin
 /// 以 struct 字面量构造;窗口臂经既有 `run_frame_cut_arm` 消费本默认值)。
-#[derive(Clone, Copy)]
+/// (G39 T5:`cull_spv` 为 String ⇒ derive 降 `Clone`——两处消费均引用传参,
+/// 复核零拷贝语义依赖。)
+#[derive(Clone)]
 #[allow(dead_code)]
 struct FrameCutArmExtOpt {
     /// 桥接 copy 模式:false = incr(默认;差集脏槽多 region copy,帧 0 全量
@@ -87,16 +89,28 @@ struct FrameCutArmExtOpt {
     /// 首个 level≥N 祖先」提升映射(生产 `verify_cut_coverage` 提升后复核
     /// fail-closed)。0 = 现状(既有面 0-byte)。
     min_level: u32,
+    // ── G39 T5(#77 P1):probe-only device 决策码对拍臂 ──
+    /// false = 既有 host 路径字面 0-byte(缺省);true = host 决策不动,device
+    /// 平行复算判定码 → 回读逐项对拍(等价证据臂,fail-closed)。
+    cut_source_device: bool,
+    /// rurixc 现编 `g31_cluster_cull.spv` 路径(`cut_source_device` 时必填;
+    /// bin 侧装载后 NoContraction 注入,不落盘——SPV 文件保持 rurixc 原产字节)。
+    cull_spv: String,
+    /// red-arm:device 消费的 lod 表构造性篡改 ⇒ 对拍必红(C3 机核)。
+    red_arm_tamper: bool,
 }
 
 #[allow(dead_code)]
 impl FrameCutArmExtOpt {
     /// 既有入口默认:incr copy(窗口臂自动受益,digest 与 full 位级等价)+
-    /// 无降档。
+    /// 无降档 + host cut 源(G39 T5 对拍臂关断)⇒ 窗口臂/既有 probe 0 行为变。
     fn default_ext() -> Self {
         Self {
             copy_full: false,
             min_level: 0,
+            cut_source_device: false,
+            cull_spv: String::new(),
+            red_arm_tamper: false,
         }
     }
 }
@@ -158,6 +172,12 @@ struct FrameCutFrameStat {
     bridge_copy_gpu_ms: Option<f64>,
     /// 桥接 UPDATE build 段 GPU 毫秒(含 consume barrier;fail-soft None)。
     bridge_build_gpu_ms: Option<f64>,
+    // ── G39 T5 加性字段(--cut-source device 对拍臂;host 判读口径不动)──
+    /// device 对拍 dispatch 墙钟 ms(`vk::run_compute` 全程;证据税单列
+    /// measured,**不并入 cut_ms/exec_ms 判读口径**;None = cut_source host)。
+    device_cut_probe_ms: Option<f64>,
+    /// device 判定码字节 sha256(跨跑/跨窗审计面;None = cut_source host)。
+    device_cut_decisions_sha256: Option<String>,
     digest: String,
 }
 
@@ -442,7 +462,7 @@ fn frame_cut_select(
     threshold_px: f32,
     frame: u32,
 ) -> (Vec<Vec<bool>>, u32, u64) {
-    let (sets, cut_clusters, cut_tris, _) =
+    let (sets, cut_clusters, cut_tris, _, _) =
         frame_cut_select_ext(tag, blocks, spec, in_w, in_h, threshold_px, frame, 0, &[]);
     (sets, cut_clusters, cut_tris)
 }
@@ -452,9 +472,12 @@ fn frame_cut_select(
 /// `verify_cut_coverage`(原 cut)→ [`frame_cut_promote_min_level`] →
 /// `verify_cut_coverage`(提升后,同一生产校验,fail-closed)。返回
 /// (提升后逐块布尔集, 提升后簇数, **提升前** cut 三角数〔LOD 判据面,单调门
-/// 消费〕, 提升后 cut 三角数〔竞技场施加口径〕)。
+/// 消费〕, 提升后 cut 三角数〔竞技场施加口径〕, **提升前**逐块布尔集
+/// 〔G39 T5 device 对拍口径 = select 原输出——kernel 关 3 的 host 面;提升
+/// 映射是 min-level 表示层后处理,对拍锚其前;min_level=0 时与首元同值〕)。
 #[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn frame_cut_select_ext(
     tag: &str,
     blocks: &[ClusterPackBlock],
@@ -465,13 +488,14 @@ fn frame_cut_select_ext(
     frame: u32,
     min_level: u32,
     min_parents_all: &[Vec<Option<u32>>],
-) -> (Vec<Vec<bool>>, u32, u64, u64) {
+) -> (Vec<Vec<bool>>, u32, u64, u64, Vec<Vec<bool>>) {
     use rurix_render::geometry::gpu_scene::IDENTITY_3X4;
     use rurix_render::geometry::visible_cluster_set::{
         MeshDagView, select_lod_cut_grouped, verify_cut_coverage,
     };
     let cam = cluster_cull_camera(spec, in_w, in_h, threshold_px);
     let mut sets = Vec::with_capacity(blocks.len());
+    let mut pre_sets = Vec::with_capacity(blocks.len());
     let mut cut_clusters = 0u32;
     let mut cut_tris = 0u64;
     let mut cut_tris_promoted = 0u64;
@@ -490,6 +514,13 @@ fn frame_cut_select_ext(
         for &c in &cut {
             cut_tris += u64::from(b.records[c as usize].triangle_count);
         }
+        // G39 T5:提升前布尔集(device 对拍口径;ml=0 时提升恒等 ⇒ 与提升后
+        // set 同值)。
+        let mut pre_set = vec![false; b.records.len()];
+        for &c in &cut {
+            pre_set[c as usize] = true;
+        }
+        pre_sets.push(pre_set);
         // min-level 提升(0 = 恒等)+ 提升后生产校验复核(fail-closed)。
         let cut = if min_level == 0 {
             cut
@@ -514,7 +545,341 @@ fn frame_cut_select_ext(
     if min_level == 0 {
         cut_tris_promoted = cut_tris;
     }
-    (sets, cut_clusters, cut_tris, cut_tris_promoted)
+    (sets, cut_clusters, cut_tris, cut_tris_promoted, pre_sets)
+}
+
+// ---------------------------------------------------------------------------
+// G39 T5(#77 P1):probe-only device 决策码回读对拍臂——host 决策权/施加链/
+// 既有判据 0 字节移交;device 以冻结 `g31_cluster_cull.rx` kernel(三关超集,
+// rurixc 现编 SPV 经 --cull-spv 运行时装载)0-byte 消费平行复算判定码,回读
+// 逐项对拍。中和方案 A(params/数据域退化,kernel 0-byte):关 1 六平面全零
+// ⇒ `0 < −radius` 恒假恒不剔;关 2 逐簇 cone_cutoff=1.0 ⇒ `cutoff < 1.0`
+// 恒假关断;关 4 view 行全零 ⇒ viewz=0,near_z=−radius<znear(0.1)恒短路。
+// 判定码域收缩 {2,4},与 host 期望码(in_cut ? 4 : 2)恰成对拍闭集;域外码
+// = 中和面破坏,fail-closed。设计 = artifacts/day_0831_g39/t5_devicecut/
+// DESIGN.md(E3;等价门 §3;红臂 §3.2)。
+// ---------------------------------------------------------------------------
+
+/// device 簇表构造(canonical 全局序 = 块序×簇序,`frame_cut_arena_layout_ext`
+/// 同一遍历序):cluster_f32 10/簇 `[center 3|radius|cone_axis 零填 3|
+/// cone_cutoff=1.0 中和|error|parent_error*]`;lod_f32 8/簇 `[self 球 4|
+/// parent 球 4]`(`frame_cut_select_ext` 消费的同源平行表直取)。
+/// `parent_error*` 上传律 = harness **字面**(g31_cluster_cull_device.rs
+/// L204-209;判据① v1.1.5 全绿锚定路径):有限 → **原样透传**(含在树根簇
+/// 合法编码 `f32::MAX`——dag.rs「顶层(根)parent_error = f32::MAX」+
+/// 双侧饱和等价,见 C1 首红裁决 REPORT §6);非有限(+∞/NaN)→ 2.0e9
+/// sentinel(NaN 必须映射:kernel `parent_e > 0` 对 NaN 假 ⇒ 0px,host
+/// `dist > error` 对 NaN 假 ⇒ +∞,直传会分叉)。无域检拒项(负有限 =
+/// 双侧 0px 等价,叶 error≤0 对偶);等价残余由逐项全等门 fail-closed 兜底。
+/// center/radius 照填真值(关 1/4 中和下不参与判定,表意保真;error 面 =
+/// 关 3 真输入)。
+#[allow(dead_code)]
+fn frame_cut_device_tables(blocks: &[ClusterPackBlock]) -> (Vec<f32>, Vec<f32>) {
+    let n: usize = blocks.iter().map(|b| b.records.len()).sum();
+    let mut cluster_f32 = Vec::with_capacity(n * 10);
+    let mut lod_f32 = Vec::with_capacity(n * 8);
+    for b in blocks {
+        for (ci, r) in b.records.iter().enumerate() {
+            let parent_e = if r.parent_error.is_finite() {
+                r.parent_error
+            } else {
+                2.0e9
+            };
+            cluster_f32.extend_from_slice(&[
+                r.center[0],
+                r.center[1],
+                r.center[2],
+                r.radius,
+                0.0,
+                0.0,
+                0.0, // cone_axis 零填(关 2 关断下不参与)
+                1.0, // cone_cutoff = 1.0(关 2 中和,kernel `if cutoff < 1.0` 字面)
+                r.error,
+                parent_e,
+            ]);
+            let sl = &b.cluster_self_lod[ci];
+            let pl = &b.cluster_parent_lod[ci];
+            lod_f32.extend_from_slice(&[
+                sl.center[0],
+                sl.center[1],
+                sl.center[2],
+                sl.radius,
+                pl.center[0],
+                pl.center[1],
+                pl.center[2],
+                pl.radius,
+            ]);
+        }
+    }
+    (cluster_f32, lod_f32)
+}
+
+/// device params 装配(kernel 头注布局字面,64 f32):关 1 域 [0..24) 全零/
+/// 关 4 域 [36..64) 全零 + znear=0.1 正值 ⇒ near_z=−radius<znear 恒短路。
+/// [27] proj_factor = `cluster_cull_camera` → `projection_factor()` 字面同式
+/// (vp.m[1][1]·in_h·0.5;LOD 判据分辨率 = **内部分辨率** in_w/in_h,与
+/// `frame_cut_select_ext` 消费同一 `cluster_cull_camera` 口径同源)。
+/// cap = n ⇒ 列表零 overflow;mode = 0(pass1)。
+#[allow(dead_code)]
+fn frame_cut_device_params(
+    spec: &CameraSpec,
+    in_w: u32,
+    in_h: u32,
+    threshold_px: f32,
+    n: usize,
+) -> [f32; 64] {
+    let cam = cluster_cull_camera(spec, in_w, in_h, threshold_px);
+    let mut p = [0.0f32; 64];
+    p[24..27].copy_from_slice(&spec.eye);
+    p[27] = cam.view_proj[1][1] * cam.screen_height_px * 0.5;
+    p[28] = threshold_px;
+    p[29] = n as f32;
+    // p[30] = 0(mode pass1);p[31..33) uv 半径系数 0(关 4 短路下不消费)。
+    p[33] = 0.1; // znear 正值(关 4 短路判据消费;harness ZNEAR 同字面)
+    p[34] = 1.0; // hzb_level_count = 1(兜底绑定,短路下不读)
+    p[35] = n as f32; // visible_capacity = n ⇒ 原子列表零 overflow
+    p
+}
+
+/// 期望码构造(对拍口径 = **提升前** select 原输出展平,canonical 全局序):
+/// in_cut ⇒ 4(可见)/非 cut ⇒ 2(LOD 非 cut)——与中和后 device 判定码域
+/// {2,4} 恰成闭集。
+#[allow(dead_code)]
+fn frame_cut_device_expected(pre_sets: &[Vec<bool>]) -> Vec<u32> {
+    let mut out = Vec::with_capacity(pre_sets.iter().map(Vec::len).sum());
+    for set in pre_sets {
+        for &in_cut in set {
+            out.push(if in_cut { 4 } else { 2 });
+        }
+    }
+    out
+}
+
+/// SPIR-V NoContraction 注入(`g31_cluster_cull_device.rs`
+/// `spv_inject_no_contraction` L87-119 字面同式副本——继 cluster_cull_device/
+/// cluster_stream 后第三副本,如实登记,单源折叠留窗 DESIGN §5-3;挡 FMA
+/// 收缩 = f32 等价门先决):OpFAdd/OpFSub/OpFMul〔op 129/131/133〕result-id
+/// 收集 → 首 annotation/type 段前逐 id 注 `OpDecorate NoContraction`。
+#[allow(dead_code)]
+fn fc_spv_inject_no_contraction(spv: &[u32]) -> Vec<u32> {
+    let mut result_ids: Vec<u32> = Vec::new();
+    let mut i = 5usize;
+    let mut first_decorate: Option<usize> = None;
+    let mut first_type: Option<usize> = None;
+    while i < spv.len() {
+        let w = spv[i];
+        let wc = (w >> 16) as usize;
+        let op = w & 0xFFFF;
+        if wc == 0 || i + wc > spv.len() {
+            fail("SPIR-V 指令流越界（NoContraction 注入）");
+        }
+        match op {
+            71 if first_decorate.is_none() => first_decorate = Some(i),
+            19..=39 if first_type.is_none() => first_type = Some(i),
+            129 | 131 | 133 => result_ids.push(spv[i + 2]),
+            _ => {}
+        }
+        i += wc;
+    }
+    let at = first_decorate
+        .or(first_type)
+        .unwrap_or_else(|| fail("SPIR-V 无 annotation/type 段锚"));
+    let mut out = Vec::with_capacity(spv.len() + result_ids.len() * 3);
+    out.extend_from_slice(&spv[..at]);
+    for id in &result_ids {
+        out.push((3 << 16) | 71); // OpDecorate, wc=3
+        out.push(*id);
+        out.push(42); // NoContraction
+    }
+    out.extend_from_slice(&spv[at..]);
+    out
+}
+
+/// red-arm 篡改(C3 机核 = 构造性证明对拍面真实消费,harness 判据⑥同律):
+/// 在 device 消费的 lod 表上使受害簇判定码**结构性必翻**(翻转与相机/资产
+/// 数值无关;host 期望码不动)。受害裁决(fail-closed,返回全局簇号;
+/// 域口径:parent_error* ≥ 1e9 = **饱和域**——含在树根 f32::MAX 原样透传
+/// 与非有限映射 2e9,kernel/host 双侧 parent 谓词恒真、球不参与、不可翻,
+/// C1 首红裁决后与表构造律同步复核):
+/// - 模式甲:首个期望 4 且 parent_error* ∈ (0,1e9)(球参与域)簇——parent
+///   球半径 → −f32::MAX ⇒ dsurf 饱和 ~3.4e38 ⇒ parent_px → ~0 < thr ⇒
+///   必翻 2;
+/// - 模式乙(甲空):首个期望 2 且 self_error < 1e9 且 parent_error* > 0
+///   簇——self 球半径 → −f32::MAX(仅 self_error>0 时;≤0 恒 0px 免篡)
+///   + parent 球半径 → +f32::MAX(仅 parent_error*<1e9 时;饱和域恒
+///   ≥thr 免篡)⇒ self_px<thr ∧ parent_px≥thr ⇒ 必翻 4。
+/// 【偏离 DESIGN E3-4 登记】原案「全局簇 0 self 球半径 +1.0」在生产包为
+/// 结构性空转:簇 0 = 叶(dag.rs 叶层在前、叶 error=0),而 select/kernel
+/// 对 error≤0 恒 0px **不读球**(visible_cluster_set.rs L326-327 字面)——
+/// 必红不可达;本实现保持原案形状(lod 球篡改/上传前/fail-closed),
+/// 受害裁决改为期望码驱动。详 REPORT.md 偏离表。
+#[allow(dead_code)]
+fn frame_cut_red_arm_tamper(
+    cluster_f32: &[f32],
+    lod_f32: &mut [f32],
+    expected0: &[u32],
+    tag: &str,
+) -> usize {
+    for (g, &e) in expected0.iter().enumerate() {
+        let pe = cluster_f32[g * 10 + 9];
+        if e == 4 && pe > 0.0 && pe < 1.0e9 {
+            lod_f32[g * 8 + 7] = -f32::MAX;
+            eprintln!(
+                "{tag}: red-arm 模式甲 受害全局簇 {g}(期望 4;parent 球半径→−MAX ⇒ device 必翻 2)"
+            );
+            return g;
+        }
+    }
+    for (g, &e) in expected0.iter().enumerate() {
+        let se = cluster_f32[g * 10 + 8];
+        let pe = cluster_f32[g * 10 + 9];
+        if e == 2 && se < 1.0e9 && pe > 0.0 {
+            if se > 0.0 {
+                lod_f32[g * 8 + 3] = -f32::MAX;
+            }
+            if pe < 1.0e9 {
+                lod_f32[g * 8 + 7] = f32::MAX;
+            }
+            eprintln!(
+                "{tag}: red-arm 模式乙 受害全局簇 {g}(期望 2;self→−MAX/parent→+MAX ⇒ device 必翻 4)"
+            );
+            return g;
+        }
+    }
+    fail(&format!(
+        "{tag}: red-arm 无可篡改受害簇(帧 0 期望码全不可翻——退化簇包;fail-closed)"
+    ))
+}
+
+/// device 对拍会话级上下文(表/SPV 帧无关,一次性构造;red-arm 篡改已施加
+/// 于 lod 表)。
+#[allow(dead_code)]
+struct FrameCutDeviceCtx {
+    spv: Vec<u32>,
+    cluster_f32: Vec<f32>,
+    lod_f32: Vec<f32>,
+    n: usize,
+}
+
+/// 会话建立段一次性构造:SPV 读取 + NoContraction 注入(不落盘,spirv-val
+/// 由验收环在 rurixc 原产工件上覆盖)+ 表构造 + red-arm 篡改。
+#[allow(dead_code)]
+fn frame_cut_device_ctx(
+    tag: &str,
+    ext: &FrameCutArmExtOpt,
+    blocks: &[ClusterPackBlock],
+    expected0: &[u32],
+    verbose: bool,
+) -> FrameCutDeviceCtx {
+    let bytes = std::fs::read(&ext.cull_spv)
+        .unwrap_or_else(|e| fail(&format!("{tag}: cull SPV 读取 {}: {e}", ext.cull_spv)));
+    if bytes.len() % 4 != 0 {
+        fail(&format!("{tag}: cull SPV 字节数非 4 对齐 {}", ext.cull_spv));
+    }
+    let words: Vec<u32> = bytes
+        .chunks_exact(4)
+        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+    let spv = fc_spv_inject_no_contraction(&words);
+    let (cluster_f32, mut lod_f32) = frame_cut_device_tables(blocks);
+    let n = expected0.len();
+    assert_eq!(
+        cluster_f32.len(),
+        n * 10,
+        "device 表长度与期望码错位(块切片一致性破坏)"
+    );
+    if ext.red_arm_tamper {
+        frame_cut_red_arm_tamper(&cluster_f32, &mut lod_f32, expected0, tag);
+    }
+    if verbose {
+        eprintln!(
+            "{tag}: device cut 对拍臂就绪 n={n} 表字节={}(cluster {} + lod {});对拍口径 = 提升前 select 原输出;host 决策权/施加链 0 移交",
+            n * 72,
+            n * 40,
+            n * 32,
+        );
+    }
+    FrameCutDeviceCtx {
+        spv,
+        cluster_f32,
+        lod_f32,
+        n,
+    }
+}
+
+/// device 判定码对拍(等价门本体,fail-closed 闭集):10 buffer 布局 =
+/// cluster_cull harness 字面(params/cluster_f32/lod_f32/input_ids 恒等
+/// 0..n/hzb_data [0.0] 兜底/hzb_meta [0,1,1]/counters 12B 零/decisions n×4/
+/// vis_ids/occ_ids)→ dispatch [n,1,1] → 回读 decisions:①闭集断言
+/// d∈{2,4}(0=平面非零/1=cutoff 未关/3=关 4 未短路——中和面破坏,打印首破
+/// 簇)②逐项全等 `d[g]==expected[g]`(mismatch 打印归因素材:全局簇号/
+/// 两侧码/error/parent_error*/self/parent lod 球——§3.2 亚 ULP 边界归因
+/// 输入;P2 NO-GO 判据素材)。返回 (dispatch 墙钟 ms〔run_compute 全程,
+/// 证据税单列 measured〕, 判定码字节 sha256〔跨跑/跨窗审计面〕)。
+#[allow(dead_code)]
+fn frame_cut_device_cut_compare(
+    ctx: &FrameCutDeviceCtx,
+    params: &[f32; 64],
+    expected: &[u32],
+    tag: &str,
+    frame: u32,
+) -> (f64, String) {
+    let n = ctx.n;
+    assert_eq!(expected.len(), n, "期望码长度漂移(调用面破坏)");
+    let entry = vk::entry_point_name(&ctx.spv)
+        .unwrap_or_else(|| fail(&format!("{tag}: cull SPV 无 OpEntryPoint")));
+    let input_ids: Vec<u8> = (0..n as u32).flat_map(|i| i.to_le_bytes()).collect();
+    let mut bufs: Vec<Vec<u8>> = vec![
+        bytes_f32(&params[..]),
+        bytes_f32(&ctx.cluster_f32),
+        bytes_f32(&ctx.lod_f32),
+        input_ids,
+        bytes_f32(&[0.0]),                          // hzb_data 1 texel 兜底(短路不读)
+        [0u32, 1, 1].iter().flat_map(|x| x.to_le_bytes()).collect(), // hzb_meta
+        vec![0u8; 12],                              // counters
+        vec![0u8; n.max(1) * 4],                    // decisions
+        vec![0u8; n.max(1) * 4],                    // vis_ids
+        vec![0u8; n.max(1) * 4],                    // occ_ids
+    ];
+    let t = std::time::Instant::now();
+    vk::run_compute(&ctx.spv, &entry, &mut bufs, &[], [n.max(1) as u32, 1, 1])
+        .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} device cut dispatch: {e}")));
+    let ms = t.elapsed().as_secs_f64() * 1e3;
+    let dec_bytes = &bufs[7][..n * 4];
+    let sha = sha256_hex(dec_bytes);
+    for g in 0..n {
+        let o = g * 4;
+        let d = u32::from_le_bytes([
+            dec_bytes[o],
+            dec_bytes[o + 1],
+            dec_bytes[o + 2],
+            dec_bytes[o + 3],
+        ]);
+        if d != 2 && d != 4 {
+            fail(&format!(
+                "{tag}: 帧 {frame} device 判定码 {d} ∉ {{2,4}} 全局簇 {g}(中和面破坏:0=平面非零/1=cutoff 未关/3=关 4 未短路;fail-closed)"
+            ));
+        }
+        if d != expected[g] {
+            let fb = g * 10;
+            let lb = g * 8;
+            fail(&format!(
+                "{tag}: 帧 {frame} 判定码 mismatch 全局簇 {g}: device={d} host={}(error={:e} parent_error*={:e} self_lod=[{},{},{},r={}] parent_lod=[{},{},{},r={}];fail-closed;P1 红 ⇒ P2 NO-GO 归因素材,DESIGN §3.2)",
+                expected[g],
+                ctx.cluster_f32[fb + 8],
+                ctx.cluster_f32[fb + 9],
+                ctx.lod_f32[lb],
+                ctx.lod_f32[lb + 1],
+                ctx.lod_f32[lb + 2],
+                ctx.lod_f32[lb + 3],
+                ctx.lod_f32[lb + 4],
+                ctx.lod_f32[lb + 5],
+                ctx.lod_f32[lb + 6],
+                ctx.lod_f32[lb + 7],
+            ));
+        }
+    }
+    (ms, sha)
 }
 
 // ---------------------------------------------------------------------------
@@ -877,7 +1242,7 @@ fn frame_cut_run_session(
     // 帧 0 cut 先行（初始竞技场 = 帧 0 已施加;帧 0 refit 桥 = 内容恒等,节拍均匀）。
     let s0 = &samples[0];
     let t0 = std::time::Instant::now();
-    let (cut0, cut0_clusters, cut0_tris, cut0_tris_promoted) = frame_cut_select_ext(
+    let (cut0, cut0_clusters, cut0_tris, cut0_tris_promoted, cut0_pre) = frame_cut_select_ext(
         tag,
         blocks,
         &s0.spec,
@@ -889,6 +1254,17 @@ fn frame_cut_run_session(
         min_parents_all,
     );
     let cut0_ms = t0.elapsed().as_secs_f64() * 1e3;
+    // G39 T5:device 对拍臂会话级构造(表/SPV 帧无关;red-arm 篡改施加于
+    // device 消费面,host 期望码/决策权不动;缺省 host = None 字面 0-byte)。
+    let device_ctx: Option<FrameCutDeviceCtx> = ext.cut_source_device.then(|| {
+        frame_cut_device_ctx(
+            tag,
+            ext,
+            blocks,
+            &frame_cut_device_expected(&cut0_pre),
+            collect,
+        )
+    });
     // 创建期 BLAS = 全簇真几何超集（根 AABB 覆盖一切后续 refit 内容;TLAS 实例
     // AABB 不逐帧更新的 B5 蒙皮同律下假漏命中结构性排除）;帧 0 以单条全量
     // 上传把竞技场收到 cut0（逐槽增量自帧 1 起）。
@@ -1010,8 +1386,14 @@ fn frame_cut_run_session(
     for (k, s) in samples.iter().enumerate() {
         // ── ① host cut（帧 0 复用先行结果;逐帧覆盖性机核已在 select 内）──
         let t_cut = std::time::Instant::now();
-        let (cut, cut_clusters, cut_tris, cut_tris_promoted) = if k == 0 {
-            (cut0.clone(), cut0_clusters, cut0_tris, cut0_tris_promoted)
+        let (cut, cut_clusters, cut_tris, cut_tris_promoted, cut_pre) = if k == 0 {
+            (
+                cut0.clone(),
+                cut0_clusters,
+                cut0_tris,
+                cut0_tris_promoted,
+                cut0_pre.clone(),
+            )
         } else {
             frame_cut_select_ext(
                 tag,
@@ -1029,6 +1411,21 @@ fn frame_cut_run_session(
             cut0_ms
         } else {
             t_cut.elapsed().as_secs_f64() * 1e3
+        };
+
+        // ── ①bis G39 T5:device 决策码对拍(判据面加性;--cut-source device
+        //    时逐帧 params + 期望码〔提升前口径〕→ dispatch → 回读逐项全等
+        //    fail-closed;host cut 决策权/施加链零移交,下方 ②③④ 字面不动。
+        //    双跑两遍 session 各自对拍 ⇒ device 跨跑一致性经传递性成立)──
+        let (device_cut_probe_ms, device_cut_decisions_sha256) = match &device_ctx {
+            Some(ctx) => {
+                let params =
+                    frame_cut_device_params(&s.spec, s.in_w, s.in_h, threshold_px, ctx.n);
+                let expected = frame_cut_device_expected(&cut_pre);
+                let (ms, sha) = frame_cut_device_cut_compare(ctx, &params, &expected, tag, s.frame);
+                (Some(ms), Some(sha))
+            }
+            None => (None, None),
         };
 
         // ── ② 槽位增量（--cut-every 节拍;refit 帧才施加)。G38 T3:同一差集
@@ -1214,6 +1611,8 @@ fn frame_cut_run_session(
                 copy_bytes,
                 bridge_copy_gpu_ms: out.telemetry.blas_bridge_copy_gpu_ms,
                 bridge_build_gpu_ms: out.telemetry.blas_bridge_build_gpu_ms,
+                device_cut_probe_ms,
+                device_cut_decisions_sha256,
                 digest,
             });
         }
@@ -1397,6 +1796,9 @@ fn frame_cut_finish(
 /// min_level,逐帧 cut_tris_promoted/copy_regions/copy_bytes/
 /// bridge_copy_gpu_ms/bridge_build_gpu_ms〔None → null,fail-soft 如实〕;
 /// 既有消费方无 schema 断言〔w4_verify.py 判据 = 进程 rc + 臂 OK〕)。
+/// (G39 T5 加性:顶层 cut_source 恒出 + device 臂 device_cut_table_bytes;
+/// 逐帧 device_cut_probe_ms〔证据税单列 measured,不进 cut_ms/exec_ms 判读〕
+/// + device_cut_decisions_sha256〔host 臂 null〕。)
 #[allow(dead_code)]
 fn frame_cut_finish_ext(
     tag: &str,
@@ -1443,9 +1845,24 @@ fn frame_cut_finish_ext(
     if opt.out_path.is_empty() {
         return;
     }
+    // G39 T5:device 对拍表字节(cluster 10 f32 + lod 8 f32 = 72B/簇;按消费
+    // 中块切片口径 = 会话构造同一 n;host 臂空串 = 字段不出现,加性)。
+    let dev_tbl = if ext.cut_source_device {
+        let dev_n: usize = if opt.blocks_limit == 0 {
+            pack.blocks.iter().map(|b| b.records.len()).sum()
+        } else {
+            pack.blocks[..opt.blocks_limit.min(pack.blocks.len())]
+                .iter()
+                .map(|b| b.records.len())
+                .sum()
+        };
+        format!("\"device_cut_table_bytes\":{},", dev_n * 72)
+    } else {
+        String::new()
+    };
     let mut sj = String::with_capacity(4096 + stats.len() * 320);
     sj.push_str(&format!(
-        "{{\"schema\":\"rurix.g31.frame_cut_probe.v1\",\"threshold_px\":{},\"res\":\"{}x{}\",\"frames\":{},\"step_m\":{},\"cut_every\":{},\"blocks\":{},\"blocks_limit\":{},\"total_clusters\":{},\"passthrough_tris\":{},\"refit_copy_mode\":\"{}\",\"min_level\":{},\"determinism_note\":\"固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = host 金标准(device cut kernel 归 #77);单槽 inflight(FIF 拒 refit,#89/#90 分界)\",\"frames_data\":[",
+        "{{\"schema\":\"rurix.g31.frame_cut_probe.v1\",\"threshold_px\":{},\"res\":\"{}x{}\",\"frames\":{},\"step_m\":{},\"cut_every\":{},\"blocks\":{},\"blocks_limit\":{},\"total_clusters\":{},\"passthrough_tris\":{},\"refit_copy_mode\":\"{}\",\"min_level\":{},\"cut_source\":\"{}\",{}\"determinism_note\":\"固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = host 金标准(device cut kernel 归 #77);单槽 inflight(FIF 拒 refit,#89/#90 分界)\",\"frames_data\":[",
         threshold_px,
         opt.res_w,
         opt.res_h,
@@ -1458,6 +1875,8 @@ fn frame_cut_finish_ext(
         pack.passthrough.len(),
         if ext.copy_full { "full" } else { "incr" },
         ext.min_level,
+        if ext.cut_source_device { "device" } else { "host" },
+        dev_tbl,
     ));
     // Option<f64> → JSON(null = query 不可用 fail-soft,如实不冒充)。
     let jopt = |v: Option<f64>| -> String {
@@ -1468,7 +1887,7 @@ fn frame_cut_finish_ext(
             sj.push(',');
         }
         sj.push_str(&format!(
-            "{{\"frame\":{},\"cut_clusters\":{},\"cut_tris\":{},\"refit\":{},\"changed_slots\":{},\"upload_bytes\":{},\"hits\":{},\"cut_ms\":{:.3},\"delta_ms\":{:.3},\"exec_ms\":{:.3},\"gpu_clear_ms\":{:.3},\"gpu_rq_ms\":{:.3},\"fence_ms\":{:.3},\"cut_tris_promoted\":{},\"copy_regions\":{},\"copy_bytes\":{},\"bridge_copy_gpu_ms\":{},\"bridge_build_gpu_ms\":{},\"digest\":{}}}",
+            "{{\"frame\":{},\"cut_clusters\":{},\"cut_tris\":{},\"refit\":{},\"changed_slots\":{},\"upload_bytes\":{},\"hits\":{},\"cut_ms\":{:.3},\"delta_ms\":{:.3},\"exec_ms\":{:.3},\"gpu_clear_ms\":{:.3},\"gpu_rq_ms\":{:.3},\"fence_ms\":{:.3},\"cut_tris_promoted\":{},\"copy_regions\":{},\"copy_bytes\":{},\"bridge_copy_gpu_ms\":{},\"bridge_build_gpu_ms\":{},\"device_cut_probe_ms\":{},\"device_cut_decisions_sha256\":{},\"digest\":{}}}",
             s.frame,
             s.cut_clusters,
             s.cut_tris,
@@ -1487,6 +1906,10 @@ fn frame_cut_finish_ext(
             s.copy_bytes,
             jopt(s.bridge_copy_gpu_ms),
             jopt(s.bridge_build_gpu_ms),
+            jopt(s.device_cut_probe_ms),
+            s.device_cut_decisions_sha256
+                .as_deref()
+                .map_or_else(|| "null".to_owned(), jstr),
             jstr(&s.digest),
         ));
     }
@@ -1789,8 +2212,167 @@ fn frame_cut_selftest(tag: &str) {
             fail(&format!("{tag}: selftest 脏区段合并漂移 {regions:?}"));
         }
     }
+    // ⑦ G39 T5:device 决策码对拍臂 host 纯函数面(表构造/sentinel 映射/
+    //    params 三关中和式复算/期望码〔提升前口径〕/NoContraction 注入器/
+    //    red-arm 受害裁决——GPU 对拍腿归 C1-C5 验收环)。
+    {
+        // 表构造:布局长度/真值照填/cone 零填+cutoff 中和/sentinel 映射。
+        let (cf, lf) = frame_cut_device_tables(blocks);
+        if cf.len() != 7 * 10 || lf.len() != 7 * 8 {
+            fail(&format!(
+                "{tag}: selftest device 表长度漂移 cluster={} lod={}",
+                cf.len(),
+                lf.len()
+            ));
+        }
+        let r0 = &block.records[0];
+        if cf[0..3] != r0.center[..] || cf[3] != r0.radius || cf[8] != r0.error {
+            fail(&format!("{tag}: selftest device 表簇 0 真值面漂移"));
+        }
+        if cf[9] != r0.parent_error {
+            fail(&format!("{tag}: selftest device 表簇 0 有限 parent_error 应原样透传"));
+        }
+        for g in 0..7 {
+            let fb = g * 10;
+            if cf[fb + 4] != 0.0 || cf[fb + 5] != 0.0 || cf[fb + 6] != 0.0 {
+                fail(&format!("{tag}: selftest device 表簇 {g} cone_axis 未零填"));
+            }
+            if cf[fb + 7] != 1.0 {
+                fail(&format!("{tag}: selftest device 表簇 {g} cone_cutoff 未中和(关 2)"));
+            }
+        }
+        if cf[6 * 10 + 9] != 2.0e9 {
+            fail(&format!(
+                "{tag}: selftest 根 parent_error=+∞ sentinel 映射漂移(期望 2e9,得 {})",
+                cf[6 * 10 + 9]
+            ));
+        }
+        if lf[0..3] != block.cluster_self_lod[0].center[..]
+            || lf[3] != block.cluster_self_lod[0].radius
+            || lf[4..7] != block.cluster_parent_lod[0].center[..]
+            || lf[7] != block.cluster_parent_lod[0].radius
+        {
+            fail(&format!("{tag}: selftest device lod 表平行直取漂移"));
+        }
+        // params 装配 + 三关中和式 host 复算(kernel 判式字面)。
+        let p = frame_cut_device_params(&spec, 1920, 1080, 1.0, 7);
+        if p[0..24].iter().any(|&x| x != 0.0) || p[36..64].iter().any(|&x| x != 0.0) {
+            fail(&format!("{tag}: selftest params 关 1/4 域未零填"));
+        }
+        let cam_chk = cluster_cull_camera(&spec, 1920, 1080, 1.0);
+        if p[24..27] != spec.eye[..]
+            || p[27] != cam_chk.view_proj[1][1] * 1080.0 * 0.5
+            || p[27] <= 0.0
+        {
+            fail(&format!("{tag}: selftest params 相机面漂移(eye/proj_factor)"));
+        }
+        if p[28] != 1.0
+            || p[29] != 7.0
+            || p[30] != 0.0
+            || p[33] != 0.1
+            || p[34] != 1.0
+            || p[35] != 7.0
+        {
+            fail(&format!("{tag}: selftest params 标量面漂移"));
+        }
+        for g in 0..7 {
+            let fb = g * 10;
+            let (cx, cy, cz, r) = (cf[fb], cf[fb + 1], cf[fb + 2], cf[fb + 3]);
+            for pl in 0..6 {
+                // 关 1 kernel 判式字面:零平面 ⇒ 0 < −radius 恒假恒不剔。
+                if p[pl * 4] * cx + p[pl * 4 + 1] * cy + p[pl * 4 + 2] * cz + p[pl * 4 + 3]
+                    < 0.0 - r
+                {
+                    fail(&format!(
+                        "{tag}: selftest 关 1 中和破坏(簇 {g} 平面 {pl} 剔除)"
+                    ));
+                }
+            }
+            // 关 4 kernel 判式字面:view 行全零 ⇒ viewz=0,near_z=−r<znear 短路。
+            let viewz = -(p[60] * cx + p[61] * cy + p[62] * cz + p[63]);
+            if viewz - r > p[33] {
+                fail(&format!("{tag}: selftest 关 4 未短路(簇 {g} near_z>znear)"));
+            }
+        }
+        // 期望码构造(提升前口径):远帧 cut={根 6},近帧 cut={叶 0..3}。
+        let far = frame_cut_device_expected(&cuts[0]);
+        if far != vec![2, 2, 2, 2, 2, 2, 4] {
+            fail(&format!("{tag}: selftest 期望码(远帧)漂移 {far:?}"));
+        }
+        let near = frame_cut_device_expected(cuts.last().unwrap());
+        if near != vec![4, 4, 4, 4, 2, 2, 2] {
+            fail(&format!("{tag}: selftest 期望码(近帧)漂移 {near:?}"));
+        }
+        // NoContraction 注入器结构:合成流(1 decorate 锚 + 1 type +
+        // FAdd/FSub/FMul 各 1)⇒ 首 annotation 前注 3 条,注入量 = 浮点乘加
+        // 减指令数,原指令序逐字保持。
+        let mut synth = vec![0x0723_0203u32, 0x0001_0400, 0, 64, 0];
+        fc_spv_inst(&mut synth, 71, &[9, 0]); // OpDecorate(插入点锚)
+        fc_spv_inst(&mut synth, 22, &[1, 32]); // OpTypeFloat %1
+        fc_spv_inst(&mut synth, 129, &[1, 10, 2, 3]); // OpFAdd → %10
+        fc_spv_inst(&mut synth, 131, &[1, 11, 2, 3]); // OpFSub → %11
+        fc_spv_inst(&mut synth, 133, &[1, 12, 2, 3]); // OpFMul → %12
+        let inj = fc_spv_inject_no_contraction(&synth);
+        if inj.len() != synth.len() + 9 {
+            fail(&format!(
+                "{tag}: selftest NoContraction 注入量漂移 {}→{}",
+                synth.len(),
+                inj.len()
+            ));
+        }
+        let expect_decos: Vec<u32> = [10u32, 11, 12]
+            .iter()
+            .flat_map(|&id| [(3 << 16) | 71, id, 42])
+            .collect();
+        if inj[5..14] != expect_decos[..] || inj[14..] != synth[5..] {
+            fail(&format!("{tag}: selftest NoContraction 注入位置/形制漂移"));
+        }
+        // red-arm 受害裁决:近帧(全叶 cut,parent 有限)⇒ 模式甲簇 0
+        // parent→−MAX;远帧(cut={根},parent=sentinel 不可翻)⇒ 甲空 →
+        // 模式乙簇 0(期望 2;叶 self_e=0 免篡 + parent→+MAX)。
+        let mut lf_t = lf.clone();
+        let v_near = frame_cut_red_arm_tamper(&cf, &mut lf_t, &near, tag);
+        if v_near != 0 || lf_t[7] != -f32::MAX || lf_t[3] != lf[3] {
+            fail(&format!("{tag}: selftest red-arm 模式甲漂移 v={v_near}"));
+        }
+        let mut lf_t2 = lf.clone();
+        let v_far = frame_cut_red_arm_tamper(&cf, &mut lf_t2, &far, tag);
+        if v_far != 0 || lf_t2[7] != f32::MAX || lf_t2[3] != lf[3] {
+            fail(&format!("{tag}: selftest red-arm 模式乙漂移 v={v_far}"));
+        }
+        // C1 首红裁决锚(REPORT §6):在树根簇合法编码 = **有限 f32::MAX**
+        // (dag.rs「顶层(根)parent_error = f32::MAX」,bistro 生产包实证
+        // 3.4028235e38;本夹具根 +∞ 锚的是非有限→2e9 映射路)——域检绿路
+        // + 原样透传 + host 期望码/red-arm 裁决对两种根编码同判(双侧
+        // parent 谓词同向饱和:kernel ≥1e9 分支 1e9px / host dsurf≤e 分支
+        // +∞px,均 ≥ thr)。
+        let mut block_max = frame_cut_selftest_block();
+        block_max.records[6].parent_error = f32::MAX;
+        let blocks_max = std::slice::from_ref(&block_max);
+        let (cf2, lf2) = frame_cut_device_tables(blocks_max);
+        if cf2[6 * 10 + 9] != f32::MAX {
+            fail(&format!(
+                "{tag}: selftest 根 f32::MAX 编码应原样透传(得 {:e})",
+                cf2[6 * 10 + 9]
+            ));
+        }
+        let (cut_max, _, _) = frame_cut_select(tag, blocks_max, &spec, 1920, 1080, 1.0, 0);
+        let far2 = frame_cut_device_expected(&cut_max);
+        if far2 != far {
+            fail(&format!(
+                "{tag}: selftest 根 f32::MAX 编码 host 期望码漂移 {far2:?}(应与 +∞ 根同判 {far:?})"
+            ));
+        }
+        let mut lf2_t = lf2.clone();
+        let v_max = frame_cut_red_arm_tamper(&cf2, &mut lf2_t, &far2, tag);
+        if v_max != 0 || lf2_t[7] != f32::MAX || lf2_t[3] != lf2[3] {
+            fail(&format!(
+                "{tag}: selftest red-arm MAX 根裁决漂移 v={v_max}(甲应因饱和域跳根,乙应同 +∞ 根)"
+            ));
+        }
+    }
     eprintln!(
-        "{tag}: selftest OK（布局/owner 二分/单调细化 {} 帧 {}→{} tri/增量写器/零面积折叠/双跑确定性/kernel 结构/min-level 提升+降档布局/脏区段合并,全 fail-closed 已过）",
+        "{tag}: selftest OK（布局/owner 二分/单调细化 {} 帧 {}→{} tri/增量写器/零面积折叠/双跑确定性/kernel 结构/min-level 提升+降档布局/脏区段合并/device 对拍臂 host 面〔表+sentinel 映射+f32::MAX 根编码透传+params 三关中和+期望码+NoContraction 注入器+red-arm 裁决〕,全 fail-closed 已过）",
         frames,
         seq.first().unwrap(),
         seq.last().unwrap(),

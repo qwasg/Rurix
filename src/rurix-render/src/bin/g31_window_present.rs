@@ -366,6 +366,14 @@ const G31_DEFAULT_SPV_REALISM_TRANSP: &str = ".tmp/night_0829/spv/g31_realism_tr
 /// 〔19 路 View,新最高链位〕;能量口径 = nee on 时反弹直击灯片 emission
 /// 置零 + 聚类代表灯让位灯片真域,详 w2_wiring/ris_nee/REPORT.md)。
 const G31_DEFAULT_SPV_REALISM_RIS: &str = ".tmp/night_0830/spv/g31_realism_ris.spv";
+/// G39 T1 臂⑨ --lamp-restir 链工件(ris 超集 + 点灯直接光时域 reservoir 换选
+/// 段;params[72..76) 门控在内——签名 +prev_vp/resv_prev/resv_cur 三路〔22 路
+/// View,新最高链位〕;M=8 候选闭式 WRS + prev_vp 重投影时域 merge(m_cap
+/// 截断,host restir_reservoir merge 同义)+ 选中灯 1 条阴影验证射线,gate on
+/// 时点灯逐盏循环整体让位。跨帧状态 = reservoir 双缓冲 4 f32/px parity 轮换
+/// (TSR 五对同律)+ prev_vp 16 f32 逐帧上传;首帧/reset 由 params[74]=0 门
+/// 跳过历史(初值不清安全,era 重建重置——AE state 先例)。
+const G31_DEFAULT_SPV_REALISM_RESTIR: &str = ".tmp/night_0831/spv/g31_realism_restir.spv";
 /// day_0829 realism params 扩面长度（[55..72)：[55] metal-f0 门 [56..60)
 /// rt-ao [60..62) soft-shadows [62..65) rt-reflect [65..67) normal-maps
 /// [67] gi2-tex,[68] G37 W2 transparency 门,[69] gi2-ris 门 [70] ris_m
@@ -373,6 +381,10 @@ const G31_DEFAULT_SPV_REALISM_RIS: &str = ".tmp/night_0830/spv/g31_realism_ris.s
 /// 布局 0-byte 不动,realism 任一臂 on 时 params buffer/逐帧上传扩本长度,
 /// off 恒 PARAMS_LEN 既有面）。
 const G31_REAL_PARAMS_LEN: usize = 72;
+/// G39 T1 lamp_restir params 再扩长度([72..76):[72] lamp-restir 门 [73]
+/// m_cap [74] has_history [75] 预留恒 0——restir on 时 params buffer/逐帧
+/// 上传扩本长度,off 恒 G31_REAL_PARAMS_LEN/PARAMS_LEN 既有面 0-byte)。
+const G31_RESTIR_PARAMS_LEN: usize = 76;
 /// C13 SVT 接线门键（--svt on 面 evidence `gate` 字段字面）。
 const G31_SVT_GATE: &str = "g31.waveC.svt";
 /// C13 SVT 接线 evidence schema 字面（milestones/g31/g31_svt_evidence_schema.json 同字面）。
@@ -539,6 +551,19 @@ const G31_U_LAMPTBL_TEXNRM: u32 = 36;
 const G31_U_RESOURCE_COUNT_TEXNRM_RIS: usize = 37;
 const G31_U_LAMPTBL_TEXNRM_BLOOM: u32 = 44;
 const G31_U_RESOURCE_COUNT_TEXNRM_BLOOM_RIS: usize = 45;
+// G39 T1 lamp_restir:prev_vp/reservoir 双缓冲下标(--lamp-restir on 面;
+// kernel 签名序 = lamp_tbl 之后新最高链位——restir on 而 ris/nee off 时
+// lamp_tbl 绑 80B 哑表恒占 36〔44〕位,prev_vp 恒 37〔45〕、resv 对恒
+// 38/39〔46/47〕。reservoir 逐帧 parity 轮换 = prepare_update scene pass
+// binding_overrides(TSR 五对同律,cur=resv[p]/prev=resv[1−p]);与 --fg
+// fail-closed 互斥(FG_FULL 静态族 48 起连号按 TEXNRM_BLOOM_RIS+AE 终态
+// 钉死,restir 尾挂即错位——CLI 卫兵裁)。
+const G31_U_LRS_PREVVP_TEXNRM: u32 = 37;
+const G31_U_LRS_RESV_TEXNRM: [u32; 2] = [38, 39];
+const G31_U_RESOURCE_COUNT_TEXNRM_RESTIR: usize = 40;
+const G31_U_LRS_PREVVP_TEXNRM_BLOOM: u32 = 45;
+const G31_U_LRS_RESV_TEXNRM_BLOOM: [u32; 2] = [46, 47];
+const G31_U_RESOURCE_COUNT_TEXNRM_BLOOM_RESTIR: usize = 48;
 
 /// ① tex+nrm scene pass 屏障计划（U_PLAN_SCENE_TEX 超集 + trinrm/tri_mr）。
 const G31_U_PLAN_SCENE_TEXNRM: &[(u32, TargetState)] = &[
@@ -663,6 +688,34 @@ const G31_U_PLAN_SCENE_TEXNRM_RIS: &[(u32, TargetState)] = &[
     (U_SCENE_COLOR, TargetState::StorageReadWrite),
     (U_SCENE_DEPTH, TargetState::StorageReadWrite),
     (G31_U_LAMPTBL_TEXNRM, TargetState::StorageReadWrite),
+];
+/// G39 T1 lamp_restir scene pass 屏障计划(RIS 超集 + prev_vp + reservoir
+/// 双 parity 并集——&'static 计划须覆双缓冲全集,TSR U_OUT_COLOR 双 parity
+/// 同律)。
+const G31_U_PLAN_SCENE_TEXNRM_RESTIR: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_TEX_UV, TargetState::StorageReadWrite),
+    (G31_U_TEX_META, TargetState::StorageReadWrite),
+    (G31_U_TEX_TRITEX, TargetState::StorageReadWrite),
+    (G31_U_TEX_ATLAS, TargetState::StorageReadWrite),
+    (G31_U_TEX_LINLUT, TargetState::StorageReadWrite),
+    (G31_U_TRINRM_TEX, TargetState::StorageReadWrite),
+    (G31_U_TRI_MR_TEX, TargetState::StorageReadWrite),
+    (G31_U_TRIEM_TEXNRM, TargetState::StorageReadWrite),
+    (G31_U_TRIBASE_TEXNRM, TargetState::StorageReadWrite),
+    (G31_U_TRINM_TEXNRM, TargetState::StorageReadWrite),
+    (G31_U_TRITAN_TEXNRM, TargetState::StorageReadWrite),
+    (G31_U_TRITRANSP_TEXNRM, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+    (G31_U_LAMPTBL_TEXNRM, TargetState::StorageReadWrite),
+    (G31_U_LRS_PREVVP_TEXNRM, TargetState::StorageReadWrite),
+    (G31_U_LRS_RESV_TEXNRM[0], TargetState::StorageReadWrite),
+    (G31_U_LRS_RESV_TEXNRM[1], TargetState::StorageReadWrite),
 ];
 /// ② tex+bloom scene pass 屏障计划（tex 五件 = bloom 组合下标）。
 const G31_U_PLAN_SCENE_TEX_BLOOM: &[(u32, TargetState)] = &[
@@ -800,6 +853,33 @@ const G31_U_PLAN_SCENE_TEXNRM_BLOOM_RIS: &[(u32, TargetState)] = &[
     (U_SCENE_COLOR, TargetState::StorageReadWrite),
     (U_SCENE_DEPTH, TargetState::StorageReadWrite),
     (G31_U_LAMPTBL_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+];
+/// G39 T1 lamp_restir ×bloom scene pass 屏障计划(BLOOM_RIS 超集 + prev_vp
+/// + reservoir 双 parity 并集)。
+const G31_U_PLAN_SCENE_TEXNRM_BLOOM_RESTIR: &[(u32, TargetState)] = &[
+    (U_TRIS, TargetState::StorageReadWrite),
+    (U_MATS, TargetState::StorageReadWrite),
+    (U_QUADS, TargetState::StorageReadWrite),
+    (U_POINTS, TargetState::StorageReadWrite),
+    (U_SCENE_PARAMS, TargetState::StorageReadWrite),
+    (G31_U_TEX_UV_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TEX_META_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TEX_TRITEX_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TEX_ATLAS_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TEX_LINLUT_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRINRM_TEX_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRI_MR_TEX_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRIEM_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRIBASE_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRINM_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRITAN_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_TRITRANSP_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (U_SCENE_COLOR, TargetState::StorageReadWrite),
+    (U_SCENE_DEPTH, TargetState::StorageReadWrite),
+    (G31_U_LAMPTBL_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_LRS_PREVVP_TEXNRM_BLOOM, TargetState::StorageReadWrite),
+    (G31_U_LRS_RESV_TEXNRM_BLOOM[0], TargetState::StorageReadWrite),
+    (G31_U_LRS_RESV_TEXNRM_BLOOM[1], TargetState::StorageReadWrite),
 ];
 
 // ---------------------------------------------------------------------------
@@ -1292,6 +1372,17 @@ const G31_U_AE_PARTIALS_TEXNRM_RIS: u32 = 39;
 const G31_U_AE_STATE_TEXNRM_BLOOM_RIS: u32 = 45;
 const G31_U_AE_PARAMS_TEXNRM_BLOOM_RIS: u32 = 46;
 const G31_U_AE_PARTIALS_TEXNRM_BLOOM_RIS: u32 = 47;
+/// G39 T1 lamp_restir:A2 追加资源下标(prev_vp/resv 三件尾挂后 AE 三件再
+/// 顺延 +3:tex+nrm+…+restir 40..=42 / ×bloom 48..=50——红修 #2 律:新尾挂
+/// 必新 AE 下标族,双接线 + assert 连号,restir guard 先于 ris。×bloom 面与
+/// FG_FULL 静态族(48 起)重叠 ⇒ --lamp-restir 与 --fg fail-closed 互斥由
+/// CLI 卫兵裁,本族仅 fg off 面可达)。
+const G31_U_AE_STATE_TEXNRM_RESTIR: u32 = 40;
+const G31_U_AE_PARAMS_TEXNRM_RESTIR: u32 = 41;
+const G31_U_AE_PARTIALS_TEXNRM_RESTIR: u32 = 42;
+const G31_U_AE_STATE_TEXNRM_BLOOM_RESTIR: u32 = 48;
+const G31_U_AE_PARAMS_TEXNRM_BLOOM_RESTIR: u32 = 49;
+const G31_U_AE_PARTIALS_TEXNRM_BLOOM_RESTIR: u32 = 50;
 /// A2 reduce/state 屏障计划（tex 单臂变体）。
 const G31_U_PLAN_AE_REDUCE_TEX: &[(u32, TargetState)] = &[
     (U_OUT_COLOR[0], TargetState::StorageReadWrite),
@@ -1463,6 +1554,31 @@ const G31_U_PLAN_AE_STATE_TEXNRM_BLOOM_RIS: &[(u32, TargetState)] = &[
     (G31_U_AE_PARTIALS_TEXNRM_BLOOM_RIS, TargetState::StorageReadWrite),
     (G31_U_AE_PARAMS_TEXNRM_BLOOM_RIS, TargetState::StorageReadWrite),
     (G31_U_AE_STATE_TEXNRM_BLOOM_RIS, TargetState::StorageReadWrite),
+    (G31_U_ENC_PARAMS, TargetState::StorageReadWrite),
+];
+/// G39 T1 lamp_restir:A2 reduce/state 屏障计划(restir 两形态;成员形态与
+/// _RIS 四计划逐字同构,仅换 _RESTIR 下标)。
+const G31_U_PLAN_AE_REDUCE_TEXNRM_RESTIR: &[(u32, TargetState)] = &[
+    (U_OUT_COLOR[0], TargetState::StorageReadWrite),
+    (U_OUT_COLOR[1], TargetState::StorageReadWrite),
+    (G31_U_AE_PARAMS_TEXNRM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_AE_PARTIALS_TEXNRM_RESTIR, TargetState::StorageReadWrite),
+];
+const G31_U_PLAN_AE_STATE_TEXNRM_RESTIR: &[(u32, TargetState)] = &[
+    (G31_U_AE_PARTIALS_TEXNRM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_AE_PARAMS_TEXNRM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_AE_STATE_TEXNRM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_ENC_PARAMS, TargetState::StorageReadWrite),
+];
+const G31_U_PLAN_AE_REDUCE_TEXNRM_BLOOM_RESTIR: &[(u32, TargetState)] = &[
+    (G31_U_BLOOM_COMP_OUT, TargetState::StorageReadWrite),
+    (G31_U_AE_PARAMS_TEXNRM_BLOOM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_AE_PARTIALS_TEXNRM_BLOOM_RESTIR, TargetState::StorageReadWrite),
+];
+const G31_U_PLAN_AE_STATE_TEXNRM_BLOOM_RESTIR: &[(u32, TargetState)] = &[
+    (G31_U_AE_PARTIALS_TEXNRM_BLOOM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_AE_PARAMS_TEXNRM_BLOOM_RESTIR, TargetState::StorageReadWrite),
+    (G31_U_AE_STATE_TEXNRM_BLOOM_RESTIR, TargetState::StorageReadWrite),
     (G31_U_ENC_PARAMS, TargetState::StorageReadWrite),
 ];
 
@@ -3455,6 +3571,9 @@ fn g31_assemble_tri_tan(scene: &SceneData, tri_uv: &[f32]) -> Result<Vec<f32>, S
 /// tri_tan 哑表保持 kernel 签名序〕+ 屏障换 _TRANSP 计划;None = 上述面逐字）。
 /// G37 W2 ris_nee:lamp_tbl_bytes = --gi2-ris|--gi2-nee on 面(尾挂 36
 /// 〔44〕;transp off 时调用点传 tri_transp 零表保持签名序)。
+/// G39 T1 lamp_restir:lamp_restir = --lamp-restir on 面(prev_vp 尾挂 37 +
+/// reservoir 双缓冲 38/39;ris/nee off 时调用点传 lamp_tbl 80B 哑表保持
+/// 签名序;false = 上述面逐字 0-byte)。
 #[allow(clippy::too_many_arguments)]
 fn g31_lane_descs_tex_nrm<'x>(
     assets: &'x LaneAssets,
@@ -3471,6 +3590,7 @@ fn g31_lane_descs_tex_nrm<'x>(
     nm_bytes: Option<(&'x [u8], &'x [u8])>,
     tri_transp_bytes: Option<&'x [u8]>,
     lamp_tbl_bytes: Option<&'x [u8]>,
+    lamp_restir: bool,
     iw: u32,
     ih: u32,
     ow: u32,
@@ -3585,7 +3705,48 @@ fn g31_lane_descs_tex_nrm<'x>(
     if let Some(lt) = lamp_tbl_bytes {
         d.resources.push(init(lt)); // G31_U_LAMPTBL_TEXNRM
         sb.push(G31_U_LAMPTBL_TEXNRM);
-        assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_RIS);
+        if !lamp_restir {
+            assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_RIS);
+        }
+    } else {
+        assert!(
+            !lamp_restir,
+            "G39 T1 lamp_restir: restir on 须 lamp_tbl 同 Some(ris/nee off 面调用点传 80B 哑表——kernel 签名序 fail-closed)"
+        );
+    }
+    // G39 T1 lamp_restir:prev_vp + reservoir 双缓冲尾挂 37/38/39(kernel
+    // 签名序 = lamp_tbl 之后新最高链位;false = 上述面逐字 0-byte)。三件
+    // data:None——prev_vp 逐帧 buffer_uploads 先行于消费,reservoir 初值不清
+    // 由首帧 params[74]=0 门 + gate on 全像素恒写回保安全(AE state/TSR hist
+    // 先例,era 重建重置)。初始绑定 parity 0 形(prev←resv[1],cur←resv[0]),
+    // 逐帧 binding_overrides 轮换(TSR 五对同律)。B3 首红修复:prev_vp 为
+    // 逐帧上传目标 ⇒ 须 host-visible(device_local: false——U_SCENE_PARAMS
+    // host_init 同律;G14.10d fail-closed「DEVICE_LOCAL 不可 map」帧 0 拒);
+    // reservoir 双缓冲纯 device 侧读写零上传,device_local: true 不动。
+    if lamp_restir {
+        d.resources.push(ResourceDesc::Buffer(BufferDesc {
+            size: 64,
+            usage: storage,
+            data: None,
+            device_local: false,
+        })); // G31_U_LRS_PREVVP_TEXNRM
+        let lrs_resv_bytes = u64::from(iw) * u64::from(ih) * 16;
+        d.resources.push(ResourceDesc::Buffer(BufferDesc {
+            size: lrs_resv_bytes,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })); // G31_U_LRS_RESV_TEXNRM[0]
+        d.resources.push(ResourceDesc::Buffer(BufferDesc {
+            size: lrs_resv_bytes,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })); // G31_U_LRS_RESV_TEXNRM[1]
+        sb.push(G31_U_LRS_PREVVP_TEXNRM);
+        sb.push(G31_U_LRS_RESV_TEXNRM[1]);
+        sb.push(G31_U_LRS_RESV_TEXNRM[0]);
+        assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_RESTIR);
     }
     sb.push(U_SCENE_COLOR);
     sb.push(U_SCENE_DEPTH);
@@ -3604,8 +3765,11 @@ fn g31_lane_descs_tex_nrm<'x>(
             ..Bindings::default()
         },
     });
-    // G37 W2 ris_nee:lamp_tbl on 面屏障计划最先(TRANSP 超集)。
-    d.barriers[0] = if lamp_tbl_bytes.is_some() {
+    // G39 T1 lamp_restir:restir on 面屏障计划最先(RIS 超集);G37 W2
+    // ris_nee:lamp_tbl on 面次之(TRANSP 超集)。
+    d.barriers[0] = if lamp_restir {
+        G31_U_PLAN_SCENE_TEXNRM_RESTIR
+    } else if lamp_tbl_bytes.is_some() {
         G31_U_PLAN_SCENE_TEXNRM_RIS
     } else if tri_transp_bytes.is_some() {
         G31_U_PLAN_SCENE_TEXNRM_TRANSP
@@ -3713,6 +3877,9 @@ fn g31_lane_descs_tex_bloom<'x>(
 /// + 屏障换 _BLOOM_TRANSP 计划;nm_bytes 必 Some 律同 tex_nrm 形态）。
 /// G37 W2 ris_nee:lamp_tbl_bytes = --gi2-ris|--gi2-nee on 面(尾挂 36
 /// 〔44〕;transp off 时调用点传 tri_transp 零表保持签名序)。
+/// G39 T1 lamp_restir:lamp_restir = --lamp-restir on 面(prev_vp 尾挂 45 +
+/// reservoir 双缓冲 46/47;ris/nee off 时调用点传 lamp_tbl 80B 哑表保持
+/// 签名序;false = 上述面逐字 0-byte)。
 #[allow(clippy::too_many_arguments)]
 fn g31_lane_descs_tex_nrm_bloom<'x>(
     assets: &'x LaneAssets,
@@ -3729,6 +3896,7 @@ fn g31_lane_descs_tex_nrm_bloom<'x>(
     nm_bytes: Option<(&'x [u8], &'x [u8])>,
     tri_transp_bytes: Option<&'x [u8]>,
     lamp_tbl_bytes: Option<&'x [u8]>,
+    lamp_restir: bool,
     blm: &'x G31BloomAssets<'x>,
     iw: u32,
     ih: u32,
@@ -3841,7 +4009,43 @@ fn g31_lane_descs_tex_nrm_bloom<'x>(
     if let Some(lt) = lamp_tbl_bytes {
         d.resources.push(init(lt)); // G31_U_LAMPTBL_TEXNRM_BLOOM
         sb.push(G31_U_LAMPTBL_TEXNRM_BLOOM);
-        assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_BLOOM_RIS);
+        if !lamp_restir {
+            assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_BLOOM_RIS);
+        }
+    } else {
+        assert!(
+            !lamp_restir,
+            "G39 T1 lamp_restir: restir on 须 lamp_tbl 同 Some(ris/nee off 面调用点传 80B 哑表——kernel 签名序 fail-closed)"
+        );
+    }
+    // G39 T1 lamp_restir:prev_vp + reservoir 双缓冲尾挂 45/46/47(kernel
+    // 签名序 = lamp_tbl 之后新最高链位;非 bloom 形态同律注——data:None +
+    // parity 0 初始绑定 + 逐帧 override 轮换。B3 首红修复:prev_vp 逐帧上传
+    // 目标 ⇒ device_local: false,reservoir 双缓冲 true 不动——非 bloom 同律)。
+    if lamp_restir {
+        d.resources.push(ResourceDesc::Buffer(BufferDesc {
+            size: 64,
+            usage: storage,
+            data: None,
+            device_local: false,
+        })); // G31_U_LRS_PREVVP_TEXNRM_BLOOM
+        let lrs_resv_bytes = u64::from(iw) * u64::from(ih) * 16;
+        d.resources.push(ResourceDesc::Buffer(BufferDesc {
+            size: lrs_resv_bytes,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })); // G31_U_LRS_RESV_TEXNRM_BLOOM[0]
+        d.resources.push(ResourceDesc::Buffer(BufferDesc {
+            size: lrs_resv_bytes,
+            usage: storage,
+            data: None,
+            device_local: true,
+        })); // G31_U_LRS_RESV_TEXNRM_BLOOM[1]
+        sb.push(G31_U_LRS_PREVVP_TEXNRM_BLOOM);
+        sb.push(G31_U_LRS_RESV_TEXNRM_BLOOM[1]);
+        sb.push(G31_U_LRS_RESV_TEXNRM_BLOOM[0]);
+        assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_BLOOM_RESTIR);
     }
     sb.push(U_SCENE_COLOR);
     sb.push(U_SCENE_DEPTH);
@@ -3860,8 +4064,11 @@ fn g31_lane_descs_tex_nrm_bloom<'x>(
             ..Bindings::default()
         },
     });
-    // G37 W2 ris_nee:lamp_tbl on 面屏障计划最先(BLOOM_TRANSP 超集)。
-    d.barriers[0] = if lamp_tbl_bytes.is_some() {
+    // G39 T1 lamp_restir:restir on 面屏障计划最先(BLOOM_RIS 超集);G37 W2
+    // ris_nee:lamp_tbl on 面次之(BLOOM_TRANSP 超集)。
+    d.barriers[0] = if lamp_restir {
+        G31_U_PLAN_SCENE_TEXNRM_BLOOM_RESTIR
+    } else if lamp_tbl_bytes.is_some() {
         G31_U_PLAN_SCENE_TEXNRM_BLOOM_RIS
     } else if tri_transp_bytes.is_some() {
         G31_U_PLAN_SCENE_TEXNRM_BLOOM_TRANSP
@@ -4172,6 +4379,12 @@ struct G31TsrLane<'a> {
     gi2_ris: bool,
     gi2_ris_m: f32,
     gi2_nee: bool,
+    /// G39 T1 臂⑨ 点灯直接光时域 reservoir(--lamp-restir on 车道创建后经
+    /// set_lamp_restir 一次性挂载 → prepare_update 置 params[72..75) + 逐帧
+    /// prev_vp 上传 + scene pass reservoir parity override;off = false ⇒
+    /// 不扩不写不 override,参数/绑定面 0-byte)。
+    lamp_restir: bool,
+    lamp_restir_mcap: f32,
     /// Phase D TSR 降噪质量档（--tsr-quality on 车道创建后经 set_tsrq 一次性
     /// 挂载 min_alpha/clamp → prepare_update 置 tsr_params[19..21);off =
     /// false ⇒ 两槽不写与零填充逐位同值,参数面 0-byte——resolve SPV 换载在
@@ -4270,6 +4483,8 @@ impl<'a> G31TsrLane<'a> {
             gi2_ris: false,
             gi2_ris_m: 6.0,
             gi2_nee: false,
+            lamp_restir: false,
+            lamp_restir_mcap: 8.0,
             tsrq: false,
             tsrq_min_alpha: 0.0,
             tsrq_clamp: 0.0,
@@ -4358,6 +4573,13 @@ impl<'a> G31TsrLane<'a> {
         self.gi2_ris = ris;
         self.gi2_ris_m = ris_m;
         self.gi2_nee = nee;
+    }
+
+    /// G39 T1 臂⑨ 点灯直接光时域 reservoir 挂载(--lamp-restir on 车道创建后
+    /// 一次性;off 车道不调用 ⇒ 不扩不写不 override,参数/绑定面 0-byte)。
+    fn set_lamp_restir(&mut self, mcap: f32) {
+        self.lamp_restir = true;
+        self.lamp_restir_mcap = mcap;
     }
 
     /// Phase D TSR 降噪质量档挂载（--tsr-quality on 车道创建后一次性
@@ -4465,6 +4687,8 @@ impl<'a> G31TsrLane<'a> {
             // G37 W2 ris_nee:臂⑧并入 realism 扩面门。
             || self.gi2_ris
             || self.gi2_nee
+            // G39 T1 lamp_restir:臂⑨并入 realism 扩面门。
+            || self.lamp_restir
         {
             scene_params.resize(G31_REAL_PARAMS_LEN, 0.0);
             if self.metal_f0 {
@@ -4505,9 +4729,24 @@ impl<'a> G31TsrLane<'a> {
             if self.gi2_nee {
                 scene_params[71] = 1.0;
             }
+            // G39 T1 lamp_restir:params 再扩 [72..76)([72] 门/[73] m_cap/
+            // [74] has_history〔!reset && has_history_state,TSR tsr_params[8]
+            // 同式——reset/首帧 = 0,kernel merge 计数门零迭代零读〕/[75] 预留
+            // 恒 0;off 不扩不写 = 参数面 0-byte)。
+            if self.lamp_restir {
+                scene_params.resize(G31_RESTIR_PARAMS_LEN, 0.0);
+                scene_params[72] = 1.0;
+                scene_params[73] = self.lamp_restir_mcap;
+                scene_params[74] = if !reset && self.has_history_state {
+                    1.0
+                } else {
+                    0.0
+                };
+            }
             // 时序采样帧旋转（gi2 off 时 pack 未写 [52],时序臂补写——gi2
-            // on 时 pack 已写同值,幂等）。
-            if self.rt_ao || self.soft_shadows || self.rt_reflect {
+            // on 时 pack 已写同值,幂等。G39 T1:lamp_restir 候选/判定序列
+            // 同消费 [52],条件并入）。
+            if self.rt_ao || self.soft_shadows || self.rt_reflect || self.lamp_restir {
                 scene_params[52] = self.gi2_frame;
             }
         }
@@ -4558,6 +4797,28 @@ impl<'a> G31TsrLane<'a> {
         if let Some(s) = self.svt.as_ref() {
             uploads.extend(s.pending.iter().cloned());
         }
+        // G39 T1 lamp_restir:prev 帧 VP 16 f32 逐帧上传(源 = prev_vp_j——mv
+        // 参数面同源 prev 变量;首帧/reset = 当前 vp_j 且 params[74]=0 门跳过
+        // 消费;行主序 m[r][c] = pack_mv_params prev_vp 同布局)。off 不上传 =
+        // 上传面 0-byte。
+        if self.lamp_restir {
+            let mut lrs_pv = Vec::with_capacity(16);
+            for r in 0..4 {
+                for c in 0..4 {
+                    lrs_pv.push(prev.m[r][c]);
+                }
+            }
+            let lrs_pvp_idx = if self.bloom {
+                G31_U_LRS_PREVVP_TEXNRM_BLOOM
+            } else {
+                G31_U_LRS_PREVVP_TEXNRM
+            };
+            uploads.push((
+                StableResourceId(u64::from(lrs_pvp_idx) + 1),
+                0,
+                bytes_f32(&lrs_pv),
+            ));
+        }
         let bindings_resample = Bindings {
             storage_buffers: vec![
                 U_SCENE_COLOR,
@@ -4605,6 +4866,73 @@ impl<'a> G31TsrLane<'a> {
             (2, bindings_resample),
             (3, bindings_resolve),
         ];
+        // G39 T1 lamp_restir:scene pass(pass 0)reservoir parity override
+        // (TSR 五对同律——cur = resv[p]、prev = resv[1−p],逐帧轮换;restir
+        // descs 面下位链全占位 ⇒ 绑定列表 = kernel 22 路签名序全量重述,
+        // accel_structs 同述。off 不 override = scene 静态绑定面 0-byte)。
+        if self.lamp_restir {
+            let lrs_sb = if self.bloom {
+                vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    G31_U_TRINRM_TEX_BLOOM,
+                    G31_U_TRI_MR_TEX_BLOOM,
+                    G31_U_TEX_UV_BLOOM,
+                    G31_U_TEX_META_BLOOM,
+                    G31_U_TEX_TRITEX_BLOOM,
+                    G31_U_TEX_ATLAS_BLOOM,
+                    G31_U_TEX_LINLUT_BLOOM,
+                    G31_U_TRIEM_TEXNRM_BLOOM,
+                    G31_U_TRIBASE_TEXNRM_BLOOM,
+                    G31_U_TRINM_TEXNRM_BLOOM,
+                    G31_U_TRITAN_TEXNRM_BLOOM,
+                    G31_U_TRITRANSP_TEXNRM_BLOOM,
+                    G31_U_LAMPTBL_TEXNRM_BLOOM,
+                    G31_U_LRS_PREVVP_TEXNRM_BLOOM,
+                    G31_U_LRS_RESV_TEXNRM_BLOOM[1 - p],
+                    G31_U_LRS_RESV_TEXNRM_BLOOM[p],
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ]
+            } else {
+                vec![
+                    U_TRIS,
+                    U_MATS,
+                    U_QUADS,
+                    U_POINTS,
+                    U_SCENE_PARAMS,
+                    G31_U_TRINRM_TEX,
+                    G31_U_TRI_MR_TEX,
+                    G31_U_TEX_UV,
+                    G31_U_TEX_META,
+                    G31_U_TEX_TRITEX,
+                    G31_U_TEX_ATLAS,
+                    G31_U_TEX_LINLUT,
+                    G31_U_TRIEM_TEXNRM,
+                    G31_U_TRIBASE_TEXNRM,
+                    G31_U_TRINM_TEXNRM,
+                    G31_U_TRITAN_TEXNRM,
+                    G31_U_TRITRANSP_TEXNRM,
+                    G31_U_LAMPTBL_TEXNRM,
+                    G31_U_LRS_PREVVP_TEXNRM,
+                    G31_U_LRS_RESV_TEXNRM[1 - p],
+                    G31_U_LRS_RESV_TEXNRM[p],
+                    U_SCENE_COLOR,
+                    U_SCENE_DEPTH,
+                ]
+            };
+            binding_overrides.push((
+                0,
+                Bindings {
+                    accel_structs: vec![0],
+                    storage_buffers: lrs_sb,
+                    ..Bindings::default()
+                },
+            ));
+        }
         if self.bloom {
             // D3 九 pass 图:4=bright/5=blurH/6=blurV/7=composite/8=encode
             // （blur 两 pass 绑定静态,不随 parity 轮换）。A2 on = 十一 pass 图:
@@ -7209,6 +7537,17 @@ fn main() {
     let mut gi2_ris = false;
     let mut gi2_ris_m: Option<usize> = None;
     let mut gi2_nee = false;
+    // G39 T1 臂⑨:点灯直接光高档时域 reservoir(TODO #7 M100 车道集成窗;
+    // 默认 off 零漂移;on = scene pass 换载 g31_realism_restir.spv〔签名
+    // +prev_vp/resv_prev/resv_cur,新最高链位〕+ reservoir 双缓冲 parity 轮换
+    // + prev_vp 逐帧上传 + params[72..76) 门——M=8 候选闭式 WRS + prev_vp
+    // 重投影时域 merge(m_cap)+ 选中灯 1 条阴影验证射线,点灯逐盏循环整体
+    // 让位。须随 --lamp-lights on 且 --smooth-normals on 且 --textures on
+    // (点灯直接光/realism 链基座);与 --fg 互斥(FG_FULL 静态下标族按
+    // TEXNRM_BLOOM_RIS+AE 终态钉死),fail-closed。不进 full dup 表(full19
+    // 字面不含之,锚零漂)。
+    let mut lamp_restir = false;
+    let mut lamp_restir_mcap: Option<usize> = None;
     // 夜间巡航 D3：bloom 加性臂（默认 off = 既有面 0-byte/既有 digest 锚零漂移;
     // on = resolve 后插 bright→blurH→blurV→composite 四 pass,display_encode 改读
     // 合成缓冲）。strength/threshold/spv 覆盖件须随 --bloom on（fail-closed）。
@@ -7611,6 +7950,21 @@ fn main() {
                     "on" => true,
                     other => fail(&format!("--gi2-nee 档 {other} 越闭集(off|on)")),
                 };
+            }
+            // G39 T1 臂⑨:--lamp-restir/--lamp-restir-mcap 闭集(默认 off)。
+            "--lamp-restir" => {
+                lamp_restir = match take_arg(&args, &mut i).as_str() {
+                    "off" => false,
+                    "on" => true,
+                    other => fail(&format!("--lamp-restir 档 {other} 越闭集(off|on)")),
+                };
+            }
+            "--lamp-restir-mcap" => {
+                lamp_restir_mcap = Some(
+                    take_arg(&args, &mut i)
+                        .parse::<usize>()
+                        .unwrap_or_else(|_| fail("--lamp-restir-mcap 非 usize")),
+                );
             }
             "--normal-strength" => {
                 normal_strength = Some(
@@ -8629,6 +8983,37 @@ fn main() {
     {
         spv_texture = G31_DEFAULT_SPV_REALISM_RIS.to_owned();
     }
+    // G39 T1 臂⑨ --lamp-restir 闭集校验 + 链换载(默认字面才换;restir 为新
+    // 最高链位——restir 级工件含 ris 级全部 gate 段,与 --gi2-ris/--gi2-nee
+    // 正交组合〔restir on 换载 restir 工件,ris/nee gates 照常 params 驱动〕)。
+    if lamp_restir && !(lamp_lights && smooth_nrm && textures) {
+        fail("--lamp-restir on 须随 --lamp-lights on 且 --smooth-normals on 且 --textures on(点灯直接光消费面 = lamp 簇代表灯 + g31_realism 链基座,fail-closed)");
+    }
+    if lamp_restir && fg != G31Fg::Off {
+        fail("--lamp-restir on 不与 --fg 同跑(FG_FULL 静态下标族 48 起按 TEXNRM_BLOOM_RIS+AE 终态钉死,restir 三件尾挂即错位;组合面未接线,fail-closed)");
+    }
+    if !lamp_restir && lamp_restir_mcap.is_some() {
+        fail("--lamp-restir-mcap 须随 --lamp-restir on(off 面零消费,fail-closed)");
+    }
+    let lamp_restir_mcap_v = lamp_restir_mcap.unwrap_or(8);
+    if lamp_restir && !(1..=64).contains(&lamp_restir_mcap_v) {
+        fail("--lamp-restir-mcap 必须 ∈ [1,64](时域置信截断域,fail-closed)");
+    }
+    if lamp_restir
+        && (spv_texture == G31_DEFAULT_SPV_TEXTURE_NRM
+            || spv_texture == G31_DEFAULT_SPV_TEXTURE_NRM_GI2
+            || spv_texture == G31_DEFAULT_SPV_TEXTURE_NRM_EM
+            || spv_texture == G31_DEFAULT_SPV_REALISM_F0
+            || spv_texture == G31_DEFAULT_SPV_REALISM_AO
+            || spv_texture == G31_DEFAULT_SPV_REALISM_SOFT
+            || spv_texture == G31_DEFAULT_SPV_REALISM_REFL
+            || spv_texture == G31_DEFAULT_SPV_REALISM_GITEX
+            || spv_texture == G31_DEFAULT_SPV_REALISM_NRM
+            || spv_texture == G31_DEFAULT_SPV_REALISM_TRANSP
+            || spv_texture == G31_DEFAULT_SPV_REALISM_RIS)
+    {
+        spv_texture = G31_DEFAULT_SPV_REALISM_RESTIR.to_owned();
+    }
     // day_0829 realism 汇总门（任一臂 on ⇒ 链工件 + tri_base/triem 绑定面 +
     // params 扩容;后续臂并入本式。G37 W2:transparency 并入）。
     let realism_any = metal_f0
@@ -8640,7 +9025,9 @@ fn main() {
         || transparency
         // G37 W2 ris_nee:臂⑧并入(triem 回退/tri_base 哑表/params 扩容)。
         || gi2_ris
-        || gi2_nee;
+        || gi2_nee
+        // G39 T1 lamp_restir:臂⑨并入(triem 回退/tri_base 哑表/params 扩容)。
+        || lamp_restir;
     // 画质战役 Phase D --tsr-quality 闭集校验（fail-closed，不静默降级）：
     // ① 互斥集 = fg/hzb on/svt on/slab/cluster/wp（--fg 组合面未接线；
     //   --hzb 车道 G31HzbLane 自有 prepare 路 tsr_params[19..21) 未接线——
@@ -9319,7 +9706,9 @@ fn main() {
     // 〔tri_mr 哑表同律〕;nm on 面/transp off 面零消费。G37 W2 ris_nee:
     // ris|nee on 面同用本回退对——_ris SPV 为 transp 超集,条件并入）。
     let (trinm_fb_bytes, tri_tan_dummy): (Vec<u8>, Vec<u8>) =
-        if (transparency || gi2_ris || gi2_nee) && !normal_maps {
+        // G39 T1 lamp_restir:restir on 面同用本回退对(条件并入——_restir SPV
+        // 为 ris 超集,下位链全占位律)。
+        if (transparency || gi2_ris || gi2_nee || lamp_restir) && !normal_maps {
             (bytes_f32(&vec![-1.0f32; scene.tri_count]), vec![0u8; 16])
         } else {
             (Vec::new(), Vec::new())
@@ -9327,7 +9716,8 @@ fn main() {
     // G37 W2 臂⑧:ris|nee on 而 transparency off 面的 tri_transp 零表
     // (_ris SPV 签名含 tri_transp,阴影重走段 [prim] 无门保底读 ⇒ 须
     // tri_count 全尺寸 0.0〔= 不透明,kernel tp_gate=0 双保险〕)。
-    let tri_transp_zero_bytes: Vec<u8> = if (gi2_ris || gi2_nee) && !transparency {
+    // G39 T1 lamp_restir:restir on 面同用零表(条件并入,下位链占位律)。
+    let tri_transp_zero_bytes: Vec<u8> = if (gi2_ris || gi2_nee || lamp_restir) && !transparency {
         bytes_f32(&vec![0.0f32; scene.tri_count])
     } else {
         Vec::new()
@@ -9364,6 +9754,14 @@ fn main() {
             fail("臂⑧ --gi2-ris 须场景 points 非空(kernel 候选读保底,fail-closed)");
         }
         vec![0u8; g31_ris_lamps::G31_RIS_LAMP_DUMMY_BYTES]
+    } else if lamp_restir {
+        // G39 T1 lamp_restir:restir on 而 ris/nee off 面同用 80B 哑表(签名
+        // 序占位;points 非空前置 = restir 候选读保底,CLI 已裁 lamp-lights on
+        // ⇒ 契约 4 盏 + 代表灯恒非空,防御性复核)。
+        if scene.points.is_empty() {
+            fail("臂⑨ --lamp-restir 须场景 points 非空(kernel 候选读保底,fail-closed)");
+        }
+        vec![0u8; g31_ris_lamps::G31_RIS_LAMP_DUMMY_BYTES]
     } else {
         Vec::new()
     };
@@ -9371,6 +9769,11 @@ fn main() {
     // G31_REAL_PARAMS_LEN f32,buffer 同门扩容;off = PARAMS_LEN 既有面 0-byte）。
     if realism_any {
         assets.params0_bytes = vec![0u8; G31_REAL_PARAMS_LEN * 4];
+    }
+    // G39 T1 lamp_restir:params buffer 再扩(restir on ⇒ 逐帧上传
+    // G31_RESTIR_PARAMS_LEN f32,buffer 同门扩容;off = 上式既有面 0-byte)。
+    if lamp_restir {
+        assets.params0_bytes = vec![0u8; G31_RESTIR_PARAMS_LEN * 4];
     }
     let cam0 = G31Camera::from_spec(&scene.camera);
     let mut cam = cam0;
@@ -9868,7 +10271,8 @@ fn main() {
             let nm_ref = if normal_maps {
                 Some((trinm_bytes_nm.as_slice(), tri_tan_bytes.as_slice()))
             // G37 W2 ris_nee:ris|nee on 面同用回退对(条件并入)。
-            } else if transparency || gi2_ris || gi2_nee {
+            // G39 T1 lamp_restir:restir on 面同用(下位链占位律)。
+            } else if transparency || gi2_ris || gi2_nee || lamp_restir {
                 Some((trinm_fb_bytes.as_slice(), tri_tan_dummy.as_slice()))
             } else {
                 None
@@ -9877,15 +10281,18 @@ fn main() {
             // ——链下位工件无本绑定,多余绑定即 layout 失配）。
             let transp_ref = if transparency {
                 Some(tri_transp_bytes.as_slice())
-            } else if gi2_ris || gi2_nee {
+            } else if gi2_ris || gi2_nee || lamp_restir {
                 // G37 W2 ris_nee:零表占位保持 kernel 签名序。
+                // G39 T1 lamp_restir:restir on 面同用(条件并入)。
                 Some(tri_transp_zero_bytes.as_slice())
             } else {
                 None
             };
             // G37 W2 臂⑧:lamp_tbl(nee 真表/ris 哑表/off None——链下位
             // 工件无本绑定,多余绑定即 layout 失配)。
-            let ris_ref = if gi2_ris || gi2_nee {
+            // G39 T1 lamp_restir:restir on 而 ris/nee off 面 = 80B 哑表
+            // (签名序占位,条件并入)。
+            let ris_ref = if gi2_ris || gi2_nee || lamp_restir {
                 Some(lamp_tbl_bytes.as_slice())
             } else {
                 None
@@ -9906,6 +10313,7 @@ fn main() {
                     nm_ref,
                     transp_ref,
                     ris_ref,
+                    lamp_restir,
                     bloom_assets.as_ref().unwrap(),
                     in_w,
                     in_h,
@@ -9927,6 +10335,7 @@ fn main() {
                     nm_ref,
                     transp_ref,
                     ris_ref,
+                    lamp_restir,
                     in_w,
                     in_h,
                     ew,
@@ -10014,6 +10423,28 @@ fn main() {
                 // realism——挂载序最尾即下标最高;g31_apply_autoexp assert
                 // 连号拦错配）。
                 match (smooth_nrm, bloom) {
+                    // G39 T1 lamp_restir:_RESTIR guard 最先(prev_vp/resv
+                    // 三件挂载序最尾即下标最高;W1 assert 连号为错配保护网)。
+                    (true, true) if lamp_restir => g31_apply_autoexp(
+                        d,
+                        ae,
+                        G31_U_AE_STATE_TEXNRM_BLOOM_RESTIR,
+                        G31_U_AE_PARAMS_TEXNRM_BLOOM_RESTIR,
+                        G31_U_AE_PARTIALS_TEXNRM_BLOOM_RESTIR,
+                        G31_U_BLOOM_COMP_OUT,
+                        G31_U_PLAN_AE_REDUCE_TEXNRM_BLOOM_RESTIR,
+                        G31_U_PLAN_AE_STATE_TEXNRM_BLOOM_RESTIR,
+                    ),
+                    (true, false) if lamp_restir => g31_apply_autoexp(
+                        d,
+                        ae,
+                        G31_U_AE_STATE_TEXNRM_RESTIR,
+                        G31_U_AE_PARAMS_TEXNRM_RESTIR,
+                        G31_U_AE_PARTIALS_TEXNRM_RESTIR,
+                        U_OUT_COLOR[0],
+                        G31_U_PLAN_AE_REDUCE_TEXNRM_RESTIR,
+                        G31_U_PLAN_AE_STATE_TEXNRM_RESTIR,
+                    ),
                     // G37 W2 ris_nee:_RIS guard 最先(lamp_tbl 挂载序最尾
                     // 即下标最高;W1 assert 连号为错配保护网)。
                     (true, true) if gi2_ris || gi2_nee => g31_apply_autoexp(
@@ -10354,7 +10785,19 @@ fn main() {
                         // autoexp 调用点 match 序逐字同构,assert 连号为保护网。
                         // G37 W2 ris_nee:_RIS guard 最先(lamp_tbl 挂载序
                         // 最尾即下标最高;与锚⑭ match 序逐字同构)。
-                        let (pi, ti) = if textures && smooth_nrm && (gi2_ris || gi2_nee) && bloom {
+                        // G39 T1 lamp_restir:_RESTIR guard 最先(与 AE 施加
+                        // match 序逐字同构)。
+                        let (pi, ti) = if textures && smooth_nrm && lamp_restir && bloom {
+                            (
+                                G31_U_AE_PARAMS_TEXNRM_BLOOM_RESTIR,
+                                G31_U_AE_PARTIALS_TEXNRM_BLOOM_RESTIR,
+                            )
+                        } else if textures && smooth_nrm && lamp_restir {
+                            (
+                                G31_U_AE_PARAMS_TEXNRM_RESTIR,
+                                G31_U_AE_PARTIALS_TEXNRM_RESTIR,
+                            )
+                        } else if textures && smooth_nrm && (gi2_ris || gi2_nee) && bloom {
                             (
                                 G31_U_AE_PARAMS_TEXNRM_BLOOM_RIS,
                                 G31_U_AE_PARTIALS_TEXNRM_BLOOM_RIS,
@@ -10447,6 +10890,12 @@ fn main() {
                     // (off 不挂载 ⇒ 三槽不写参数面 0-byte)。
                     if gi2_ris || gi2_nee {
                         l.set_gi2_ris(gi2_ris, gi2_ris_m_v as f32, gi2_nee);
+                    }
+                    // G39 T1 臂⑨:--lamp-restir → params[72..75) + prev_vp
+                    // 逐帧上传 + scene pass reservoir parity override(off
+                    // 不挂载 ⇒ 不扩不写不 override,参数/绑定面 0-byte)。
+                    if lamp_restir {
+                        l.set_lamp_restir(lamp_restir_mcap_v as f32);
                     }
                     // day_0829 臂⑤:--soft-shadows on → params[60..62)（off
                     // 不挂载 ⇒ 两槽不写参数面 0-byte）。
@@ -10745,7 +11194,8 @@ fn main() {
             // 调用零消费;双跑同帧序〔fi 确定性〕⇒ 位级一致口径不破）。
             // day_0829:rt-ao/soft-shadows 时序采样同消费 [52],条件放宽
             // （gi2 off 面由 prepare_update realism 块补写）。
-            if gi2 || rt_ao || soft_shadows || rt_reflect {
+            // G39 T1:lamp_restir 候选/判定序列同消费 [52],条件并入。
+            if gi2 || rt_ao || soft_shadows || rt_reflect || lamp_restir {
                 if let G31AnyLane::Off(l) = &mut lane {
                     l.set_gi2_frame(fi as f32);
                 }
@@ -11741,7 +12191,7 @@ fn main() {
             })
             .count();
         ev.push_str(&format!(
-            "\"textures\":{{\"census\":{{\"materials_total\":{},\"with_base_color_texture\":{},\"with_normal_texture\":{},\"with_metallic_roughness_texture\":{},\"primitives_total\":{},\"primitives_with_texcoord0\":{},\"primitives_with_tangent\":{}}},\"mapping_law\":{},\"mapped_materials\":{},\"tex_tris\":{},\"material_slots\":[{}],\"atlas\":{{\"form\":\"texel_heap\",\"cap\":{},\"mip_slots\":{},\"header_entries\":{},\"heap_texels\":{},\"heap_bytes\":{},\"format\":\"u32_packed_rgba8\",\"digest\":{}}},\"mip_law\":{},\"linlut_digest\":{},\"g11_3_manifest\":{{\"path\":\"milestones/g11/g11_3_dds_transcode_manifest.json\",\"entries_matched\":{},\"entries_total\":{}}},\"probe\":{{\"uv_law\":{},\"probe_count\":{},\"eval_ms\":{:.6},\"ssbo\":{{\"p100\":{:.15e},\"bitexact\":{},\"double_run_bitexact\":{},\"device_digest\":{},\"host_digest\":{}}},\"sampler_leg\":{{\"max_lsb_diff\":{},\"bound_lsb\":1,\"bitexact\":{},\"digest\":{},\"host_digest\":{},\"structural_basis\":{}}}}},\"quality_arms\":{{\"smooth_normals\":{},\"ggx\":{},\"lamp_lights\":{},\"lamp_gain\":{},\"lamp_k\":{},\"lamp_contrib\":{},\"bloom\":{},\"dither\":{},\"auto_exposure\":{},\"gi2\":{},\"gi2_scale\":{},\"gi2_clamp\":{}}},\"spv_texture\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"spv_texture_probe\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"gaps\":{}}},",
+            "\"textures\":{{\"census\":{{\"materials_total\":{},\"with_base_color_texture\":{},\"with_normal_texture\":{},\"with_metallic_roughness_texture\":{},\"primitives_total\":{},\"primitives_with_texcoord0\":{},\"primitives_with_tangent\":{}}},\"mapping_law\":{},\"mapped_materials\":{},\"tex_tris\":{},\"material_slots\":[{}],\"atlas\":{{\"form\":\"texel_heap\",\"cap\":{},\"mip_slots\":{},\"header_entries\":{},\"heap_texels\":{},\"heap_bytes\":{},\"format\":\"u32_packed_rgba8\",\"digest\":{}}},\"mip_law\":{},\"linlut_digest\":{},\"g11_3_manifest\":{{\"path\":\"milestones/g11/g11_3_dds_transcode_manifest.json\",\"entries_matched\":{},\"entries_total\":{}}},\"probe\":{{\"uv_law\":{},\"probe_count\":{},\"eval_ms\":{:.6},\"ssbo\":{{\"p100\":{:.15e},\"bitexact\":{},\"double_run_bitexact\":{},\"device_digest\":{},\"host_digest\":{}}},\"sampler_leg\":{{\"max_lsb_diff\":{},\"bound_lsb\":1,\"bitexact\":{},\"digest\":{},\"host_digest\":{},\"structural_basis\":{}}}}},\"quality_arms\":{{\"smooth_normals\":{},\"ggx\":{},\"lamp_lights\":{},\"lamp_gain\":{},\"lamp_k\":{},\"lamp_contrib\":{},\"bloom\":{},\"dither\":{},\"auto_exposure\":{},\"gi2\":{},\"gi2_scale\":{},\"gi2_clamp\":{},\"lamp_restir\":{},\"lamp_restir_mcap\":{}}},\"spv_texture\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"spv_texture_probe\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"gaps\":{}}},",
             c.materials_total,
             c.with_base_color_texture,
             c.with_normal_texture,
@@ -11788,6 +12238,11 @@ fn main() {
             gi2,
             gi2_scale_v,
             gi2_clamp_v,
+            // G39 T1 lamp_restir:quality_arms 追加两字段(schema 纯追加补丁 =
+            // ci/_patch_g31_window_evidence_schemas.py,properties-only 不进
+            // required——旧档 evidence 保绿)。
+            lamp_restir,
+            lamp_restir_mcap_v,
             jstr(&spv_texture.replace('\\', "/")),
             jstr(&g31_file_sha(&spv_texture).unwrap_or_else(|e| fail(&e))),
             jstr(&spv_texture_probe.replace('\\', "/")),
@@ -12592,7 +13047,7 @@ fn main() {
         // 五件套——off 面空串 0-byte）。Phase C：+ gi2 臂。Phase D：+ tsrq 臂。
         // Phase F：+ emissive 臂。
         let combo_pass = format!(
-            "{}{}{}{}{}{}{}{}",
+            "{}{}{}{}{}{}{}{}{}",
             if bloom {
                 format!(" bloom=on bloom_gpu_ms={bg_mean:.6} bloom_strength={bloom_strength_v} bloom_threshold={bloom_threshold_v}")
             } else {
@@ -12634,6 +13089,12 @@ fn main() {
                 format!(
                     " auto_exposure=on autoexp_key={ae_key_v} autoexp_rate={ae_rate_v} autoexp_min={ae_min_v} autoexp_max={ae_max_v} autoexp_gpu_ms={aeg_mean:.6}"
                 )
+            } else {
+                String::new()
+            },
+            // G39 T1:lamp_restir on 臂 PASS 行登记（off = 空串,既有字面 0-byte）。
+            if lamp_restir {
+                format!(" lamp_restir=on lamp_restir_mcap={lamp_restir_mcap_v}")
             } else {
                 String::new()
             },

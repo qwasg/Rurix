@@ -577,12 +577,12 @@ fn main() {
             }
             if !(1..=3).contains(&inflight) {
                 fail(
-                    "--inflight 只接受 1|2|3（1 = 顺序全同步既有面 0-byte；2/3 = FIF 真流水深度）",
+                    "--inflight 只接受 1|2|3（1 = 顺序全同步既有面 0-byte；2/3 = FIF 真流水深度〔动态/蒙皮臂 = L2a 每槽 AS 副本 opt-in〕）",
                 );
             }
             if inflight != 1 && (!bench || backend != "tsr_device") {
                 fail(&format!(
-                    "--inflight {inflight} 仅 --bench --backend tsr_device 已接线（G31+ 波 A Task A2 静态臂 + G38 L2a 动态臂〔--dyn-demo〕消费面；其余臂/render 腿未消费,fail-closed）"
+                    "--inflight {inflight} 仅 --bench --backend tsr_device 已接线（G31+ 波 A Task A2 静态臂 + G38 L2a 动态/蒙皮臂〔--dyn-demo/--skin-demo〕消费面；其余臂/render 腿未消费,fail-closed）"
                 ));
             }
             if inflight > 1 && warmup + 1 < inflight {
@@ -633,11 +633,13 @@ fn main() {
             }
             // G31+ 波 B Task B5 --skin-demo 闭集校验（fail-closed,不静默降级）：
             // ① 仅 --bench tsr_device（MegaSkin 车道唯一接线面）；② inflight
-            // 恒 1——**蒙皮 × slot_as 批次 B 留窗**（G38：RFC-0030 v1.1 §4.3
-            // L2a 通路 rt 侧已支持 blas_refit 槽纪律同律，g14_3 接线精确计划 =
-            // artifacts/day_0830_g38/t2_fifdyn/WIRING_PLAN.md §1-A6〔scene
-            // pass=1 override / BlasRefitUpdate.as_index 逐帧 base+slot /
-            // 与 T3 bridge_ext 加性面协调〕；接线前本拒绝面维持,不静默降级）；
+            // 1|2|3——1 = 顺序入口既有面 0-byte；2|3 = **G38（RFC-0030 v1.1
+            // §4.3 L2a 批次 B）每槽 AS 副本 opt-in FIF**（session AS 表
+            // ×inflight 同构副本组〔角色 BLAS 顶点副本逐表项 updatable 打标〕
+            // + 平行入口 submit_with_frame_update_slot_as，逐帧 blas_refit
+            // 目标/skin scene pass〔下标 1〕AS 绑定落 base+slot；AS 面内存
+            // ×S 显式代价，预算门 g31.fif_dyn.slot_as_group_mem_bytes；
+            // --warmup ≥ inflight−1 通则已覆盖填充段）；
             // ③ bistro-interior 唯一场景（cornell Split 形态未接线）；④ 与
             // --dyn-demo 互斥、不与 --gi on / --presentation-profile 同跑
             // （skin scene kernel = g31_dyn_scene 镜像直接光唯一内容模型）。
@@ -645,9 +647,14 @@ fn main() {
                 if !bench || backend != "tsr_device" {
                     fail("--skin-demo 仅 --bench --backend tsr_device 已接线（MegaSkin 蒙皮车道唯一消费面；其余臂 fail-closed）");
                 }
-                if inflight != 1 {
-                    fail("--skin-demo 要求 --inflight 1（蒙皮 × slot_as 批次 B 留窗：RFC-0030 v1.1 §4.3 L2a 通路 rt 侧已支持〔blas_refit 槽纪律同律〕,g14_3 接线计划 = artifacts/day_0830_g38/t2_fifdyn/WIRING_PLAN.md §1-A6;接线前 fail-closed 维持,蒙皮车道走顺序入口）");
-                }
+                // G38（RFC-0030 v1.1 §4.3 L2a 批次 B）：原「--skin-demo 要求
+                // --inflight 1」强制解除——inflight 2|3 走 slot_as 每槽 AS 副本
+                // FIF 路径（lane 侧 create_with_slot_as 显式建组〔角色 BLAS
+                // 顶点副本 ×S,updatable 打标逐表项〕+ rt 入口槽纪律三判据提交
+                // 前 fail-closed 复核,blas_refit 目标逐帧 base+slot）；既有
+                // 拒绝面（submit_with_frame_update 对 blas_refit 的
+                // fail-closed）字面 0-byte 不动，本臂走加性平行入口。
+                // inflight=1 顺序入口既有面 0-byte。
                 if scene_id != "bistro-interior" {
                     fail("--skin-demo 仅 bistro-interior 已接线（cornell Split 六 pass 形态未接 MegaSkin 蒙皮车道，fail-closed）");
                 }

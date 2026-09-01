@@ -33,7 +33,10 @@
 //   params[0]=iw [1]=ih [2]=r_world(本 kernel 不消费) [3]=soft_range
 //   [4]=d_max(不消费) [5]=dt [6]=px_count [7]=p11(不消费)
 //   [8..24)=vp_j [24..40)=vp(未抖;行 0/1 = 生产字面深度域)
-//   [40..56)=prev_vp_j [56..64)=reserved(恒 0)。
+//   [40..56)=prev_vp_j [56]=stretch_y(splat 消费面,本 kernel 不读)
+//   [57..60)=tint_rgb(展示面调色乘子;0 → 1.0 门 = 默认零行为变化面,
+//   ×1.0 IEEE 精确 ⇒ 生产夹具位级零漂移) [60]=alpha_scale(同 0 → 1.0 门)
+//   [61..64)=reserved(恒 0)。
 //   SSBO 序:0 params(View f32×64) / 1 vis(View u64×px,splat 赢家) /
 //   2 b_pos_x / 3 b_pos_y / 4 b_pos_z / 5 b_vel_x / 6 b_vel_y / 7 b_vel_z /
 //   8 b_age / 9 b_life(View f32×cap) / 10 scene_depth(View f32×px) /
@@ -83,9 +86,27 @@ kernel fn g35_render_resolve(
             let base_g = 0.9 + (0.3 - 0.9) * t;
             let base_b = 0.7 + (0.05 - 0.7) * t;
             let fade = 1.0 - t;
-            let col_r = base_r * 8.0 * fade;
-            let col_g = base_g * 8.0 * fade;
-            let col_b = base_b * 8.0 * fade;
+            // 展示面调色/不透明度乘子(params[57..61);0 → 1.0 门为兼容守卫,
+            // host 单源打包默认显式 1.0;×1.0 IEEE 精确 ⇒ 默认面位级零漂移)。
+            let mut tint_r = params[57];
+            let mut tint_g = params[58];
+            let mut tint_b = params[59];
+            if tint_r == 0.0 {
+                tint_r = 1.0;
+            }
+            if tint_g == 0.0 {
+                tint_g = 1.0;
+            }
+            if tint_b == 0.0 {
+                tint_b = 1.0;
+            }
+            let mut alpha_scale = params[60];
+            if alpha_scale == 0.0 {
+                alpha_scale = 1.0;
+            }
+            let col_r = base_r * 8.0 * fade * tint_r;
+            let col_g = base_g * 8.0 * fade * tint_g;
+            let col_b = base_b * 8.0 * fade * tint_b;
             // ── ③ 软粒子(d_p = 生产字面深度域,splat ③ 段逐字同式)──
             let big: f32 = 1e30;
             let qz = ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
@@ -101,7 +122,7 @@ kernel fn g35_render_resolve(
             if soft > 1.0 {
                 soft = 1.0;
             }
-            let alpha = fade * soft;
+            let alpha = fade * soft * alpha_scale;
             // ── ④ 合成(单赢家单写者;scene-linear HDR)──
             scene_color[i * 3] = scene_color[i * 3] * (1.0 - alpha) + col_r * alpha;
             scene_color[i * 3 + 1] = scene_color[i * 3 + 1] * (1.0 - alpha) + col_g * alpha;

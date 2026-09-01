@@ -1,0 +1,6 @@
+{
+ "schema": "rurix.day0831.g39.b2.v1",
+ "fails": [],
+ "verdict": "PASS",
+ "caliber": "折叠后 15 跑轨迹逐字节 == 折叠前基线(B1 收割)+ fif probe 双臂 gates+digest 序列恒等"
+}

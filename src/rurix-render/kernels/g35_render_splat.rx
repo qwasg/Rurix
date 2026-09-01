@@ -48,7 +48,9 @@
 //   [8..24)=vp_j(本帧 jitter 等价投影,行主序 m[r][c] → [8+r*4+c])
 //   [24..40)=vp(未抖;行 0/1 = 生产字面深度域,行 3 = 视深 w)
 //   [40..56)=prev_vp_j(上帧 jitter 等价投影;本 kernel 不消费,resolve 面)
-//   [56..64)=reserved(恒 0)。
+//   [56]=stretch_y(雨丝竖直拉伸比,host 默认 1.0;<1.0 → 1.0 门 = 圆点
+//   零行为变化面——rpx·1.0 与 fdy/1.0 均 IEEE 精确 ⇒ 生产夹具位级零漂移;
+//   拉伸上限 24px 半幅防单粒子像素循环爆炸) [57..64)=resolve 消费面。
 //   SSBO 序:0 params(View f32×64) / 1 args(View u32×8,g35_indirect_args
 //   产物,读 [7] meta 槽) / 2 b_pos_x / 3 b_pos_y / 4 b_pos_z(View f32×cap,
 //   B 组压缩+发射后前缀) / 5 scene_depth(View f32×px,U_SCENE_DEPTH 语义) /
@@ -99,11 +101,19 @@ kernel fn g35_render_splat(
                 if rpx < 0.5 {
                     rpx = 0.5;
                 }
+                // 雨丝竖直拉伸(屏幕域:重力主导粒子世界竖直下落,相机零 roll
+                // 下屏幕竖直 ≈ 世界竖直投影向)。stretch = 1.0 时 rpy == rpx、
+                // fdy2 == fdy(IEEE 精确)⇒ 默认面与冻结圆点形位级一致。
+                let stretch = params[56].max(1.0);
+                let mut rpy = rpx * stretch;
+                if rpy > 24.0 {
+                    rpy = 24.0;
+                }
                 // 屏内 clamp 包围盒(整盒离屏 ⇒ x1f < x0f 判空;负域先判后转)。
                 let mut x0f = (cxf - rpx).floor();
                 let mut x1f = (cxf + rpx).floor();
-                let mut y0f = (cyf - rpx).floor();
-                let mut y1f = (cyf + rpx).floor();
+                let mut y0f = (cyf - rpy).floor();
+                let mut y1f = (cyf + rpy).floor();
                 if x0f < 0.0 {
                     x0f = 0.0;
                 }
@@ -155,7 +165,10 @@ kernel fn g35_render_splat(
                                 } else {
                                     let fdx = (x as f32) - cxf;
                                     let fdy = (y as f32) - cyf;
-                                    if fdx * fdx + fdy * fdy <= rq2 {
+                                    // 椭圆 mask(竖直半轴 = rpx·stretch);stretch = 1.0
+                                    // 时 fdy2 位级 == fdy ⇒ 圆形冻结形零漂移。
+                                    let fdy2 = fdy / stretch;
+                                    if fdx * fdx + fdy2 * fdy2 <= rq2 {
                                         let _old = winner.fetch_max(i, packed, Scope::Gpu);
                                     }
                                 }

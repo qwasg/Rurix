@@ -10144,6 +10144,14 @@ struct UnifiedTsrLane<'a> {
     /// slot_as 动态臂在飞票据 FIFO（与静态 `pending` 分列——静态
     /// submit_frame/collect_frame 字面 0-byte）。
     pending_dyn: VecDeque<PendingDynFrame>,
+    /// G38 批次 B：skin scene pass（下标 1 `g31_skin_scene`）创建期绑定组
+    /// 克隆（MegaSkin 形态 scene pass 非下标 0——与 `scene_bindings`〔pass 0〕
+    /// 分列存档，skin slot_as 逐帧 AS 换槽 override 的单一事实源；非 MegaSkin/
+    /// 非 slot_as 车道恒 None 零成本，dyn/静态臂既有面 0-byte）。
+    skin_scene_bindings: Option<Bindings>,
+    /// slot_as 蒙皮臂在飞票据 FIFO（与静态 `pending`/动态 `pending_dyn`
+    /// 分列——既有两面 submit/collect 字面 0-byte）。
+    pending_skin: VecDeque<PendingSkinFrame>,
 }
 
 /// G31 FIF 流水在飞帧簿记（`submit_with_frame_update` 产出的票据 + 该帧
@@ -10168,6 +10176,22 @@ struct PendingDynFrame {
     readback_out: bool,
     /// 动态核验帧（scene color 回读在子集；collect 侧组装 DynVerifyFrame）。
     readback_scene: bool,
+}
+
+/// G38 slot_as 蒙皮臂在飞帧簿记（`submit_with_frame_update_slot_as` 票据 +
+/// 回读/核验/诊断意图随票据延迟到 collect；核验帧组装凭帧号纯函数在 collect
+/// 侧复算——骨骼 palette/轨迹/相机同律）。
+#[allow(dead_code)] // G38 L2a 批次 B:g14_3_pipeline_perf --skin-demo×--inflight 2|3 独消费面(其余 include 方未消费,诚实标注)
+struct PendingSkinFrame {
+    ticket: FrameTicket,
+    /// 提交序帧号（flip-trace digest 行归属 + 核验帧 palette/相机复算输入）。
+    frame_index: u32,
+    /// 本帧是否请求 TSR 输出回读（bench 末帧/flip-trace 帧 true）。
+    readback_out: bool,
+    /// 蒙皮核验帧（mv/scene/hit 三路回读在子集;collect 侧组装 SkinVerifyFrame）。
+    verify: bool,
+    /// 蒙皮输出对拍诊断臂（U_TRIS 角色段回读在子集;RURIX_SKIN_DEBUG_TRIS）。
+    debug_tris: bool,
 }
 
 /// 统一车道一帧产物（GPU 分段 = DeviceFrameTelemetry 逐 pass timestamp；
@@ -10366,6 +10390,8 @@ impl<'a> UnifiedTsrLane<'a> {
             slot_as_group: None,
             scene_bindings: None,
             pending_dyn: VecDeque::new(),
+            skin_scene_bindings: None,
+            pending_skin: VecDeque::new(),
         })
     }
 
@@ -10375,6 +10401,9 @@ impl<'a> UnifiedTsrLane<'a> {
     /// 条目 g31.fif_dyn.slot_as_group_mem_bytes）；组 [0, inflight)；scene
     /// pass（下标 0）绑定组自 descs 克隆存档，供逐帧 AS 换槽 override
     /// （单一事实源，禁提交面手写）。既有 [`Self::create`] 字面 0-byte。
+    /// G38 批次 B 加性：MegaSkin 形态另存 skin scene pass（下标 1）绑定组
+    /// 克隆（`skin_scene_bindings`——skin 臂 scene pass 非下标 0；非 MegaSkin
+    /// 恒 None，dyn/静态臂 0-byte）。
     #[allow(dead_code)] // G38 L2a:g14_3_pipeline_perf --dyn-demo×--inflight 2|3 独消费面(其余 include 方未消费,诚实标注)
     fn create_with_slot_as(
         descs: &'a UnifiedDescs<'a>,
@@ -10402,12 +10431,28 @@ impl<'a> UnifiedTsrLane<'a> {
             Pass::Compute(cp) => cp.bindings.clone(),
             _ => return Err("descs 首 pass 非 compute（scene pass 门面）".into()),
         };
+        // G38 批次 B：MegaSkin 的 scene pass = 下标 1（g31_skin_scene——pass0
+        // = g31_skin 蒙皮求值，无 AS 绑定面），换槽 override 的创建期绑定组
+        // 加性分列存档（非 MegaSkin 恒 None；dyn/静态臂既有面 0-byte）。
+        let skin_scene_bindings = if matches!(descs, UnifiedDescs::MegaSkin(_)) {
+            match passes.get(1) {
+                Some(Pass::Compute(cp)) => Some(cp.bindings.clone()),
+                _ => {
+                    return Err(
+                        "MegaSkin descs 第 2 pass 非 compute（skin scene pass 门面）".into()
+                    )
+                }
+            }
+        } else {
+            None
+        };
         let mut lane = Self::create(descs, accel_structs, inflight)?;
         lane.slot_as_group = Some(SlotAsGroup {
             base: 0,
             len: inflight as u32,
         });
         lane.scene_bindings = Some(scene_bindings);
+        lane.skin_scene_bindings = skin_scene_bindings;
         Ok(lane)
     }
 
@@ -10841,19 +10886,18 @@ impl<'a> UnifiedTsrLane<'a> {
         Ok(rec)
     }
 
-    /// G31+ 波 B Task B5 蒙皮一帧（MegaSkin 车道;顺序入口专用——blas_refit
-    /// 走 `execute_with_frame_update` 的 pass0 后桥,FIF 流水面已拒 BLAS
-    /// 更新,本车道恒 inflight=1,CLI fail-closed 保证）：scene 参数 60 f32
-    /// （含 skin_tri_base）+ mv 参数 40 f32（[35]=char_inst）+ tsr 128B +
-    /// skin 参数 64B + palette 双表逐帧上传;`blas` = 角色 BLAS refit 桥
-    /// （蒙皮输出段 → BLAS 1 顶点缓冲 → UPDATE build）;verify 帧回读
-    /// [mv(2), scene_color(4)]（out 帧前置 parity 回读,子集序 =
-    /// [out?, mv, scene]——rec 解析同序）。与 [`Self::frame_dyn`] 同一
-    /// 执行事实源（next_provenance_with_update → execute_with_frame_update
-    /// → advance 原序）。
+    /// G31+ 波 B Task B5 蒙皮帧组装（[`Self::frame_skin`] 顺序面与
+    /// [`Self::submit_frame_skin_slot_as`] slot_as 流水面**同一构造事实源**
+    /// ——原 frame_skin 内联构造段逐字搬移;scene_as_override=None 产物与原
+    /// 内联构造逐字段同,行为 0 变）。
+    /// G38 L2a 加性参数 `scene_as_override`：Some(as_index) 时追加 skin scene
+    /// pass（下标 1 `g31_skin_scene`——MegaSkin 形态 pass0 = g31_skin 蒙皮
+    /// 求值,scene pass 非下标 0）绑定组 override（accel_structs 换到本槽副本
+    /// 表项——须在构造器内完成:prov 由 update 派生,构造后改绑定必致
+    /// provenance 校验 RED）；None = 既有调用面产物逐字段同（0-byte）。
     #[allow(clippy::too_many_arguments)]
-    fn frame_skin(
-        &mut self,
+    fn prepare_update_skin(
+        &self,
         iw: u32,
         ih: u32,
         ow: u32,
@@ -10870,7 +10914,8 @@ impl<'a> UnifiedTsrLane<'a> {
         readback_out: bool,
         verify: bool,
         debug_tris: bool,
-    ) -> Result<SkinFrameRec, String> {
+        scene_as_override: Option<u32>,
+    ) -> Result<(SubmissionProvenance, FrameUpdate), String> {
         let inv_cur = vp_j
             .inverse()
             .ok_or("jittered view-proj 必须可逆（mv 参数面）")?;
@@ -10957,20 +11002,50 @@ impl<'a> UnifiedTsrLane<'a> {
         if debug_tris {
             readback_subset.push(6); // U_TRIS 角色段（蒙皮输出对拍诊断臂）
         }
+        let mut binding_overrides = vec![
+            (3, bindings_resample),
+            (4, bindings_resolve),
+        ];
+        if let Some(as_index) = scene_as_override {
+            // G38 L2a 每槽 AS 描述符集：skin scene pass（1）组内 AS 绑定逐帧
+            // 轮换到本槽副本（绑定组 = 创建期克隆，仅 accel_structs 换槽——
+            // per-slot override set 既有基建承载，零新描述符面；既有
+            // (3,resample)/(4,resolve) parity overrides 不动）。
+            let mut b = self
+                .skin_scene_bindings
+                .clone()
+                .ok_or("slot_as：skin scene 绑定组未建（须经 create_with_slot_as〔MegaSkin〕）")?;
+            b.accel_structs = vec![as_index];
+            binding_overrides.push((1, b));
+        }
         let update = FrameUpdate {
             tlas_update: None,
             buffer_uploads: uploads,
-            binding_overrides: vec![
-                (3, bindings_resample),
-                (4, bindings_resolve),
-            ],
+            binding_overrides,
             push_constant_overrides: vec![],
             readback_subset: Some(readback_subset),
             blas_refit: Some(blas),
         };
         let prov = self.session.next_provenance_with_update(&update)?;
-        let out = self.session.execute_with_frame_update(&prov, &update)?;
-        // rec 组装（telemetry 五 pass 逐名提取;回读按子集构建序解析）。
+        Ok((prov, update))
+    }
+
+    /// 蒙皮一帧产物组装（顺序/slot_as FIF 两面**同一事实源**：telemetry 五
+    /// pass 逐名提取;回读按子集构建序解析——原 [`Self::frame_skin`] 内联 rec
+    /// 组装段逐字搬移,行为 0 变;frame_index 恒 0,流水面由
+    /// [`Self::collect_frame_skin`] 自票据回填）。
+    #[allow(clippy::too_many_arguments)]
+    fn skin_rec_from_output(
+        &self,
+        out: DeviceFrameOutput,
+        readback_out: bool,
+        verify: bool,
+        debug_tris: bool,
+        ow: u32,
+        oh: u32,
+        iw: u32,
+        ih: u32,
+    ) -> Result<SkinFrameRec, String> {
         let gpu = |name: &str| -> Result<f64, String> {
             out.telemetry
                 .passes
@@ -11026,7 +11101,7 @@ impl<'a> UnifiedTsrLane<'a> {
         } else {
             None
         };
-        let rec = SkinFrameRec {
+        Ok(SkinFrameRec {
             skin_gpu_ns: gpu("g31_skin")?,
             scene_gpu_ns: gpu("g31_skin_scene")?,
             mv_gpu_ns: gpu("g31_skin_mv")?,
@@ -11042,7 +11117,64 @@ impl<'a> UnifiedTsrLane<'a> {
             hit,
             debug_tris: debug_tris_data,
             readback_convert_ms: t_convert.elapsed().as_secs_f64() * 1000.0,
-        };
+            frame_index: 0,
+        })
+    }
+
+    /// G31+ 波 B Task B5 蒙皮一帧（MegaSkin 车道;顺序入口专用——blas_refit
+    /// 走 `execute_with_frame_update` 的 pass0 后桥,FIF 流水面已拒 BLAS
+    /// 更新,本车道恒 inflight=1,CLI fail-closed 保证）：scene 参数 60 f32
+    /// （含 skin_tri_base）+ mv 参数 40 f32（[35]=char_inst）+ tsr 128B +
+    /// skin 参数 64B + palette 双表逐帧上传;`blas` = 角色 BLAS refit 桥
+    /// （蒙皮输出段 → BLAS 1 顶点缓冲 → UPDATE build）;verify 帧回读
+    /// [mv(2), scene_color(4)]（out 帧前置 parity 回读,子集序 =
+    /// [out?, mv, scene]——rec 解析同序）。与 [`Self::frame_dyn`] 同一
+    /// 执行事实源（next_provenance_with_update → execute_with_frame_update
+    /// → advance 原序）。G38 批次 B：构造/rec 组装两段提取为
+    /// [`Self::prepare_update_skin`]/[`Self::skin_rec_from_output`]（原地
+    /// 逐字搬移,本面 = 原序薄封装,行为 0 变）。
+    #[allow(clippy::too_many_arguments)]
+    fn frame_skin(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        ow: u32,
+        oh: u32,
+        jitter: [f32; 2],
+        vp_j: &Mat4,
+        exposure: f32,
+        reset: bool,
+        scene_params: Vec<f32>,
+        skin_params: Vec<f32>,
+        pal_cur_bytes: Vec<u8>,
+        pal_prev_bytes: Vec<u8>,
+        blas: BlasRefitUpdate,
+        readback_out: bool,
+        verify: bool,
+        debug_tris: bool,
+    ) -> Result<SkinFrameRec, String> {
+        let (prov, update) = self.prepare_update_skin(
+            iw,
+            ih,
+            ow,
+            oh,
+            jitter,
+            vp_j,
+            exposure,
+            reset,
+            scene_params,
+            skin_params,
+            pal_cur_bytes,
+            pal_prev_bytes,
+            blas,
+            readback_out,
+            verify,
+            debug_tris,
+            None,
+        )?;
+        let out = self.session.execute_with_frame_update(&prov, &update)?;
+        let rec =
+            self.skin_rec_from_output(out, readback_out, verify, debug_tris, ow, oh, iw, ih)?;
         self.advance(vp_j);
         Ok(rec)
     }
@@ -11185,6 +11317,110 @@ impl<'a> UnifiedTsrLane<'a> {
         let out = self.session.collect(p.ticket)?;
         let mut rec =
             self.rec_from_output(out, p.readback_out, p.readback_scene, ow, oh, iw, ih)?;
+        rec.frame_index = p.frame_index;
+        Ok(rec)
+    }
+
+    /// G38（RFC-0030 v1.1 §4.3 L2a 批次 B）蒙皮臂 slot_as FIF 提交半程：与
+    /// [`Self::frame_skin`] 同一构造事实源（prepare_update_skin + skin scene
+    /// pass〔下标 1〕换槽 override）。与动态臂 [`Self::submit_frame_dyn_slot_as`]
+    /// 形同，差异 = 无 tlas_update——`blas_refit` 目标 = 本槽副本（as_index =
+    /// base + slot 逐帧换槽，其余字段与顺序臂字面同源；rt 入口槽纪律三判据
+    /// 〔错槽/组外/跨槽绑定〕提交前 fail-closed 复核）；palette/params uploads
+    /// 走既有 per-slot staging（FIF 兼容面零改动）。票据入 `pending_skin`
+    /// （与静态 `pending`/动态 `pending_dyn` 分列）；帧状态随即推进（与静态
+    /// submit_frame 同律）。
+    #[allow(dead_code)] // G38 L2a 批次 B:g14_3_pipeline_perf --skin-demo×--inflight 2|3 独消费面(其余 include 方未消费,诚实标注)
+    #[allow(clippy::too_many_arguments)]
+    fn submit_frame_skin_slot_as(
+        &mut self,
+        iw: u32,
+        ih: u32,
+        ow: u32,
+        oh: u32,
+        jitter: [f32; 2],
+        vp_j: &Mat4,
+        exposure: f32,
+        reset: bool,
+        scene_params: Vec<f32>,
+        skin_params: Vec<f32>,
+        pal_cur_bytes: Vec<u8>,
+        pal_prev_bytes: Vec<u8>,
+        blas: BlasRefitUpdate,
+        readback_out: bool,
+        verify: bool,
+        debug_tris: bool,
+        frame_index: u32,
+    ) -> Result<(), String> {
+        let group = self
+            .slot_as_group
+            .ok_or("slot_as 组未建（须经 create_with_slot_as；L2a opt-in）")?;
+        let slot = self.session.next_frame_slot() as u32;
+        let target = group.base + slot;
+        // blas_refit 目标逐帧换槽（as_index = 本槽副本表项;其余字段
+        // 〔blas_index/src/src_offset/byte_len/after_pass〕与顺序臂调用方
+        // 字面同源直传——蒙皮源段/角色 BLAS 下标不随槽变）。
+        let blas = BlasRefitUpdate {
+            as_index: target,
+            ..blas
+        };
+        let (prov, update) = self.prepare_update_skin(
+            iw,
+            ih,
+            ow,
+            oh,
+            jitter,
+            vp_j,
+            exposure,
+            reset,
+            scene_params,
+            skin_params,
+            pal_cur_bytes,
+            pal_prev_bytes,
+            blas,
+            readback_out,
+            verify,
+            debug_tris,
+            Some(target),
+        )?;
+        let ticket = self
+            .session
+            .submit_with_frame_update_slot_as(&prov, &update, &group)?;
+        self.pending_skin.push_back(PendingSkinFrame {
+            ticket,
+            frame_index,
+            readback_out,
+            verify,
+            debug_tris,
+        });
+        self.advance(vp_j);
+        Ok(())
+    }
+
+    /// slot_as 蒙皮臂在飞票据数（FIFO 深度；FIF 循环 collect 触发判据）。
+    #[allow(dead_code)] // G38 L2a 批次 B:g14_3_pipeline_perf 独消费面(诚实标注)
+    fn pending_skin_len(&self) -> usize {
+        self.pending_skin.len()
+    }
+
+    /// G38 slot_as 蒙皮臂收集半程：FIFO 出队最早票据 → `collect` → 与
+    /// [`Self::frame_skin`] 同一 `skin_rec_from_output` 事实源（verify/
+    /// debug_tris 随票据——核验帧 mv/scene/hit 三路回读在子集；帧号自票据
+    /// 回填,FIFO 保序,核验组装凭帧号在调用方复算 palette/相机）。
+    #[allow(dead_code)] // G38 L2a 批次 B:g14_3_pipeline_perf 独消费面(诚实标注)
+    fn collect_frame_skin(
+        &mut self,
+        ow: u32,
+        oh: u32,
+        iw: u32,
+        ih: u32,
+    ) -> Result<SkinFrameRec, String> {
+        let p = self.pending_skin.pop_front().ok_or_else(|| {
+            "slot_as collect: 无在飞票据（提交/收集配平破缺,fail-closed)".to_owned()
+        })?;
+        let out = self.session.collect(p.ticket)?;
+        let mut rec = self
+            .skin_rec_from_output(out, p.readback_out, p.verify, p.debug_tris, ow, oh, iw, ih)?;
         rec.frame_index = p.frame_index;
         Ok(rec)
     }
@@ -14396,6 +14632,10 @@ struct SkinFrameRec {
     /// 输出逐顶点;host skin_vertex 对拍归因面）。
     debug_tris: Option<Vec<f32>>,
     readback_convert_ms: f64,
+    /// 提交序帧号（G38 批次 B 流水面 flip-trace 归属 + collect 侧核验帧
+    /// palette/相机复算输入；顺序面恒 0 不被消费——顺序 flip-trace 行号取
+    /// 循环下标，0-byte）。
+    frame_index: u32,
 }
 
 /// 蒙皮核验单帧记录（skin_verify.json 行面;pred = host 参照臂（skin_vertex
@@ -16682,15 +16922,26 @@ fn bench_leg(
             &assets_skin.character.rest_tris,
         ];
         const SKIN_UPDATABLE_BLAS: [u32; 1] = [1];
-        let accel_structs = [AccelStructDesc {
-            scene: RayQuerySceneDesc {
-                blas_triangles: &blas_refs,
-                instances: &assets_skin.base.instances,
-            },
-            transforms: None,
-            updatable_blas: &SKIN_UPDATABLE_BLAS,
-        }];
-        let mut lane = match UnifiedTsrLane::create(&descs, &accel_structs, 1) {
+        // G38（RFC-0030 v1.1 §4.3 L2a 批次 B）：inflight>1 ⇒ AS 表 = inflight
+        // 份同构副本组（每表项独立 instance buffer/BLAS/TLAS/scratch，角色
+        // BLAS 顶点副本随表项 updatable 打标 ×S——内存 ×S 显式代价，evidence/
+        // 预算门登记面）；inflight=1 ⇒ 单表项顺序面 0-byte。
+        let slot_as_copies = if inflight > 1 { inflight as usize } else { 1 };
+        let accel_structs: Vec<AccelStructDesc<'_>> = (0..slot_as_copies)
+            .map(|_| AccelStructDesc {
+                scene: RayQuerySceneDesc {
+                    blas_triangles: &blas_refs,
+                    instances: &assets_skin.base.instances,
+                },
+                transforms: None,
+                updatable_blas: &SKIN_UPDATABLE_BLAS,
+            })
+            .collect();
+        let mut lane = match if inflight > 1 {
+            UnifiedTsrLane::create_with_slot_as(&descs, &accel_structs, inflight as usize)
+        } else {
+            UnifiedTsrLane::create(&descs, &accel_structs, 1)
+        } {
             Ok(l) => l,
             Err(e) => dev_env_or_fail("device_lane", &e),
         };
@@ -16710,84 +16961,25 @@ fn bench_leg(
         );
         let mut verify_recs: Vec<SkinVerifyFrame> = Vec::new();
         let mut prev_pal: Option<[BoneTransform; 3]> = None;
-        let mut prev_vp_host: Option<Mat4> = None;
+        // G38 批次 B 注：原 prev_vp_host 循环态已删——唯一消费方（核验块）迁入
+        // push_verify 闭包后凭帧号复算上帧相机（jittered_vp∘halton 纯函数），
+        // 死状态置留必致 unused 告警；palette 双表上传仍走 prev_pal 循环态。
         let mut skin_probe_ms: Vec<f64> = Vec::new();
-        for i in 0..total {
-            let t_frame = std::time::Instant::now();
-            let j = [
-                halton(jitter_base + i + 1, 2) - 0.5,
-                halton(jitter_base + i + 1, 3) - 0.5,
-            ];
-            let vp_j = jittered_vp(&vp, j, in_w, in_h);
-            // 逐帧骨骼 palette（脚本化骨骼动画:确定性 f32 纯帧号函数——
-            // root 位移 + 肩/肘双摆;双跑/跨轮位级同序列）。
-            let pal = skin_palette(i, origin);
-            let prev = prev_pal.unwrap_or(pal);
-            let scene_params = pack_frame_params_dyn(
-                in_w,
-                in_h,
-                j,
-                eps,
-                scene.quads.len(),
-                scene.points.len(),
-                &inv_vp,
-                &vp,
-                assets_skin.skin_tri_base,
-            );
-            let skin_params = pack_skin_params(
-                assets_skin.character.vertex_count,
-                i > 0,
-                assets_skin.skin_tri_base,
-                assets_skin.character.bone_count,
-            );
-            let verify = i >= 1 && i >= warmup && (i - warmup) % DYN_VERIFY_EVERY == 0;
-            let readback_out = flip_trace.is_some() || i + 1 == total;
-            // 蒙皮输出对拍诊断臂（env RURIX_SKIN_DEBUG_TRIS=1;仅核验帧挂
-            // debug 回读,常态恒 false 零成本）。
-            let debug_tris = verify && std::env::var("RURIX_SKIN_DEBUG_TRIS").is_ok();
-            let rec = match lane.frame_skin(
-                in_w,
-                in_h,
-                out_w,
-                out_h,
-                j,
-                &vp_j,
-                exposure,
-                i == 0,
-                scene_params,
-                skin_params,
-                skin_palette_bytes(&pal),
-                skin_palette_bytes(&prev),
-                blas,
-                readback_out,
-                verify,
-                debug_tris,
-            ) {
-                Ok(r) => r,
-                Err(e) => fail(&format!("bench 帧 {i} 蒙皮角色车道: {e}")),
-            };
-            if rec.validation_error_count != 0 {
-                fail(&format!(
-                    "bench 帧 {i} validation ERROR 计数 {} ≠ 0",
-                    rec.validation_error_count
-                ));
-            }
-            let t_tail = std::time::Instant::now();
-            if let Some(out_data) = rec.out_color.as_ref() {
-                if !out_data.iter().all(|v| v.is_finite()) {
-                    fail(&format!("bench 帧 {i} upscale 输出非有限"));
-                }
-                last_digest = frame_content_digest(out_w, out_h, 3, out_data);
-                if let Some(w) = flip_trace.as_mut() {
-                    use std::io::Write as _;
-                    writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
-                        .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
-                }
-            }
-            // 蒙皮角色位置 + MV 核验（host 参照臂 = skin_vertex 蒙皮全顶点
-            // + 解析投影;device 面 = scene color 品红谱检测 + MV 通道回读
-            // ——TSR 前瞬时位无历史拖影;tail 段测量面如实计入）。
-            if verify {
+        // G38 批次 B：核验帧组装（顺序/slot_as FIF 两循环**同一事实源**——骨骼
+        // palette/相机均帧号纯函数，闭包内由帧号复算，与循环内既有值逐位同源；
+        // 输入 = rec 核验回读三路〔mv/scene/hit,可选 debug_tris〕+ 帧号）。原
+        // 顺序循环内联块逐字搬移（缩进原位保持），行为 0 变。
+        let push_verify =
+            |verify_recs: &mut Vec<SkinVerifyFrame>, rec: &SkinFrameRec, i: u32| {
+                let j = [
+                    halton(jitter_base + i + 1, 2) - 0.5,
+                    halton(jitter_base + i + 1, 3) - 0.5,
+                ];
+                let vp_j = jittered_vp(&vp, j, in_w, in_h);
+                // 骨骼 palette 帧号纯函数复算（与循环内上传值逐位同源;核验帧
+                // 恒 i ≥ 1——i=0 分支为 prev_pal.unwrap_or(pal) 的防御性镜像）。
+                let pal = skin_palette(i, origin);
+                let prev = if i == 0 { pal } else { skin_palette(i - 1, origin) };
                 let scene_color = rec
                     .scene_color
                     .as_ref()
@@ -16858,7 +17050,21 @@ fn bench_leg(
                         );
                     }
                 }
-                let prev_vp_h = prev_vp_host.unwrap_or(vp_j);
+                // 上帧相机 = 帧号纯函数复算（原 prev_vp_host.unwrap_or(vp_j)
+                // 同语义:核验帧恒 i ≥ 1,i=0 分支为 unwrap_or 的防御性镜像）。
+                let prev_vp_h = if i == 0 {
+                    vp_j
+                } else {
+                    jittered_vp(
+                        &vp,
+                        [
+                            halton(jitter_base + i, 2) - 0.5,
+                            halton(jitter_base + i, 3) - 0.5,
+                        ],
+                        in_w,
+                        in_h,
+                    )
+                };
                 let mut host_mv: Vec<[f64; 2]> =
                     Vec::with_capacity(assets_skin.character.vertex_count);
                 for k in 0..assets_skin.character.vertex_count {
@@ -17054,9 +17260,277 @@ fn bench_leg(
                     static_mv_median_abs_px: static_med,
                     pass,
                 });
+            };
+        if lane.inflight > 1 {
+            // ── G38（RFC-0030 v1.1 §4.3 L2a 批次 B）蒙皮臂 slot_as FIF 流水
+            // 测量循环：骨架与动态臂 slot_as FIF 分支同律（submit(k) 后不等
+            // 当帧 fence，pending 满 inflight 即 FIFO collect(k+1−inflight)；
+            // 测量循环零常态回读；排空段墙钟并入末一测量样本，prod = frame −
+            // tail 不变式保持）。差异恰两处：① 无 tlas_update——逐帧
+            // blas_refit 目标与 skin scene pass（1）AS 绑定落 base+slot 副本
+            // 表项（角色 BLAS 顶点副本逐表项 updatable 打标；rt 槽纪律三判据
+            // 提交前 fail-closed）；② 核验帧组装延迟到 collect 侧凭帧号复算
+            // （push_verify 同一事实源——骨骼 palette 帧号纯函数，FIFO 保序，
+            // 帧号随票据）。
+            let fif_depth = lane.inflight;
+            let mut drain_wait_ms = 0.0f64;
+            let mut drain_tail_ms = 0.0f64;
+            for i in 0..total {
+                let t_frame = std::time::Instant::now();
+                let j = [
+                    halton(jitter_base + i + 1, 2) - 0.5,
+                    halton(jitter_base + i + 1, 3) - 0.5,
+                ];
+                let vp_j = jittered_vp(&vp, j, in_w, in_h);
+                // 逐帧骨骼 palette（脚本化骨骼动画:确定性 f32 纯帧号函数——
+                // root 位移 + 肩/肘双摆;双跑/跨轮位级同序列）。
+                let pal = skin_palette(i, origin);
+                let prev = prev_pal.unwrap_or(pal);
+                let scene_params = pack_frame_params_dyn(
+                    in_w,
+                    in_h,
+                    j,
+                    eps,
+                    scene.quads.len(),
+                    scene.points.len(),
+                    &inv_vp,
+                    &vp,
+                    assets_skin.skin_tri_base,
+                );
+                let skin_params = pack_skin_params(
+                    assets_skin.character.vertex_count,
+                    i > 0,
+                    assets_skin.skin_tri_base,
+                    assets_skin.character.bone_count,
+                );
+                let verify = i >= 1 && i >= warmup && (i - warmup) % DYN_VERIFY_EVERY == 0;
+                let readback_out = flip_trace.is_some() || i + 1 == total;
+                // 蒙皮输出对拍诊断臂（env RURIX_SKIN_DEBUG_TRIS=1;仅核验帧挂
+                // debug 回读,常态恒 false 零成本）。
+                let debug_tris = verify && std::env::var("RURIX_SKIN_DEBUG_TRIS").is_ok();
+                if let Err(e) = lane.submit_frame_skin_slot_as(
+                    in_w,
+                    in_h,
+                    out_w,
+                    out_h,
+                    j,
+                    &vp_j,
+                    exposure,
+                    i == 0,
+                    scene_params,
+                    skin_params,
+                    skin_palette_bytes(&pal),
+                    skin_palette_bytes(&prev),
+                    blas,
+                    readback_out,
+                    verify,
+                    debug_tris,
+                    i,
+                ) {
+                    fail(&format!("bench 帧 {i} 蒙皮 slot_as submit: {e}"));
+                }
+                prev_pal = Some(pal);
+                let rec = if lane.pending_skin_len() == fif_depth {
+                    Some(match lane.collect_frame_skin(out_w, out_h, in_w, in_h) {
+                        Ok(r) => r,
+                        Err(e) => fail(&format!(
+                            "bench 蒙皮 slot_as collect（提交序 {}）: {e}",
+                            i + 1 - fif_depth as u32
+                        )),
+                    })
+                } else {
+                    None
+                };
+                let t_tail = std::time::Instant::now();
+                let mut tail_convert_ms = 0.0f64;
+                if let Some(rec) = &rec {
+                    if rec.validation_error_count != 0 {
+                        fail(&format!(
+                            "bench 蒙皮 slot_as validation ERROR 计数 {} ≠ 0",
+                            rec.validation_error_count
+                        ));
+                    }
+                    tail_convert_ms = rec.readback_convert_ms;
+                    if let Some(out_data) = rec.out_color.as_ref() {
+                        if !out_data.iter().all(|v| v.is_finite()) {
+                            fail(&format!(
+                                "bench 帧 {} 蒙皮 slot_as upscale 输出非有限",
+                                rec.frame_index
+                            ));
+                        }
+                        last_digest = frame_content_digest(out_w, out_h, 3, out_data);
+                        if let Some(w) = flip_trace.as_mut() {
+                            use std::io::Write as _;
+                            let fi = rec.frame_index;
+                            writeln!(w, "{{\"frame\":{fi},\"digest\":\"{last_digest}\"}}")
+                                .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                        }
+                    }
+                    // 核验帧（mv/scene/hit 随票据回读）——凭帧号复算 palette/相机。
+                    if rec.scene_color.is_some() {
+                        push_verify(&mut verify_recs, rec, rec.frame_index);
+                    }
+                }
+                let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0 + tail_convert_ms;
+                let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
+                if i >= warmup {
+                    frame_ms.push(frame_el);
+                    scene_ms.push(rec.as_ref().map_or(0.0, |r| r.scene_gpu_ns / 1e6));
+                    mv_ms.push(rec.as_ref().map_or(0.0, |r| r.mv_gpu_ns / 1e6));
+                    upscale_ms.push(
+                        rec.as_ref()
+                            .map_or(0.0, |r| (r.resample_gpu_ns + r.resolve_gpu_ns) / 1e6),
+                    );
+                    skin_probe_ms.push(rec.as_ref().map_or(0.0, |r| r.skin_gpu_ns / 1e6));
+                    scene_gpu_ns.push(rec.as_ref().map_or(0.0, |r| r.scene_gpu_ns));
+                    cpu_record_ns.push(rec.as_ref().map_or(0.0, |r| r.cpu_record_ns as f64));
+                    cpu_submit_ns.push(rec.as_ref().map_or(0.0, |r| r.cpu_submit_ns as f64));
+                    cpu_fence_wait_ns
+                        .push(rec.as_ref().map_or(0.0, |r| r.cpu_fence_wait_ns as f64));
+                    tail_ms.push(tail_el);
+                    prod_ms.push(frame_el - tail_el);
+                }
+                if i == 0 || (i + 1) % 20 == 0 || i + 1 == total {
+                    eprintln!(
+                        "{TAG}: bench 帧 {}/{total} frame={frame_el:.3}ms（蒙皮 slot_as FIF inflight={fif_depth} pending={} root=({:.3},{:.3},{:.3})）",
+                        i + 1,
+                        lane.pending_skin_len(),
+                        pal[0][0][3],
+                        pal[0][1][3],
+                        pal[0][2][3],
+                    );
+                }
+            }
+            // 排空段：FIFO 收干在飞票据（inflight−1 帧）；末帧 digest 与残余
+            // 核验帧在此落账（FIFO 保序）；墙钟并入末一测量样本（静态 A2 FIF
+            // 分支同律登记口径）。
+            while lane.pending_skin_len() > 0 {
+                let t_drain = std::time::Instant::now();
+                let rec = match lane.collect_frame_skin(out_w, out_h, in_w, in_h) {
+                    Ok(r) => r,
+                    Err(e) => fail(&format!("bench 蒙皮 slot_as 排空 collect: {e}")),
+                };
+                drain_wait_ms += t_drain.elapsed().as_secs_f64() * 1000.0;
+                if rec.validation_error_count != 0 {
+                    fail(&format!(
+                        "bench 蒙皮 slot_as validation ERROR 计数 {} ≠ 0",
+                        rec.validation_error_count
+                    ));
+                }
+                let t_tail = std::time::Instant::now();
+                if let Some(out_data) = rec.out_color.as_ref() {
+                    if !out_data.iter().all(|v| v.is_finite()) {
+                        fail(&format!(
+                            "bench 帧 {} 蒙皮 slot_as upscale 输出非有限",
+                            rec.frame_index
+                        ));
+                    }
+                    last_digest = frame_content_digest(out_w, out_h, 3, out_data);
+                    if let Some(w) = flip_trace.as_mut() {
+                        use std::io::Write as _;
+                        let fi = rec.frame_index;
+                        writeln!(w, "{{\"frame\":{fi},\"digest\":\"{last_digest}\"}}")
+                            .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                    }
+                }
+                if rec.scene_color.is_some() {
+                    push_verify(&mut verify_recs, &rec, rec.frame_index);
+                }
+                drain_tail_ms +=
+                    t_tail.elapsed().as_secs_f64() * 1000.0 + rec.readback_convert_ms;
+            }
+            // 排空段墙钟并入末一测量样本（口径见循环头登记）。
+            if let Some(last) = frame_ms.last_mut() {
+                *last += drain_wait_ms + drain_tail_ms;
+            }
+            if let Some(last) = tail_ms.last_mut() {
+                *last += drain_tail_ms;
+            }
+            if let Some(last) = prod_ms.last_mut() {
+                *last += drain_wait_ms;
+            }
+        } else {
+        for i in 0..total {
+            let t_frame = std::time::Instant::now();
+            let j = [
+                halton(jitter_base + i + 1, 2) - 0.5,
+                halton(jitter_base + i + 1, 3) - 0.5,
+            ];
+            let vp_j = jittered_vp(&vp, j, in_w, in_h);
+            // 逐帧骨骼 palette（脚本化骨骼动画:确定性 f32 纯帧号函数——
+            // root 位移 + 肩/肘双摆;双跑/跨轮位级同序列）。
+            let pal = skin_palette(i, origin);
+            let prev = prev_pal.unwrap_or(pal);
+            let scene_params = pack_frame_params_dyn(
+                in_w,
+                in_h,
+                j,
+                eps,
+                scene.quads.len(),
+                scene.points.len(),
+                &inv_vp,
+                &vp,
+                assets_skin.skin_tri_base,
+            );
+            let skin_params = pack_skin_params(
+                assets_skin.character.vertex_count,
+                i > 0,
+                assets_skin.skin_tri_base,
+                assets_skin.character.bone_count,
+            );
+            let verify = i >= 1 && i >= warmup && (i - warmup) % DYN_VERIFY_EVERY == 0;
+            let readback_out = flip_trace.is_some() || i + 1 == total;
+            // 蒙皮输出对拍诊断臂（env RURIX_SKIN_DEBUG_TRIS=1;仅核验帧挂
+            // debug 回读,常态恒 false 零成本）。
+            let debug_tris = verify && std::env::var("RURIX_SKIN_DEBUG_TRIS").is_ok();
+            let rec = match lane.frame_skin(
+                in_w,
+                in_h,
+                out_w,
+                out_h,
+                j,
+                &vp_j,
+                exposure,
+                i == 0,
+                scene_params,
+                skin_params,
+                skin_palette_bytes(&pal),
+                skin_palette_bytes(&prev),
+                blas,
+                readback_out,
+                verify,
+                debug_tris,
+            ) {
+                Ok(r) => r,
+                Err(e) => fail(&format!("bench 帧 {i} 蒙皮角色车道: {e}")),
+            };
+            if rec.validation_error_count != 0 {
+                fail(&format!(
+                    "bench 帧 {i} validation ERROR 计数 {} ≠ 0",
+                    rec.validation_error_count
+                ));
+            }
+            let t_tail = std::time::Instant::now();
+            if let Some(out_data) = rec.out_color.as_ref() {
+                if !out_data.iter().all(|v| v.is_finite()) {
+                    fail(&format!("bench 帧 {i} upscale 输出非有限"));
+                }
+                last_digest = frame_content_digest(out_w, out_h, 3, out_data);
+                if let Some(w) = flip_trace.as_mut() {
+                    use std::io::Write as _;
+                    writeln!(w, "{{\"frame\":{i},\"digest\":\"{last_digest}\"}}")
+                        .unwrap_or_else(|e| fail(&format!("flip-trace 写入: {e}")));
+                }
+            }
+            // 蒙皮角色位置 + MV 核验（host 参照臂 = skin_vertex 蒙皮全顶点
+            // + 解析投影;device 面 = scene color 品红谱检测 + MV 通道回读
+            // ——TSR 前瞬时位无历史拖影;组装 = push_verify 同一事实源〔G38
+            // 批次 B:顺序/slot_as FIF 共用,原内联块逐字迁入闭包,行为 0 变〕;
+            // tail 段测量面如实计入）。
+            if verify {
+                push_verify(&mut verify_recs, &rec, i);
             }
             prev_pal = Some(pal);
-            prev_vp_host = Some(vp_j);
             let tail_el = t_tail.elapsed().as_secs_f64() * 1000.0 + rec.readback_convert_ms;
             let frame_el = t_frame.elapsed().as_secs_f64() * 1000.0;
             if i >= warmup {
@@ -17084,6 +17558,7 @@ fn bench_leg(
                     pal[0][2][3],
                 );
             }
+        }
         }
         // ── skin 段 post-warmup 统计（骨骼逐帧更新 GPU 成本归因面;receipt
         // schema 无 skin 列——stderr 登记 + evidence 消费）。──
@@ -17234,7 +17709,16 @@ fn bench_leg(
             ));
         }
         (
-            "G31+ 波 B Task B5 蒙皮角色车道：MegaSkin 统一五 pass（pass0 kernels/g31_skin.rx device LBS 蒙皮（骨骼 palette 双表逐帧 buffer_uploads 上传,cur/prev 双求值写 tris SSBO 角色段 + prev 顶点表）→ FrameUpdate::blas_refit 桥（vkCmdCopyBuffer 蒙皮段 → 角色 BLAS 顶点缓冲 + 原地 UPDATE build + consume barrier,创建期 updatable 打标 ALLOW_UPDATE）→ pass1 kernels/g31_skin_scene.rx（g31_dyn_scene 镜像 + inst/prim/bary 命中信息通道,ray query 当帧蒙皮几何 + 形变阴影）→ pass2 kernels/g31_skin_mv.rx（g14_mv 镜像 + RD-041 类 3 蒙皮 MV 覆盖臂:prev 顶点 bary 插值 → prev_vp 投影,TSR 历史链接通）→ pass3/4 TSR parity 双 pass）顺序入口（inflight=1,FIF 流水面拒 blas_refit 的 A2 同律登记）".to_owned(),
+            // G38 批次 B：inflight=1 描述字面 0-byte（receipt 面既有内容逐字
+            // 保留）；inflight>1 = slot_as 形态如实登记（L2a）。
+            if lane.inflight > 1 {
+                format!(
+                    "G31+ 波 B Task B5 蒙皮角色车道：MegaSkin 统一五 pass（pass0 kernels/g31_skin.rx device LBS 蒙皮（骨骼 palette 双表逐帧 buffer_uploads 上传,cur/prev 双求值写 tris SSBO 角色段 + prev 顶点表）→ FrameUpdate::blas_refit 桥（vkCmdCopyBuffer 蒙皮段 → 角色 BLAS 顶点缓冲 + 原地 UPDATE build + consume barrier,创建期 updatable 打标 ALLOW_UPDATE）→ pass1 kernels/g31_skin_scene.rx（g31_dyn_scene 镜像 + inst/prim/bary 命中信息通道,ray query 当帧蒙皮几何 + 形变阴影）→ pass2 kernels/g31_skin_mv.rx（g14_mv 镜像 + RD-041 类 3 蒙皮 MV 覆盖臂:prev 顶点 bary 插值 → prev_vp 投影,TSR 历史链接通）→ pass3/4 TSR parity 双 pass）slot_as FIF 流水入口（G38 RFC-0030 v1.1 §4.3 L2a 批次 B：inflight={}，session AS 表 ×{} 同构副本组〔角色 BLAS 顶点副本逐表项 updatable 打标〕+ submit_with_frame_update_slot_as，逐帧 blas_refit 目标与 skin scene pass AS 绑定落 base+slot 槽副本；确定性判据 = 逐帧 digest 序列与顺序基线逐字节相等,refit 非纯时按 L2a「按槽稳定」降档显式登记）",
+                    lane.inflight, lane.inflight
+                )
+            } else {
+                "G31+ 波 B Task B5 蒙皮角色车道：MegaSkin 统一五 pass（pass0 kernels/g31_skin.rx device LBS 蒙皮（骨骼 palette 双表逐帧 buffer_uploads 上传,cur/prev 双求值写 tris SSBO 角色段 + prev 顶点表）→ FrameUpdate::blas_refit 桥（vkCmdCopyBuffer 蒙皮段 → 角色 BLAS 顶点缓冲 + 原地 UPDATE build + consume barrier,创建期 updatable 打标 ALLOW_UPDATE）→ pass1 kernels/g31_skin_scene.rx（g31_dyn_scene 镜像 + inst/prim/bary 命中信息通道,ray query 当帧蒙皮几何 + 形变阴影）→ pass2 kernels/g31_skin_mv.rx（g14_mv 镜像 + RD-041 类 3 蒙皮 MV 覆盖臂:prev 顶点 bary 插值 → prev_vp 投影,TSR 历史链接通）→ pass3/4 TSR parity 双 pass）顺序入口（inflight=1,FIF 流水面拒 blas_refit 的 A2 同律登记）".to_owned()
+            },
             "host Instant 墙钟 + DeviceFrameTelemetry（逐 pass GPU timestamp + cpu_record/submit/fence_wait 分项）；frame_ms 含逐帧蒙皮 pass + BLAS refit GPU 段（fence 内）+ 核验帧 scene color/mv 双回读税（tail 如实计量）；skin/scene/mv GPU 三分解经 stderr SKIN_GPU_MS 行登记（骨骼逐帧更新成本归因）".to_owned(),
             "G31+ Task B5 口径：蒙皮角色 = 3 骨两段臂 + 关节融合套（36 三角形盒体网格,albedo=[0.18,0.18,0.20] emission=[400,0,400] 品红检测唯一谱）,脚本化骨骼动画 = 帧号确定性 f32 函数（root 三轴正弦位移 + 肩/肘 z 摆,world-from-bind 约定无逆绑定面）;位置核验 = host skin_vertex 全顶点解析投影 vs device scene color 谱检测质心/AABB（容差 4.0/6.0px,分布近似差实测调定）;MV 核验 = 检测像素域 dev 中位数 vs host 逐顶点中位数（逐分量容差 2.0px + 窗级聚合真动门 max host ≥1.0px + 高动帧条件 ratio 门 dev ≥0.5×host + 静态区 ≤1.5px）;digest 面 = TSR 输出末帧（与静态 bench 同语义同管线）;类 2 刚性实例 MV 维持 A4 登记缺口（本车道无刚性动态实例,不冒充接通）".to_owned(),
         )

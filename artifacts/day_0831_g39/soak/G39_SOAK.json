@@ -1,0 +1,96 @@
+{
+ "schema": "rurix.day0831.g39.soak.v1",
+ "caliber": "缺省面(=full19)32f/warmup2 迭代锚钉死 a8204b3b(G38 在案)+ 前置 all-off/full19 双锚断言 + Stage A 探针 it4/it9",
+ "iterations": 6,
+ "wall_s": 1936.2,
+ "min_wall_s": 1800.0,
+ "fails": 0,
+ "anchor_32f": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+ "frame_ms_max": 10.797978,
+ "budget_ms": 11.111,
+ "frame_ms_within_budget": true,
+ "verdict": "PASS",
+ "rows": [
+  {
+   "tag": "pre_alloff_8f",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "frame_ms": 6.988363,
+   "anchor_match": true
+  },
+  {
+   "tag": "pre_full19_96f",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1",
+   "frame_ms": 10.475745,
+   "anchor_match": true
+  },
+  {
+   "tag": "it001",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+   "frame_ms": 10.797978,
+   "it": 1,
+   "digest_stable": true,
+   "wall_s": 581.3
+  },
+  {
+   "tag": "it002",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+   "frame_ms": 10.560656,
+   "it": 2,
+   "digest_stable": true,
+   "wall_s": 839.9
+  },
+  {
+   "tag": "it003",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+   "frame_ms": 10.684625,
+   "it": 3,
+   "digest_stable": true,
+   "wall_s": 1098.4
+  },
+  {
+   "tag": "it004",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+   "frame_ms": 10.537816,
+   "it": 4,
+   "digest_stable": true,
+   "wall_s": 1357.2
+  },
+  {
+   "probe": "it4",
+   "rc": 0,
+   "match": true
+  },
+  {
+   "tag": "it005",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+   "frame_ms": 10.732225,
+   "it": 5,
+   "digest_stable": true,
+   "wall_s": 1677.7
+  },
+  {
+   "tag": "it006",
+   "rc": 0,
+   "vuid": 0,
+   "digest": "sha256:a8204b3b93845f557656231e5b3e2407bcbda030857d8e0d87ace0b48b32ac09",
+   "frame_ms": 10.501453,
+   "it": 6,
+   "digest_stable": true,
+   "wall_s": 1936.2
+  }
+ ]
+}

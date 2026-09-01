@@ -370,7 +370,9 @@
             "auto_exposure": { "type": "boolean" },
             "gi2": { "type": "boolean" },
             "gi2_scale": { "type": "number" },
-            "gi2_clamp": { "type": "number" }
+            "gi2_clamp": { "type": "number" },
+            "lamp_restir": { "type": "boolean" },
+            "lamp_restir_mcap": { "type": "integer" }
           }
         },
         "spv_texture": {

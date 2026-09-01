@@ -23,12 +23,22 @@
 //!     [--step-m 0.15] [--res 96x54] [--cut-every 1] [--blocks-limit 0]
 //!     [--evidence <sidecar.json>]
 //!     [--refit-copy incr|full] [--min-level N]
+//!     [--cut-source host|device] [--cull-spv <g31_cluster_cull.spv>]
+//!     [--cut-red-arm tamper]
 //!
 //! G38 T3 旗标：--refit-copy incr(默认) = 桥接 copy 只搬 cut 差集脏槽
 //! (多 region,相邻合并;帧 0 全量单 region)/ full = 既有恒全量单 region
 //! 对照臂(两态 vbuf 终态位级同 ⇒ 16 帧 digest 序列位级等价,GPU 批次判据);
 //! --min-level N(默认 0 = 现状) = 竞技场只装 level≥N 簇(+链兜底根),cut 经
 //! 「level<N → 首个 level≥N 祖先」提升映射,提升后生产 verify 复核 fail-closed。
+//!
+//! G39 T5 旗标(#77 P1;DESIGN = artifacts/day_0831_g39/t5_devicecut/)：
+//! --cut-source host(默认 = 既有路径字面 0-byte)| device = host 决策权/
+//! 施加链/既有判据零移交,device 以冻结 g31_cluster_cull kernel(三关中和至
+//! 纯关 3)平行复算判定码 → 回读逐项对拍(提升前 select 原输出口径;
+//! mismatch/域外码 fail-closed);--cull-spv = rurixc 现编 SPV 工件(device
+//! 时必填,bin 侧 NoContraction 注入不落盘);--cut-red-arm tamper = lod 表
+//! 构造性篡改 ⇒ 对拍必红(消费路径机核)。
 #![forbid(unsafe_code)]
 // 共享体含本 bin 未消费面（bench/render 腿、vendor 双臂、EXR 出图等）——
 // dead_code 豁免如实登记;本 bin 消费面 = 契约装配/簇包读取/frame-cut 臂。
@@ -67,6 +77,10 @@ fn main() {
     // G38 T3:桥接 copy 模式(incr 默认)与簇粒度降档(0 = 现状)。
     let mut refit_copy = String::from("incr");
     let mut min_level: u32 = 0;
+    // G39 T5:device 决策码对拍臂旗标(闭集校验在后;缺省 host = 既有路径字面)。
+    let mut cut_source = String::from("host");
+    let mut cull_spv = String::new();
+    let mut cut_red_arm = String::new();
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -106,6 +120,9 @@ fn main() {
             }
             "--evidence" => evidence = take_arg(&args, &mut i),
             "--refit-copy" => refit_copy = take_arg(&args, &mut i),
+            "--cut-source" => cut_source = take_arg(&args, &mut i),
+            "--cull-spv" => cull_spv = take_arg(&args, &mut i),
+            "--cut-red-arm" => cut_red_arm = take_arg(&args, &mut i),
             "--min-level" => {
                 min_level = take_arg(&args, &mut i)
                     .parse()
@@ -141,6 +158,34 @@ fn main() {
         "incr" => false,
         "full" => true,
         other => fail(&format!("--refit-copy 闭集 incr|full(得 {other})")),
+    };
+    // G39 T5:cut 源闭集(fail-closed)。device 显式请求下 --cull-spv 缺失/
+    // 文件不存在 = 误配置硬 FAIL(非 dev_env 三态——vulkan 缺失的 skip 三态
+    // 在下方前置已覆盖,不动)。
+    let cut_source_device = match cut_source.as_str() {
+        "host" => false,
+        "device" => true,
+        other => fail(&format!("--cut-source 闭集 host|device(得 {other})")),
+    };
+    if cut_source_device {
+        if cull_spv.is_empty() {
+            fail("--cut-source device 需 --cull-spv <g31_cluster_cull.spv>(rurixc 现编工件,DESIGN §2.6)");
+        }
+        if !Path::new(&cull_spv).is_file() {
+            fail(&format!(
+                "--cull-spv 文件不存在 {cull_spv}(显式请求下误配置,fail-closed)"
+            ));
+        }
+    }
+    let red_arm_tamper = match cut_red_arm.as_str() {
+        "" => false,
+        "tamper" => {
+            if !cut_source_device {
+                fail("--cut-red-arm 需 --cut-source device(red-arm 属对拍臂)");
+            }
+            true
+        }
+        other => fail(&format!("--cut-red-arm 闭集 tamper(得 {other})")),
     };
     let (vw, vh) = {
         let mut it = res.split('x');
@@ -243,14 +288,19 @@ fn main() {
         monotone_gate: true,
         out_path: evidence,
     };
-    // G38 T3:扩展选项(probe 专用旗标;窗口臂经既有入口消费默认值)。
+    // G38 T3/G39 T5:扩展选项(probe 专用旗标;窗口臂经既有入口消费默认值)。
     let ext = FrameCutArmExtOpt {
         copy_full,
         min_level,
+        cut_source_device,
+        cull_spv,
+        red_arm_tamper,
     };
     eprintln!(
-        "{FCTAG}: G38 T3 旗标 refit_copy={} min_level={min_level}",
+        "{FCTAG}: G38 T3 旗标 refit_copy={} min_level={min_level} cut_source={}{}",
         if copy_full { "full" } else { "incr" },
+        if cut_source_device { "device" } else { "host" },
+        if red_arm_tamper { " red_arm=tamper" } else { "" },
     );
     // passthrough 源三角流须自源装配场景提取（窗口合入 = apply_cluster_lod
     // 施加前锚点同式;probe 场景未经 cut 重建,直接提取）。

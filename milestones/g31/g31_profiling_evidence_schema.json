@@ -378,6 +378,78 @@
     }
    }
   },
+  "identity_rounds": {
+   "description": "G39 T4 identity 多轮中位鲁棒化逐轮明细（可选纯追加块;判据消费 N 轮 gpu_sum/render_wall/host_residual mean 分量中位数,中位裁决落 profiles/*/identity_ok const true;逐轮 identity_ok 为 boolean 可红如实登记,不改判据规则与容差字面）",
+   "type": "object",
+   "required": [
+    "rounds",
+    "g31",
+    "g14"
+   ],
+   "properties": {
+    "rounds": {
+     "type": "integer",
+     "minimum": 1,
+     "maximum": 9
+    },
+    "g31": {
+     "type": "array",
+     "minItems": 1,
+     "maxItems": 9,
+     "items": {
+      "type": "object",
+      "required": [
+       "gpu_sum_mean_ms",
+       "render_wall_mean_ms",
+       "host_residual_mean_ms",
+       "identity_ok"
+      ],
+      "properties": {
+       "gpu_sum_mean_ms": {
+        "type": "number"
+       },
+       "render_wall_mean_ms": {
+        "type": "number"
+       },
+       "host_residual_mean_ms": {
+        "type": "number"
+       },
+       "identity_ok": {
+        "type": "boolean"
+       }
+      }
+     }
+    },
+    "g14": {
+     "type": "array",
+     "minItems": 1,
+     "maxItems": 9,
+     "items": {
+      "type": "object",
+      "required": [
+       "gpu_sum_mean_ms",
+       "render_wall_mean_ms",
+       "host_residual_mean_ms",
+       "identity_ok"
+      ],
+      "properties": {
+       "gpu_sum_mean_ms": {
+        "type": "number"
+       },
+       "render_wall_mean_ms": {
+        "type": "number"
+       },
+       "host_residual_mean_ms": {
+        "type": "number"
+       },
+       "identity_ok": {
+        "type": "boolean"
+       }
+      }
+     }
+    }
+   }
+  },
   "zero_drift": {
    "type": "object",
    "required": [

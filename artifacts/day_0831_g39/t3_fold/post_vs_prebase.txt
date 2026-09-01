@@ -1,0 +1,127 @@
+diff --git "a/artifacts\\day_0831_g39\\t3_fold\\pre_base_fn.txt" "b/artifacts\\day_0831_g39\\t3_fold\\post_fold_fn.txt"
+index 93aa093d..ea27a3f7 100644
+--- "a/artifacts\\day_0831_g39\\t3_fold\\pre_base_fn.txt"
++++ "b/artifacts\\day_0831_g39\\t3_fold\\post_fold_fn.txt"
+@@ -7,0 +8 @@
++    slot_as: Option<&SlotAsGroup>,
+@@ -10 +11,27 @@
+-    if prepared.tlas.is_some() {
++    // G39 T3 折叠:两路报错字面各自保持逐字(前缀经局部变量承载,message 0 改)。
++    let err_pfx = if slot_as.is_some() { "slot-AS FIF" } else { "FIF" };
++    if let Some(group) = slot_as {
++        // G37 #90 换向①:防御性复核(公共入口已核;防绕过公共校验的调用者——
++        // 原防御性拒面同位)。expect_as 取 next_slot 现值(bump 在 slot_busy
++        // 判后,与原复制体「let slot 先行」取值逐位同)。
++        let expect_as = group.base + native.next_slot as u32;
++        if let Some((i, _, _)) = &prepared.tlas
++            && *i != expect_as
++        {
++            return Err(format!(
++                "slot-AS FIF: tlas 目标 {i} ≠ 本槽副本 {expect_as}(公共入口已拒;防御性复核)"
++            ));
++        }
++        if let Some((i, ..)) = &prepared.blas
++            && *i != expect_as
++        {
++            return Err(format!(
++                "slot-AS FIF: blas 目标 {i} ≠ 本槽副本 {expect_as}(公共入口已拒;防御性复核)"
++            ));
++        }
++        if prepared.tlas_b.is_some() || prepared.blas_b.is_some() {
++            return Err(
++                "slot-AS FIF: 双 TLAS/双 BLAS 更新面不开放(顺序入口专属;防御性复核)".into(),
++            );
++        }
++    } else if prepared.tlas.is_some() {
+@@ -50,0 +78,15 @@
++    // ── G37 #90 插入②(slot_as 路专属;None 路 prepared.tlas 已拒,恒不触):
++    // 本槽副本 TLAS 实例 transforms host 写(slot fence 已等待 ⇒ 本槽副本
++    // instance buffer 的上一次 device 读〔本槽上一帧 TLAS build〕已完成;他槽
++    // 在飞帧读各自副本,不触本面——host-visible+coherent,write_transforms 内
++    // 做实例数/NaN fail-closed 与 64B 槽位 diff 增量)──
++    if slot_as.is_some()
++        && let Some((as_index, instances, _)) = &prepared.tlas
++    {
++        let Some(state) = native.as_state.as_mut() else {
++            return Err("slot-AS FIF: tlas_update 指向无 AS 面的 session(校验漏网)".into());
++        };
++        let mgr = &mut state.managers[*as_index as usize];
++        mgr.write_transforms(&state.fns, native.device, instances)?;
++    }
++
+@@ -93 +135 @@
+-                "FIF slot {slot}: 上传 staging vkMapMemory 失败: {map}"
++                "{err_pfx} slot {slot}: 上传 staging vkMapMemory 失败: {map}"
+@@ -100 +142 @@
+-                return Err(format!("FIF: 上传目标资源 {res} 非 buffer(校验漏网)"));
++                return Err(format!("{err_pfx}: 上传目标资源 {res} 非 buffer(校验漏网)"));
+@@ -117 +159 @@
+-        return Err(format!("FIF slot {slot}: slot 面缺失(建面序漂移)"));
++        return Err(format!("{err_pfx} slot {slot}: slot 面缺失(建面序漂移)"));
+@@ -121 +163 @@
+-        return Err("FIF: vkResetCommandBuffer 失败".into());
++        return Err(format!("{err_pfx}: vkResetCommandBuffer 失败"));
+@@ -130 +172 @@
+-        return Err("FIF: vkBeginCommandBuffer 失败".into());
++        return Err(format!("{err_pfx}: vkBeginCommandBuffer 失败"));
+@@ -150 +192 @@
+-                return Err(format!("FIF: 上传目标资源 {res} 非 buffer(上判已拒)"));
++                return Err(format!("{err_pfx}: 上传目标资源 {res} 非 buffer(上判已拒)"));
+@@ -169,0 +212,45 @@
++    // ── G37 #90 插入③(slot_as 路专属;None 路恒 None——record_frame_body 的
++    // as_ops 实参效果与折叠前逐字维持):AS ops 组装,同一录制事实源
++    // record_frame_body(顺序路 execute_with_frame_update 的 as_ops 归并同形,
++    // 双 TLAS 臂裁掉)──
++    let as_ops = if slot_as.is_none() {
++        None
++    } else {
++        match (&prepared.tlas, &prepared.blas) {
++            (None, None) => None,
++            (tlas, blas) => {
++                let as_index = tlas
++                    .map(|(i, _, _)| i)
++                    .or_else(|| blas.map(|b| b.0));
++                let Some(as_index) = as_index else {
++                    return Err("slot-AS FIF: AS 操作包空(内部不一致)".into());
++                };
++                let state = native
++                    .as_state
++                    .as_mut()
++                    .ok_or("slot-AS FIF: AS 操作无 AS 面(校验漏网)")?;
++                let (tlas_action, blas_refit) = (
++                    tlas.map(|(_, _, a)| a),
++                    blas.map(|b| {
++                        let (_, blas_index, src_res, src_offset, byte_len, after_pass) = b;
++                        BlasRefitRecord {
++                            blas_index,
++                            src_res,
++                            src_offset,
++                            byte_len,
++                            after_pass,
++                        }
++                    }),
++                );
++                Some(AsFrameOps {
++                    mgr: &mut state.managers[as_index as usize],
++                    fns: &state.fns,
++                    tlas_action,
++                    blas_refit,
++                    tlas_b: None,
++                    // G37 W3 hzb_skin 并行加性面(第二 BLAS refit):本入口不开放。
++                    blas_refit_b: None,
++                })
++            }
++        }
++    };
+@@ -214 +301 @@
+-        None,
++        as_ops,
+@@ -238 +325 @@
+-                    return Err(format!("FIF: readback 资源 {res} 非 buffer(类型漂移)"));
++                    return Err(format!("{err_pfx}: readback 资源 {res} 非 buffer(类型漂移)"));
+@@ -256 +343 @@
+-        return Err("FIF: vkEndCommandBuffer 失败".into());
++        return Err(format!("{err_pfx}: vkEndCommandBuffer 失败"));
+@@ -276 +363 @@
+-            "vkQueueSubmit(FIF pipelined frame)",
++            &format!("vkQueueSubmit({err_pfx} pipelined frame)"),

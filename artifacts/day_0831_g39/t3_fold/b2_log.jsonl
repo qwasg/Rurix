@@ -1,0 +1,28 @@
+{"t": "23:26:39", "step": "replay.static_x1", "status": "OK", "wall_s": 139.4, "stderr_tail": null}
+{"t": "23:26:39", "step": "judge.static_x1", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\static_x1", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:27:51", "step": "replay.static_x2", "status": "OK", "wall_s": 71.7, "stderr_tail": null}
+{"t": "23:27:51", "step": "judge.static_x2", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\static_x2", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:29:04", "step": "replay.static_x3", "status": "OK", "wall_s": 72.6, "stderr_tail": null}
+{"t": "23:29:04", "step": "judge.static_x3", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\static_x3", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:30:17", "step": "replay.dyn_rebuild_x1", "status": "OK", "wall_s": 73.8, "stderr_tail": null}
+{"t": "23:30:17", "step": "judge.dyn_rebuild_x1", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\dyn_rebuild_x1", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:31:30", "step": "replay.dyn_rebuild_x2", "status": "OK", "wall_s": 72.3, "stderr_tail": null}
+{"t": "23:31:30", "step": "judge.dyn_rebuild_x2", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\dyn_rebuild_x2", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:32:43", "step": "replay.dyn_rebuild_x3", "status": "OK", "wall_s": 73.7, "stderr_tail": null}
+{"t": "23:32:43", "step": "judge.dyn_rebuild_x3", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\dyn_rebuild_x3", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:34:00", "step": "replay.dyn_refit_x1", "status": "OK", "wall_s": 76.3, "stderr_tail": null}
+{"t": "23:34:00", "step": "judge.dyn_refit_x1", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\dyn_refit_x1", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:35:12", "step": "replay.dyn_refit_x2", "status": "OK", "wall_s": 71.9, "stderr_tail": null}
+{"t": "23:35:12", "step": "judge.dyn_refit_x2", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\dyn_refit_x2", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:36:24", "step": "replay.dyn_refit_x3", "status": "OK", "wall_s": 72.6, "stderr_tail": null}
+{"t": "23:36:24", "step": "judge.dyn_refit_x3", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t3_fold\\baseline\\dyn_refit_x3", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:37:40", "step": "replay.skin_x1", "status": "OK", "wall_s": 76.3, "stderr_tail": null}
+{"t": "23:37:40", "step": "judge.skin_x1", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t2_skin\\gpu\\ft_x1_a", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:38:52", "step": "replay.skin_x2", "status": "OK", "wall_s": 71.9, "stderr_tail": null}
+{"t": "23:38:52", "step": "judge.skin_x2", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t2_skin\\gpu\\ft_x2_a", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:40:04", "step": "replay.skin_x3", "status": "OK", "wall_s": 72.0, "stderr_tail": null}
+{"t": "23:40:04", "step": "judge.skin_x3", "status": "OK", "baseline": "H:\\rurix\\artifacts\\day_0831_g39\\t2_skin\\gpu\\ft_x3_a", "post_bytes": 12500, "base_bytes": 12500}
+{"t": "23:40:06", "step": "fif.rebuild", "status": "OK", "wall_s": 1.0, "stderr_tail": null}
+{"t": "23:40:06", "step": "fif.rebuild_judge", "status": "OK", "gates_all": true, "digests_eq_b1": true}
+{"t": "23:40:07", "step": "fif.refit", "status": "OK", "wall_s": 1.0, "stderr_tail": null}
+{"t": "23:40:07", "step": "fif.refit_judge", "status": "OK", "gates_all": true, "digests_eq_b1": true}

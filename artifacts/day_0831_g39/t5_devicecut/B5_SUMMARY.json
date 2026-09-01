@@ -1,0 +1,7 @@
+{
+ "schema": "rurix.day0831.g39.b5.v1",
+ "fails": [],
+ "notes": [],
+ "device_cut_probe_ms_mean": 82.733,
+ "verdict": "PASS"
+}

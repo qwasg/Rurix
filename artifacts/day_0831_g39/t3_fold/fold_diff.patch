@@ -1,0 +1,707 @@
+diff --git a/src/rurix-rt/src/render_exec.rs b/src/rurix-rt/src/render_exec.rs
+index aee772ea..1dde2ec1 100644
+--- a/src/rurix-rt/src/render_exec.rs
++++ b/src/rurix-rt/src/render_exec.rs
+@@ -1826,6 +1826,7 @@ impl<'a> DeviceFrameSession<'a> {
+         };
+         // SAFETY: native session 独占 &mut self;prepared 全部引用本帧栈上数据,
+         // 随调用结束失效;slot fence 纪律见 submit_pipelined_frame 契约。
++        // slot_as = None:顺序 FIF 路(G39 T3 折叠加末参,机械补 None 行为 0 变)。
+         let mut inner = unsafe {
+             submit_pipelined_frame(
+                 &mut self.native,
+@@ -1834,6 +1835,7 @@ impl<'a> DeviceFrameSession<'a> {
+                 self.barriers,
+                 self.readbacks,
+                 &prepared,
++                None,
+             )?
+         };
+         inner.record_ns += validate_ns;
+@@ -5805,8 +5807,10 @@ struct BlasRefitRecord {
+ /// G38 T3 加性:BLAS refit 桥录制扩展(公网 [`BlasRefitBridgeExt`] 的 native
+ /// 解析形;只作用于**主** refit 臂——`blas_refit_b`〔hzb_skin 表 1〕不开放,
+ /// 既有命令流 0-byte)。独立小件而非 [`BlasRefitRecord`]/[`AsFrameOps`] 加
+-/// 字段:两结构被 render_exec_g37_fif_dyn.rs 以字面量构造(T2 冻结面),
+-/// 加字段即打崩其编译——加性纪律以新类型承载。
++/// 字段:G38 当窗理由 = 两结构彼时被 render_exec_g37_fif_dyn.rs 以字面量构造
++/// (T2 冻结面),加字段即打崩其编译;G39 T3 slot_as 单源折叠后该跨文件构造面
++/// 已消失(现状 = 两结构仅本文件内构造:顺序路 as_ops 归并 +
++/// [`submit_pipelined_frame`] 的 slot_as 分支),加性纪律以新类型承载维持。
+ #[derive(Debug, Clone, Copy)]
+ struct BridgeRecordExt<'a> {
+     /// 脏区段(off,len)列表(相对 refit 窗,已过 `validate_bridge_ext`;
+@@ -10261,9 +10265,29 @@ unsafe fn ensure_pipelined_override_set(
+ /// buffer host 写面)不入流水;descriptor 重写 G31 起经 per-slot override set
+ /// 支持(见 [`ensure_pipelined_override_set`] 安全性论证)。
+ ///
++/// G39 T3 单源折叠(fif_dyn REPORT §7-3 登记项兑现;原复制适配体
++/// `g37_submit_pipelined_frame_slot_as` 已删):末参 `slot_as` 分派两路——
++/// `None` = 上述既有顺序 FIF 语义(0 语义等价,报错前缀 "FIF:" 字面维持);
++/// `Some(group)` = G37 W3 #90 每槽 AS 副本判档路(报错前缀 "slot-AS FIF:"),
++/// 吸收原复制体的三处插入 + 一处换向:
++/// 1. 防御性复核换向:`prepared.tlas`/`prepared.blas` 不再一律拒,改核目标
++///    == 本槽副本 `group.base + slot`(公共入口 [`g37_validate_slot_as_frame`]
++///    已核,此处防绕过);双 TLAS/双 BLAS(`tlas_b`/`blas_b`)照拒;
++/// 2. slot fence 等待 + reset **之后** host `write_transforms`(本槽副本
++///    instance buffer;上一票据已完成 ⇒ 无在途 device 读——per-slot staging
++///    重写同一根据;他槽在飞帧读各自副本,不触本面);
++/// 3. `record_frame_body` 携 `as_ops`(同一录制事实源:TLAS BUILD/UPDATE +
++///    consume barrier 录于 pass 链前、BLAS refit 桥录于 after_pass 后——顺序
++///    路 execute_with_frame_update 归并同形,双 TLAS 臂裁掉;staged 上传冲刷
++///    先于 AS build ⇒ refit 桥 src 若经本帧上传,build 读取前已冲刷可见),
++///    落在帧间守卫 barrier 之后(GPU 帧间全序 ⇒ 本帧 AS build 序于上帧全部
++///    ray query 读之后,RFC-0030 §4.3 L2 确定性论证字面不动);None 路 as_ops
++///    恒 `None`(折叠前实参效果逐字维持)。
++///
+ /// # Safety
+ /// U32 契约同 [`submit_persistent_frame`];`prepared` 引用调用方栈上数据,
+-/// 生命周期限于本次调用。
++/// 生命周期限于本次调用;`slot_as = Some` 时 `prepared.tlas`/`blas` 目标表项
++/// 须经 [`g37_validate_slot_as_frame`] 核验(本函数防御性复核)。
+ unsafe fn submit_pipelined_frame(
+     native: &mut NativePersistentFrame,
+     resources: &[ResourceDesc<'_>],
+@@ -10271,9 +10295,36 @@ unsafe fn submit_pipelined_frame(
+     barriers: &[&[(u32, TargetState)]],
+     readbacks: &[Readback],
+     prepared: &PreparedFrameUpdate<'_>,
++    slot_as: Option<&SlotAsGroup>,
+ ) -> Result<PersistentFrameTicket, String> {
+     const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
+-    if prepared.tlas.is_some() {
++    // G39 T3 折叠:两路报错字面各自保持逐字(前缀经局部变量承载,message 0 改)。
++    let err_pfx = if slot_as.is_some() { "slot-AS FIF" } else { "FIF" };
++    if let Some(group) = slot_as {
++        // G37 #90 换向①:防御性复核(公共入口已核;防绕过公共校验的调用者——
++        // 原防御性拒面同位)。expect_as 取 next_slot 现值(bump 在 slot_busy
++        // 判后,与原复制体「let slot 先行」取值逐位同)。
++        let expect_as = group.base + native.next_slot as u32;
++        if let Some((i, _, _)) = &prepared.tlas
++            && *i != expect_as
++        {
++            return Err(format!(
++                "slot-AS FIF: tlas 目标 {i} ≠ 本槽副本 {expect_as}(公共入口已拒;防御性复核)"
++            ));
++        }
++        if let Some((i, ..)) = &prepared.blas
++            && *i != expect_as
++        {
++            return Err(format!(
++                "slot-AS FIF: blas 目标 {i} ≠ 本槽副本 {expect_as}(公共入口已拒;防御性复核)"
++            ));
++        }
++        if prepared.tlas_b.is_some() || prepared.blas_b.is_some() {
++            return Err(
++                "slot-AS FIF: 双 TLAS/双 BLAS 更新面不开放(顺序入口专属;防御性复核)".into(),
++            );
++        }
++    } else if prepared.tlas.is_some() {
+         return Err("FIF 流水不支持 tlas_update(公共入口已拒;防御性复核)".into());
+     }
+     let slot = native.next_slot;
+@@ -10314,6 +10365,21 @@ unsafe fn submit_pipelined_frame(
+     let record_started = std::time::Instant::now();
+     ensure_pipelined_slot(native, resources, readbacks, slot)?;
+ 
++    // ── G37 #90 插入②(slot_as 路专属;None 路 prepared.tlas 已拒,恒不触):
++    // 本槽副本 TLAS 实例 transforms host 写(slot fence 已等待 ⇒ 本槽副本
++    // instance buffer 的上一次 device 读〔本槽上一帧 TLAS build〕已完成;他槽
++    // 在飞帧读各自副本,不触本面——host-visible+coherent,write_transforms 内
++    // 做实例数/NaN fail-closed 与 64B 槽位 diff 增量)──
++    if slot_as.is_some()
++        && let Some((as_index, instances, _)) = &prepared.tlas
++    {
++        let Some(state) = native.as_state.as_mut() else {
++            return Err("slot-AS FIF: tlas_update 指向无 AS 面的 session(校验漏网)".into());
++        };
++        let mgr = &mut state.managers[*as_index as usize];
++        mgr.write_transforms(&state.fns, native.device, instances)?;
++    }
++
+     // ── G31:binding override → per-slot descriptor set 重写(共享 session set
+     // 在飞帧使用中不可重写;本 slot set 的上次 GPU 使用 = 本 slot 上一帧,
+     // slot fence 已等待,host 重写无在途竞争;写经创建期同一
+@@ -10356,14 +10422,14 @@ unsafe fn submit_pipelined_frame(
+         let map = (native.frame.dev.map_mem)(native.device, smem, 0, total_upload, 0, &mut ptr);
+         if map != VK_SUCCESS || ptr.is_null() {
+             return Err(format!(
+-                "FIF slot {slot}: 上传 staging vkMapMemory 失败: {map}"
++                "{err_pfx} slot {slot}: 上传 staging vkMapMemory 失败: {map}"
+             ));
+         }
+         let mut staging_offset = 0u64;
+         for &(res, dst_offset, bytes) in prepared.uploads {
+             if !matches!(&native.frame.rt[res as usize], RtRes::Buf(_)) {
+                 (native.frame.dev.unmap_mem)(native.device, smem);
+-                return Err(format!("FIF: 上传目标资源 {res} 非 buffer(校验漏网)"));
++                return Err(format!("{err_pfx}: 上传目标资源 {res} 非 buffer(校验漏网)"));
+             }
+             std::ptr::copy_nonoverlapping(
+                 bytes.as_ptr(),
+@@ -10380,11 +10446,11 @@ unsafe fn submit_pipelined_frame(
+     let query_base = (slot * passes.len() * 2) as u32;
+     let dev = &native.frame.dev;
+     let Some(slot_state) = native.pipelined_slots[slot].as_ref() else {
+-        return Err(format!("FIF slot {slot}: slot 面缺失(建面序漂移)"));
++        return Err(format!("{err_pfx} slot {slot}: slot 面缺失(建面序漂移)"));
+     };
+     let slot_cmd = slot_state.cmd;
+     if (dev.reset_cmd)(slot_cmd, 0) != VK_SUCCESS {
+-        return Err("FIF: vkResetCommandBuffer 失败".into());
++        return Err(format!("{err_pfx}: vkResetCommandBuffer 失败"));
+     }
+     let cbi = CommandBufferBeginInfo {
+         s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+@@ -10393,7 +10459,7 @@ unsafe fn submit_pipelined_frame(
+         p_inheritance_info: std::ptr::null(),
+     };
+     if (dev.begin_cmd)(slot_cmd, &cbi) != VK_SUCCESS {
+-        return Err("FIF: vkBeginCommandBuffer 失败".into());
++        return Err(format!("{err_pfx}: vkBeginCommandBuffer 失败"));
+     }
+     (dev.cmd_reset_query_pool)(
+         slot_cmd,
+@@ -10413,7 +10479,7 @@ unsafe fn submit_pipelined_frame(
+     if !staged_copies.is_empty() {
+         for &(src_offset, res, dst_offset, size) in &staged_copies {
+             let RtRes::Buf(rb) = &native.frame.rt[res as usize] else {
+-                return Err(format!("FIF: 上传目标资源 {res} 非 buffer(上判已拒)"));
++                return Err(format!("{err_pfx}: 上传目标资源 {res} 非 buffer(上判已拒)"));
+             };
+             let region = VkBufferCopy {
+                 src_offset,
+@@ -10433,6 +10499,51 @@ unsafe fn submit_pipelined_frame(
+             ACCESS2_MEMORY_READ | ACCESS2_MEMORY_WRITE,
+         );
+     }
++    // ── G37 #90 插入③(slot_as 路专属;None 路恒 None——record_frame_body 的
++    // as_ops 实参效果与折叠前逐字维持):AS ops 组装,同一录制事实源
++    // record_frame_body(顺序路 execute_with_frame_update 的 as_ops 归并同形,
++    // 双 TLAS 臂裁掉)──
++    let as_ops = if slot_as.is_none() {
++        None
++    } else {
++        match (&prepared.tlas, &prepared.blas) {
++            (None, None) => None,
++            (tlas, blas) => {
++                let as_index = tlas
++                    .map(|(i, _, _)| i)
++                    .or_else(|| blas.map(|b| b.0));
++                let Some(as_index) = as_index else {
++                    return Err("slot-AS FIF: AS 操作包空(内部不一致)".into());
++                };
++                let state = native
++                    .as_state
++                    .as_mut()
++                    .ok_or("slot-AS FIF: AS 操作无 AS 面(校验漏网)")?;
++                let (tlas_action, blas_refit) = (
++                    tlas.map(|(_, _, a)| a),
++                    blas.map(|b| {
++                        let (_, blas_index, src_res, src_offset, byte_len, after_pass) = b;
++                        BlasRefitRecord {
++                            blas_index,
++                            src_res,
++                            src_offset,
++                            byte_len,
++                            after_pass,
++                        }
++                    }),
++                );
++                Some(AsFrameOps {
++                    mgr: &mut state.managers[as_index as usize],
++                    fns: &state.fns,
++                    tlas_action,
++                    blas_refit,
++                    tlas_b: None,
++                    // G37 W3 hzb_skin 并行加性面(第二 BLAS refit):本入口不开放。
++                    blas_refit_b: None,
++                })
++            }
++        }
++    };
+     // texture readback copy 目的 = 本 slot staging;buffer readback 由流水路
+     // 自己的帧尾 staged copy 承载(per-slot 隔离)——恒 None 占位,即便源为
+     // DEVICE_LOCAL(G14.10d session 级 staging 只服务顺序路;record_frame_body
+@@ -10477,7 +10588,7 @@ unsafe fn submit_pipelined_frame(
+         },
+         &mut effective_rb,
+         None,
+-        None,
++        as_ops,
+     )?;
+     // ── 帧尾 staged buffer readback copies(pass 链写完 → TRANSFER copy 至本
+     // slot staging;后续在飞帧改写共享 SSBO 不再影响本帧回读内容)──
+@@ -10501,7 +10612,7 @@ unsafe fn submit_pipelined_frame(
+         {
+             if let Readback::Buffer { res, offset, size } = *rb {
+                 let RtRes::Buf(src) = &native.frame.rt[res as usize] else {
+-                    return Err(format!("FIF: readback 资源 {res} 非 buffer(类型漂移)"));
++                    return Err(format!("{err_pfx}: readback 资源 {res} 非 buffer(类型漂移)"));
+                 };
+                 let region = VkBufferCopy {
+                     src_offset: offset,
+@@ -10519,7 +10630,7 @@ unsafe fn submit_pipelined_frame(
+         }
+     }
+     if (dev.end_cmd)(slot_cmd) != VK_SUCCESS {
+-        return Err("FIF: vkEndCommandBuffer 失败".into());
++        return Err(format!("{err_pfx}: vkEndCommandBuffer 失败"));
+     }
+     let record_ns = elapsed_ns(record_started);
+ 
+@@ -10539,7 +10650,7 @@ unsafe fn submit_pipelined_frame(
+     let cpu_submit_ns = elapsed_ns(submit_started);
+     if submit != VK_SUCCESS {
+         return Err(queue_result_error(
+-            "vkQueueSubmit(FIF pipelined frame)",
++            &format!("vkQueueSubmit({err_pfx} pipelined frame)"),
+             submit,
+         ));
+     }
+diff --git a/src/rurix-rt/src/render_exec_g37_fif_dyn.rs b/src/rurix-rt/src/render_exec_g37_fif_dyn.rs
+index f90a1e83..8bde9a46 100644
+--- a/src/rurix-rt/src/render_exec_g37_fif_dyn.rs
++++ b/src/rurix-rt/src/render_exec_g37_fif_dyn.rs
+@@ -34,10 +34,11 @@
+ // 轨迹下逐帧 digest 序列与单槽顺序入口**逐字节相等**;由
+ // `g31_fif_dyn_probe` 双跑位级 + 三臂等价门承载。
+ //
+-// 纪律:判档面(非生产冻结件);`g37_submit_pipelined_frame_slot_as` 为
+-// `submit_pipelined_frame` 的复制适配体(仅三处插入:host TLAS 写 / as_ops
+-// 录制 / 防御性复核换向)——复制而非改签既有函数是为维持「既有行 0 改写」,
+-// 漂移风险与「正式化时应折叠回单源」已在 REPORT §风险 登记。
++// 纪律:判档面(非生产冻结件);提交半程由 `submit_pipelined_frame` 的
++// `slot_as: Option<&SlotAsGroup>` 末参承载——G39 T3 已将原复制适配体
++// `g37_submit_pipelined_frame_slot_as` 折叠回该单源(fif_dyn REPORT §7-3
++// 登记项兑现:三处插入+防御性复核换向吸收进 Some 路,None 路 0 语义等价;
++// 施工登记 = artifacts/day_0831_g39/t3_fold/REPORT.md)。
+ // ---------------------------------------------------------------------------
+ 
+ /// G37 W3 #90:session AS 表内的**每槽 AS 副本组**声明(判档 opt-in 面)。
+@@ -158,8 +159,8 @@ impl<'a> DeviceFrameSession<'a> {
+     /// 重推 ③ `validate_submission_provenance`),另加 ④ 槽 AS 组纪律
+     /// ([`g37_validate_slot_as_frame`]:动态更新/组内绑定必须落
+     /// `group.base + next_frame_slot()` 表项)。守卫 barrier / per-slot
+-    /// cmd·staging·override-set / 票据·collect 纪律与既有流水面逐字同形
+-    /// (见 [`g37_submit_pipelined_frame_slot_as`])。
++    /// cmd·staging·override-set / 票据·collect 纪律与既有流水面同一函数承载
++    /// (G39 T3 单源折叠;见 `submit_pipelined_frame` doc 的 slot_as 分支节)。
+     ///
+     /// 双 TLAS 更新面(`tlas_update_b`)不开放(顺序入口专属,与既有流水面
+     /// 同拒)。`update.tlas_update`/`blas_refit` 皆 `None` 时本入口 = 既有
+@@ -183,7 +184,7 @@ impl<'a> DeviceFrameSession<'a> {
+         );
+         validate_submission_provenance(&expected, supplied)?;
+         // ④ 槽 AS 组纪律(fail-closed;返回值即本槽表项,防御性复核在
+-        //    g37_submit_pipelined_frame_slot_as 内再核一次)。
++        //    submit_pipelined_frame 的 slot_as 路内再核一次)。
+         g37_validate_slot_as_frame(
+             self.native.fences.len(),
+             self.as_count(),
+@@ -247,16 +248,16 @@ impl<'a> DeviceFrameSession<'a> {
+         };
+         // SAFETY: native session 独占 &mut self;prepared 全部引用本帧栈上数据,
+         // 随调用结束失效;slot fence 纪律同 submit_pipelined_frame 契约(host
+-        // TLAS 写与 as_ops 录制的附加时序论证见 g37_submit_pipelined_frame_slot_as)。
++        // TLAS 写与 as_ops 录制的附加时序论证见其 doc 的 slot_as 分支节)。
+         let mut inner = unsafe {
+-            g37_submit_pipelined_frame_slot_as(
++            submit_pipelined_frame(
+                 &mut self.native,
+                 self.resources,
+                 self.passes,
+                 self.barriers,
+                 self.readbacks,
+                 &prepared,
+-                group,
++                Some(group),
+             )?
+         };
+         inner.record_ns += validate_ns;
+@@ -269,385 +270,6 @@ impl<'a> DeviceFrameSession<'a> {
+     }
+ }
+ 
+-/// G37 W3 #90:FIF 流水帧提交 ×每槽 AS 副本(判档面;
+-/// [`submit_pipelined_frame`] 的复制适配体——slot 占用检查/fence 复用等待/
+-/// per-slot 面懒建/staging/守卫 barrier/重录/submit/票据全部逐字同形,仅三处
+-/// 插入,以「既有行 0 改写」纪律换少量复制,登记于 REPORT §风险):
+-///
+-/// 1. 防御性复核换向:`prepared.tlas`/`prepared.blas` 不再一律拒,改核
+-///    槽表项 == `group.base + slot`(公共入口已核;此处防绕过);
+-/// 2. slot fence 等待 + reset **之后** host `write_transforms`(本槽副本
+-///    instance buffer;上一票据已完成 ⇒ 无在途 device 读——per-slot staging
+-///    重写同一根据);
+-/// 3. `record_frame_body` 携 `as_ops`(同一录制事实源:TLAS BUILD/UPDATE +
+-///    consume barrier 录于 pass 链前、BLAS refit 桥录于 after_pass 后——
+-///    顺序路 execute_with_frame_update 逐字同形),落在帧间守卫 barrier 之后
+-///    (GPU 帧间全序维持,RFC-0030 §4.3 L2 确定性论证字面不动)。
+-///
+-/// # Safety
+-/// U32 契约同 [`submit_persistent_frame`];`prepared` 引用调用方栈上数据,
+-/// 生命周期限于本次调用;`prepared.tlas`/`blas` 目标表项须经
+-/// [`g37_validate_slot_as_frame`] 核验(本函数防御性复核)。
+-unsafe fn g37_submit_pipelined_frame_slot_as(
+-    native: &mut NativePersistentFrame,
+-    resources: &[ResourceDesc<'_>],
+-    passes: &[Pass<'_>],
+-    barriers: &[&[(u32, TargetState)]],
+-    readbacks: &[Readback],
+-    prepared: &PreparedFrameUpdate<'_>,
+-    group: &SlotAsGroup,
+-) -> Result<PersistentFrameTicket, String> {
+-    const WAIT_TIMEOUT_NS: u64 = PERSISTENT_WAIT_TIMEOUT_NS;
+-    let slot = native.next_slot;
+-    // 防御性复核(公共入口已核;防绕过公共校验的调用者——原防御性拒面同位)。
+-    let expect_as = group.base + slot as u32;
+-    if let Some((i, _, _)) = &prepared.tlas
+-        && *i != expect_as
+-    {
+-        return Err(format!(
+-            "slot-AS FIF: tlas 目标 {i} ≠ 本槽副本 {expect_as}(公共入口已拒;防御性复核)"
+-        ));
+-    }
+-    if let Some((i, ..)) = &prepared.blas
+-        && *i != expect_as
+-    {
+-        return Err(format!(
+-            "slot-AS FIF: blas 目标 {i} ≠ 本槽副本 {expect_as}(公共入口已拒;防御性复核)"
+-        ));
+-    }
+-    if prepared.tlas_b.is_some() || prepared.blas_b.is_some() {
+-        return Err("slot-AS FIF: 双 TLAS/双 BLAS 更新面不开放(顺序入口专属;防御性复核)".into());
+-    }
+-    if native.slot_busy[slot] {
+-        return Err(format!(
+-            "frame slot {slot} 票据未 collect(FIF 深度已满:先 collect 最早票据再 submit;\
+-             fail-closed 防 fence reset 悬垂)"
+-        ));
+-    }
+-    native.next_slot = (native.next_slot + 1) % native.fences.len();
+-    let fence = native.fences[slot];
+-    let validation_before = native
+-        .validation_errors
+-        .load(std::sync::atomic::Ordering::Relaxed);
+-
+-    let wait_started = std::time::Instant::now();
+-    // C4 注入臂(默认关):第 n 次有界等待返回值覆写 VK_TIMEOUT 演习 TDR 处置面。
+-    let prior = g31_fault_fence_timeout((native.frame.dev.wait_fences)(
+-        native.device,
+-        1,
+-        &fence,
+-        1,
+-        WAIT_TIMEOUT_NS,
+-    ));
+-    if prior == VK_TIMEOUT {
+-        return Err(format!(
+-            "frame slot {slot} fence reuse bounded-wait 超时({WAIT_TIMEOUT_NS}ns;TDR-suspected)"
+-        ));
+-    }
+-    if prior != VK_SUCCESS {
+-        return Err(queue_result_error("vkWaitForFences(slot reuse)", prior));
+-    }
+-    let reset = (native.frame.dev.reset_fences)(native.device, 1, &fence);
+-    if reset != VK_SUCCESS {
+-        return Err(queue_result_error("vkResetFences", reset));
+-    }
+-
+-    let record_started = std::time::Instant::now();
+-    ensure_pipelined_slot(native, resources, readbacks, slot)?;
+-
+-    // ── G37 #90 插入②:本槽副本 TLAS 实例 transforms host 写(slot fence 已
+-    // 等待 ⇒ 本槽副本 instance buffer 的上一次 device 读〔本槽上一帧 TLAS
+-    // build〕已完成;他槽在飞帧读各自副本,不触本面——host-visible+coherent,
+-    // write_transforms 内做实例数/NaN fail-closed 与 64B 槽位 diff 增量)──
+-    if let Some((as_index, instances, _)) = &prepared.tlas {
+-        let Some(state) = native.as_state.as_mut() else {
+-            return Err("slot-AS FIF: tlas_update 指向无 AS 面的 session(校验漏网)".into());
+-        };
+-        let mgr = &mut state.managers[*as_index as usize];
+-        mgr.write_transforms(&state.fns, native.device, instances)?;
+-    }
+-
+-    // ── G31:binding override → per-slot descriptor set 重写(既有流水面逐字
+-    // 同形;as_handles 含组内全部副本 TLAS,绑定下标已经槽纪律核验)──
+-    let mut slot_set_overrides: Vec<Option<VkDescriptorSet>> = vec![None; passes.len()];
+-    if !prepared.descriptor_overrides.is_empty() {
+-        let as_handles: Vec<u64> = native
+-            .as_state
+-            .as_ref()
+-            .map_or_else(Vec::new, |s| s.managers.iter().map(|m| m.tlas()).collect());
+-        for &pi in prepared.descriptor_overrides {
+-            let set = ensure_pipelined_override_set(native, passes, slot, pi as usize)?;
+-            write_pass_descriptor_set(
+-                &native.frame.dev,
+-                native.device,
+-                set,
+-                &prepared.effective_bindings[pi as usize],
+-                &native.frame.rt,
+-                native.frame.cleanup.sampler,
+-                &as_handles,
+-                pi as usize,
+-            )?;
+-            slot_set_overrides[pi as usize] = Some(set);
+-        }
+-    }
+-
+-    // ── 上传 → 本 slot staging(既有流水面逐字同形)──
+-    let total_upload: u64 = prepared
+-        .uploads
+-        .iter()
+-        .map(|&(_, _, bytes)| bytes.len() as u64)
+-        .sum();
+-    let mut staged_copies: Vec<(u64, u32, u64, u64)> = Vec::with_capacity(prepared.uploads.len());
+-    let mut upload_src: VkBuffer = VK_NULL_HANDLE;
+-    if total_upload > 0 {
+-        let (sbuf, smem) = ensure_upload_staging(native, slot, total_upload)?;
+-        upload_src = sbuf;
+-        let mut ptr: *mut c_void = std::ptr::null_mut();
+-        let map = (native.frame.dev.map_mem)(native.device, smem, 0, total_upload, 0, &mut ptr);
+-        if map != VK_SUCCESS || ptr.is_null() {
+-            return Err(format!(
+-                "slot-AS FIF slot {slot}: 上传 staging vkMapMemory 失败: {map}"
+-            ));
+-        }
+-        let mut staging_offset = 0u64;
+-        for &(res, dst_offset, bytes) in prepared.uploads {
+-            if !matches!(&native.frame.rt[res as usize], RtRes::Buf(_)) {
+-                (native.frame.dev.unmap_mem)(native.device, smem);
+-                return Err(format!("slot-AS FIF: 上传目标资源 {res} 非 buffer(校验漏网)"));
+-            }
+-            std::ptr::copy_nonoverlapping(
+-                bytes.as_ptr(),
+-                ptr.cast::<u8>().add(staging_offset as usize),
+-                bytes.len(),
+-            );
+-            staged_copies.push((staging_offset, res, dst_offset, bytes.len() as u64));
+-            staging_offset += bytes.len() as u64;
+-        }
+-        (native.frame.dev.unmap_mem)(native.device, smem);
+-    }
+-
+-    // ── per-slot cmd 全量重录(守卫 barrier → staged 上传 → 冲刷 →
+-    // record_frame_body〔含 as_ops〕→ 帧尾 staged buffer readback)──
+-    let query_base = (slot * passes.len() * 2) as u32;
+-    let dev = &native.frame.dev;
+-    let Some(slot_state) = native.pipelined_slots[slot].as_ref() else {
+-        return Err(format!("slot-AS FIF slot {slot}: slot 面缺失(建面序漂移)"));
+-    };
+-    let slot_cmd = slot_state.cmd;
+-    if (dev.reset_cmd)(slot_cmd, 0) != VK_SUCCESS {
+-        return Err("slot-AS FIF: vkResetCommandBuffer 失败".into());
+-    }
+-    let cbi = CommandBufferBeginInfo {
+-        s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+-        p_next: std::ptr::null(),
+-        flags: 0,
+-        p_inheritance_info: std::ptr::null(),
+-    };
+-    if (dev.begin_cmd)(slot_cmd, &cbi) != VK_SUCCESS {
+-        return Err("slot-AS FIF: vkBeginCommandBuffer 失败".into());
+-    }
+-    (dev.cmd_reset_query_pool)(
+-        slot_cmd,
+-        native.frame.cleanup.query_pool,
+-        query_base,
+-        (passes.len() as u32) * 2,
+-    );
+-    // 帧间守卫(submit_pipelined_frame 确定性论证字面;GPU 帧间全序 ⇒ 本帧
+-    // AS build 序于上帧全部 ray query 读之后,他槽副本的 GPU 写读亦全序化)。
+-    cmd_global_barrier2(
+-        dev,
+-        slot_cmd,
+-        STAGE2_ALL_COMMANDS,
+-        ACCESS2_MEMORY_WRITE,
+-        STAGE2_ALL_COMMANDS,
+-        ACCESS2_MEMORY_READ | ACCESS2_MEMORY_WRITE,
+-    );
+-    if !staged_copies.is_empty() {
+-        for &(src_offset, res, dst_offset, size) in &staged_copies {
+-            let RtRes::Buf(rb) = &native.frame.rt[res as usize] else {
+-                return Err(format!("slot-AS FIF: 上传目标资源 {res} 非 buffer(上判已拒)"));
+-            };
+-            let region = VkBufferCopy {
+-                src_offset,
+-                dst_offset,
+-                size,
+-            };
+-            (dev.cmd_copy_buf)(slot_cmd, upload_src, rb.buffer, 1, &region);
+-        }
+-        // staged 上传冲刷(既有流水面逐字同形;亦先于 AS build——refit 桥 src
+-        // 若经本帧上传,内容在 build 读取前已冲刷可见)。
+-        cmd_global_barrier2(
+-            dev,
+-            slot_cmd,
+-            STAGE2_TRANSFER,
+-            ACCESS2_TRANSFER_WRITE,
+-            STAGE2_ALL_COMMANDS,
+-            ACCESS2_MEMORY_READ | ACCESS2_MEMORY_WRITE,
+-        );
+-    }
+-    // ── G37 #90 插入③:AS ops(同一录制事实源 record_frame_body;顺序路
+-    // execute_with_frame_update 的 as_ops 归并同形,双 TLAS 臂裁掉)──
+-    let as_ops = match (&prepared.tlas, &prepared.blas) {
+-        (None, None) => None,
+-        (tlas, blas) => {
+-            let as_index = tlas
+-                .map(|(i, _, _)| i)
+-                .or_else(|| blas.map(|b| b.0));
+-            let Some(as_index) = as_index else {
+-                return Err("slot-AS FIF: AS 操作包空(内部不一致)".into());
+-            };
+-            let state = native
+-                .as_state
+-                .as_mut()
+-                .ok_or("slot-AS FIF: AS 操作无 AS 面(校验漏网)")?;
+-            let (tlas_action, blas_refit) = (
+-                tlas.map(|(_, _, a)| a),
+-                blas.map(|b| {
+-                    let (_, blas_index, src_res, src_offset, byte_len, after_pass) = b;
+-                    BlasRefitRecord {
+-                        blas_index,
+-                        src_res,
+-                        src_offset,
+-                        byte_len,
+-                        after_pass,
+-                    }
+-                }),
+-            );
+-            Some(AsFrameOps {
+-                mgr: &mut state.managers[as_index as usize],
+-                fns: &state.fns,
+-                tlas_action,
+-                blas_refit,
+-                tlas_b: None,
+-                // G37 W3 hzb_skin 并行加性面(第二 BLAS refit):本入口不开放。
+-                blas_refit_b: None,
+-            })
+-        }
+-    };
+-    let mut effective_rb: Vec<Option<(VkBuffer, VkDeviceMemory)>> = prepared
+-        .effective_readbacks
+-        .iter()
+-        .zip(prepared.effective_rb_sources.iter())
+-        .map(|(rb, &source)| match rb {
+-            Readback::Texture { .. } => Some(slot_state.rb_staging[source]),
+-            Readback::Buffer { .. } => None,
+-        })
+-        .collect();
+-    // G14.11:release 集 = exportable ∪ imported(创建期录制同式)。
+-    let exportable_indices: Vec<u32> = native
+-        .frame
+-        .exportable_meta
+-        .iter()
+-        .map(|&(r, _, _)| r)
+-        .chain(native.frame.imported_indices.iter().copied())
+-        .collect();
+-    record_frame_body(
+-        &FrameBodyParams {
+-            dev,
+-            device: native.device,
+-            memprops: &native.memprops,
+-            cmd: slot_cmd,
+-            resources,
+-            rt: &native.frame.rt,
+-            passes,
+-            barriers,
+-            effective_bindings: prepared.effective_bindings,
+-            setups: &native.frame.setups,
+-            query_pool: native.frame.cleanup.query_pool,
+-            query_base,
+-            inline_vbs: &native.frame.inline_vbs,
+-            readbacks: prepared.effective_readbacks,
+-            record_upload_segment: false,
+-            exportable: &exportable_indices,
+-            queue_family_index: native.frame.queue_family_index,
+-            slot_set_overrides: Some(&slot_set_overrides),
+-        },
+-        &mut effective_rb,
+-        None,
+-        as_ops,
+-    )?;
+-    // ── 帧尾 staged buffer readback copies(既有流水面逐字同形)──
+-    let has_buffer_rb = prepared
+-        .effective_readbacks
+-        .iter()
+-        .any(|rb| matches!(rb, Readback::Buffer { .. }));
+-    if has_buffer_rb {
+-        cmd_global_barrier2(
+-            dev,
+-            slot_cmd,
+-            STAGE2_ALL_COMMANDS,
+-            ACCESS2_MEMORY_WRITE,
+-            STAGE2_TRANSFER,
+-            ACCESS2_TRANSFER_READ,
+-        );
+-        for (rb, &source) in prepared
+-            .effective_readbacks
+-            .iter()
+-            .zip(prepared.effective_rb_sources.iter())
+-        {
+-            if let Readback::Buffer { res, offset, size } = *rb {
+-                let RtRes::Buf(src) = &native.frame.rt[res as usize] else {
+-                    return Err(format!("slot-AS FIF: readback 资源 {res} 非 buffer(类型漂移)"));
+-                };
+-                let region = VkBufferCopy {
+-                    src_offset: offset,
+-                    dst_offset: 0,
+-                    size,
+-                };
+-                (dev.cmd_copy_buf)(
+-                    slot_cmd,
+-                    src.buffer,
+-                    slot_state.rb_staging[source].0,
+-                    1,
+-                    &region,
+-                );
+-            }
+-        }
+-    }
+-    if (dev.end_cmd)(slot_cmd) != VK_SUCCESS {
+-        return Err("slot-AS FIF: vkEndCommandBuffer 失败".into());
+-    }
+-    let record_ns = elapsed_ns(record_started);
+-
+-    let si = SubmitInfo {
+-        s_type: ST_SUBMIT_INFO,
+-        p_next: std::ptr::null(),
+-        wait_semaphore_count: 0,
+-        p_wait_semaphores: std::ptr::null(),
+-        p_wait_dst_stage_mask: std::ptr::null(),
+-        command_buffer_count: 1,
+-        p_command_buffers: &slot_cmd,
+-        signal_semaphore_count: 0,
+-        p_signal_semaphores: std::ptr::null(),
+-    };
+-    let submit_started = std::time::Instant::now();
+-    let submit = (native.frame.dev.queue_submit)(native.frame.queue, 1, &si, fence);
+-    let cpu_submit_ns = elapsed_ns(submit_started);
+-    if submit != VK_SUCCESS {
+-        return Err(queue_result_error(
+-            "vkQueueSubmit(slot-AS FIF pipelined frame)",
+-            submit,
+-        ));
+-    }
+-    native.slot_busy[slot] = true;
+-
+-    let rb_plan: Vec<(Readback, usize)> = prepared
+-        .effective_readbacks
+-        .iter()
+-        .copied()
+-        .zip(prepared.effective_rb_sources.iter().copied())
+-        .collect();
+-    Ok(PersistentFrameTicket {
+-        slot,
+-        wait_started,
+-        record_ns,
+-        cpu_submit_ns,
+-        validation_before,
+-        rb_plan,
+-        pipelined: true,
+-    })
+-}
+-
+ // ---------------------------------------------------------------------------
+ // 单测(纯 host;g37_validate_slot_as_frame 判据的 cargo test 承载——probe
+ // `--selftest` 消费同一事实源函数,双承载同判据)

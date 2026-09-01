@@ -30,7 +30,11 @@ profiler 对外暴露、Nsight 标注、帧捕获兼容（RenderDoc）」兑现�
 2. pass_decomposition_measured：声明 pass 名序全在 + frames_measured == 真跑帧数
    + scene pass mean > 0 + 全统计有限。
 3. identity_sum_matches_frame：双 bin 恒等式成立——gpu_sum_mean ≤
-   render_wall_mean + 0.10 且 −0.10 ≤ host_residual_mean ≤ 2.00。
+   render_wall_mean + 0.10 且 −0.10 ≤ host_residual_mean ≤ 2.00。G39 T4 多轮
+   中位鲁棒化：on 腿 ×IDENTITY_ROUNDS 轮采样,判据消费逐分量 N 轮中位数
+   （statistics.median;规则与容差字面不变,变的只是输入——单轮值 → 中位数）;
+   逐轮明细如实登记 evidence identity_rounds 可选块（逐轮 identity_ok 可红,
+   中位裁决落 profiles/*/identity_ok）。
 4. debug_labels_recorded：双 profile debug_labels.active == true 且
    annotated_pass_count == 声明 pass 数（本机扩展在位;absent → 降级登记非冒充）。
 5. profiler_zero_render_drift：profiler on/off 双臂同参复跑 digest 位级一致
@@ -50,7 +54,9 @@ g31_profiling_）；FAIL 诊断件落 .tmp/g31_gates/profiling/ 工作区不污�
 
 用法：
   py -3 ci/g31_profiling_smoke.py --selftest
-  py -3 ci/g31_profiling_smoke.py --gate g31.waveC.profiling
+  py -3 ci/g31_profiling_smoke.py --gate g31.waveC.profiling [--rounds N]
+    （--rounds：identity 采样轮数,闭集 [1,9],缺省 IDENTITY_ROUNDS=5;偶数走
+    statistics.median 线性插值,建议奇数）
 """
 from __future__ import annotations
 
@@ -62,6 +68,7 @@ import json
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -92,6 +99,11 @@ G14_FRAMES, G14_WARMUP = 24, 6
 # 恒等式容差（profile JSON identity 字段字面/bin 注释/docs 同一事实源——改动三面同步）。
 IDENTITY_GPU_TOL_MS = 0.10
 IDENTITY_HOST_TOL_MS = 2.00
+
+# G39 T4 identity 多轮中位鲁棒化：on 腿采样轮数（判据消费逐分量 N 轮中位数;
+# 规则/容差字面不动——变的只是输入;--rounds 可覆盖,闭集 [1,9]）。
+IDENTITY_ROUNDS = 5
+IDENTITY_ROUNDS_MIN, IDENTITY_ROUNDS_MAX = 1, 9
 
 SPV_DIR = ROOT / ".tmp" / "g14_gates" / "m_c"
 SPV_FILES = (
@@ -175,6 +187,31 @@ def identity_ok(identity: dict) -> bool:
     if not (finite(gs) and finite(rw) and finite(hr)):
         return False
     return gs <= rw + IDENTITY_GPU_TOL_MS and -IDENTITY_GPU_TOL_MS <= hr <= IDENTITY_HOST_TOL_MS
+
+
+def rounds_valid(n) -> bool:
+    """--rounds 闭集校验：int（bool 拒）且 IDENTITY_ROUNDS_MIN ≤ n ≤ IDENTITY_ROUNDS_MAX。"""
+    return isinstance(n, int) and not isinstance(n, bool) and IDENTITY_ROUNDS_MIN <= n <= IDENTITY_ROUNDS_MAX
+
+
+def median_identity(identities: list[dict]) -> dict:
+    """③ G39 T4 多轮中位鲁棒化：逐分量取 N 轮 identity 的中位数
+    （statistics.median;N 奇数取中值,偶数线性插值），产出合成 identity 供
+    **不变的** identity_ok 规则消费（容差字面 0-byte 不动,变的只是输入）。
+    空轮列/任一轮非 dict/任一判据分量非有限 → {}（fail-closed:identity_ok({}) 必红）。"""
+    if not identities or not all(isinstance(d, dict) for d in identities):
+        return {}
+    out: dict = {}
+    for key in ("gpu_sum_mean_ms", "render_wall_mean_ms", "host_residual_mean_ms"):
+        vals = [d.get(key) for d in identities]
+        if not all(finite(v) for v in vals):
+            return {}
+        out[key] = statistics.median(vals)
+    # cpu_seg_sum 非判据分量:可算则一并出中位（evidence profiles 块登记面）,缺失不翻红。
+    cpu_vals = [d.get("cpu_seg_sum_mean_ms") for d in identities]
+    if all(finite(v) for v in cpu_vals):
+        out["cpu_seg_sum_mean_ms"] = statistics.median(cpu_vals)
+    return out
 
 
 def seg_stats_sane(seg: dict) -> bool:
@@ -361,7 +398,7 @@ def g14_leg(label: str, profile_path: Path | None) -> tuple[subprocess.Completed
     return r, rec, out
 
 
-def run_gate() -> int:
+def run_gate(rounds: int = IDENTITY_ROUNDS) -> int:
     os.environ.setdefault("RURIX_REQUIRE_REAL", "1")
     os.environ.setdefault("RURIX_VK_VALIDATION", "1")
     facts: dict[str, dict] = {
@@ -440,40 +477,52 @@ def run_gate() -> int:
          f"nsight_graphics={tools['nsight_graphics']['state']}({tools['nsight_graphics']['path'] or '—'})")
 
     ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    g31_profile_path = WORK / f"g31_profile_{ts}.json"
-    g14_profile_path = WORK / f"g14_profile_{ts}.json"
+    g31_profile_paths = [WORK / f"g31_profile_{ts}_r{i}.json" for i in range(1, rounds + 1)]
+    g14_profile_paths = [WORK / f"g14_profile_{ts}_r{i}.json" for i in range(1, rounds + 1)]
 
-    # ── 四腿真跑（单锁串行;on/off 双臂同参;数字全来自真实命令输出）──
-    with gpu_device_lock(purpose=f"{TAG} g31 on/off + g14 on/off 四腿"):
+    # ── 腿真跑（单锁串行;off ×1 + on ×rounds 双 bin——G39 T4 identity 多轮中位
+    #    采样,各轮 profile 独立路径 _r<i>;数字全来自真实命令输出）──
+    with gpu_device_lock(purpose=f"{TAG} g31 off+on×{rounds} + g14 off+on×{rounds} 腿"):
         r_g31_off, ev_g31_off, out_g31_off = g31_leg("off", None)
-        r_g31_on, ev_g31_on, out_g31_on = g31_leg("on", g31_profile_path)
+        g31_on_runs = [g31_leg(f"on_r{i}", g31_profile_paths[i - 1]) for i in range(1, rounds + 1)]
         r_g14_off, rec_g14_off, out_g14_off = g14_leg("off", None)
-        r_g14_on, rec_g14_on, out_g14_on = g14_leg("on", g14_profile_path)
+        g14_on_runs = [g14_leg(f"on_r{i}", g14_profile_paths[i - 1]) for i in range(1, rounds + 1)]
 
     io.open(WORK / f"g31_off_{ts}.log", "w", encoding="utf-8", newline="\n").write(out_g31_off)
-    io.open(WORK / f"g31_on_{ts}.log", "w", encoding="utf-8", newline="\n").write(out_g31_on)
     io.open(WORK / f"g14_off_{ts}.log", "w", encoding="utf-8", newline="\n").write(out_g14_off)
-    io.open(WORK / f"g14_on_{ts}.log", "w", encoding="utf-8", newline="\n").write(out_g14_on)
+    for i, (_, _, out_leg) in enumerate(g31_on_runs, start=1):
+        io.open(WORK / f"g31_on_r{i}_{ts}.log", "w", encoding="utf-8", newline="\n").write(out_leg)
+    for i, (_, _, out_leg) in enumerate(g14_on_runs, start=1):
+        io.open(WORK / f"g14_on_r{i}_{ts}.log", "w", encoding="utf-8", newline="\n").write(out_leg)
+
+    # r1 = 首轮工件别名（其余 6 facts 口径不变消费 r1;identity 面消费全轮中位）。
+    ev_g31_on = g31_on_runs[0][1]
+    rec_g14_on = g14_on_runs[0][1]
+    evs_g31_on = [doc for (_, doc, _) in g31_on_runs]
+    recs_g14_on = [doc for (_, doc, _) in g14_on_runs]
 
     legs_ok = True
-    for label, rr, doc in (("g31_off", r_g31_off, ev_g31_off), ("g31_on", r_g31_on, ev_g31_on),
-                           ("g14_off", r_g14_off, rec_g14_off), ("g14_on", r_g14_on, rec_g14_on)):
+    leg_rows = [("g31_off", r_g31_off, ev_g31_off), ("g14_off", r_g14_off, rec_g14_off)]
+    leg_rows += [(f"g31_on_r{i}", rr, doc) for i, (rr, doc, _) in enumerate(g31_on_runs, start=1)]
+    leg_rows += [(f"g14_on_r{i}", rr, doc) for i, (rr, doc, _) in enumerate(g14_on_runs, start=1)]
+    for label, rr, doc in leg_rows:
         if rr.returncode != 0 or not doc:
             fail(f"{label} 真跑失败 rc={rr.returncode}（产出 {'有' if doc else '无'}）")
             legs_ok = False
 
-    prof_g31 = {}
-    prof_g14 = {}
-    if g31_profile_path.is_file():
+    def _load_json(p: Path) -> dict:
+        if not p.is_file():
+            return {}
         try:
-            prof_g31 = json.loads(g31_profile_path.read_text(encoding="utf-8"))
+            return json.loads(p.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
-            prof_g31 = {}
-    if g14_profile_path.is_file():
-        try:
-            prof_g14 = json.loads(g14_profile_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            prof_g14 = {}
+            return {}
+
+    profs_g31 = [_load_json(p) for p in g31_profile_paths]
+    profs_g14 = [_load_json(p) for p in g14_profile_paths]
+    # r1 profile = facts ①②④ 口径不变消费面。
+    prof_g31 = profs_g31[0]
+    prof_g14 = profs_g14[0]
 
     # ── ① profile JSON schema 合规（Draft7 硬校验 + const 互核）──
     import jsonschema
@@ -508,19 +557,25 @@ def run_gate() -> int:
          if not dec_fails else "; ".join(dec_fails[:3])),
     )
 
-    # ── ③ 恒等式 ──
-    id_g31 = (prof_g31.get("identity") or {})
-    id_g14 = (prof_g14.get("identity") or {})
+    # ── ③ 恒等式（G39 T4 多轮中位:逐 bin 取 N 轮分量中位数,套用**不变的**
+    #    identity_ok 规则——容差字面 0-byte 不动,变的只是输入）──
+    ids_g31 = [(p.get("identity") or {}) for p in profs_g31]
+    ids_g14 = [(p.get("identity") or {}) for p in profs_g14]
+    id_g31 = median_identity(ids_g31)
+    id_g14 = median_identity(ids_g14)
     id_ok_g31 = identity_ok(id_g31)
     id_ok_g14 = identity_ok(id_g14)
+    rounds_ok_g31 = [identity_ok(x) for x in ids_g31]
+    rounds_ok_g14 = [identity_ok(x) for x in ids_g14]
     set_fact(
         "identity_sum_matches_frame",
         id_ok_g31 and id_ok_g14,
-        (f"g31: gpu_sum={id_g31.get('gpu_sum_mean_ms')} ≤ wall={id_g31.get('render_wall_mean_ms')}+0.10,"
-         f"residual={id_g31.get('host_residual_mean_ms')}ms ∈ [−0.10,2.00];"
+        (f"N={rounds} 轮中位:g31: gpu_sum={id_g31.get('gpu_sum_mean_ms')} ≤ wall={id_g31.get('render_wall_mean_ms')}+0.10,"
+         f"residual={id_g31.get('host_residual_mean_ms')}ms ∈ [−0.10,2.00]（逐轮 ok={rounds_ok_g31}）;"
          f"g14: gpu_sum={id_g14.get('gpu_sum_mean_ms')} ≤ prod={id_g14.get('render_wall_mean_ms')}+0.10,"
-         f"residual={id_g14.get('host_residual_mean_ms')}ms"
-         if id_g31 and id_g14 else "identity 字段缺失"),
+         f"residual={id_g14.get('host_residual_mean_ms')}ms（逐轮 ok={rounds_ok_g14}）"
+         if id_g31 and id_g14 else
+         f"identity 中位合成失败（轮内字段缺失/非有限;逐轮 ok g31={rounds_ok_g31} g14={rounds_ok_g14}）"),
     )
 
     # ── ④ 标注段存在 ──
@@ -537,18 +592,20 @@ def run_gate() -> int:
          f"g31={prof_g31.get('debug_labels')},g14={prof_g14.get('debug_labels')}（absent → 降级登记）"),
     )
 
-    # ── ⑤ on/off 位级零漂移 ──
-    drift_g31 = drift_ok(ev_g31_off, ev_g31_on, ["digest", "render_digest"])
-    drift_g14 = drift_ok(rec_g14_off, rec_g14_on, ["last_frame_digest"])
+    # ── ⑤ on/off 位级零漂移（G39 T4 加固:off 锚 × on 逐轮全等——on 各轮 digest
+    #    位级恒值蕴含其中;判定只加严不放松）──
+    drift_g31 = all(drift_ok(ev_g31_off, ev_on, ["digest", "render_digest"]) for ev_on in evs_g31_on)
+    drift_g14 = all(drift_ok(rec_g14_off, rec_on, ["last_frame_digest"]) for rec_on in recs_g14_on)
     set_fact(
         "profiler_zero_render_drift",
         drift_g31 and drift_g14,
-        (f"g31 digest+render_digest 双锚位级一致（{str(ev_g31_on.get('digest'))[:23]}…）,"
-         f"g14 last_frame_digest 位级一致（{str(rec_g14_on.get('last_frame_digest'))[:23]}…）"
+        (f"g31 digest+render_digest 双锚 off×on 全 {rounds} 轮位级一致（{str(ev_g31_on.get('digest'))[:23]}…）,"
+         f"g14 last_frame_digest 全 {rounds} 轮位级一致（{str(rec_g14_on.get('last_frame_digest'))[:23]}…）"
          if drift_g31 and drift_g14 else
          f"g31 off={ev_g31_off.get('digest')}/{ev_g31_off.get('render_digest')} "
-         f"on={ev_g31_on.get('digest')}/{ev_g31_on.get('render_digest')};"
-         f"g14 off={rec_g14_off.get('last_frame_digest')} on={rec_g14_on.get('last_frame_digest')}"),
+         f"on 逐轮={[str((e or {}).get('digest'))[:23] for e in evs_g31_on]};"
+         f"g14 off={rec_g14_off.get('last_frame_digest')} "
+         f"on 逐轮={[str((r or {}).get('last_frame_digest'))[:23] for r in recs_g14_on]}"),
     )
 
     # ── ⑥ 捕获兼容（真捕获腿 或 静态核验 + 降级登记）──
@@ -612,6 +669,17 @@ def run_gate() -> int:
                                       capture_output=True, text=True).stdout.strip(),
     }
     sp_g14_on = (rec_g14_on.get("stats_post_warmup") or {}) if rec_g14_on else {}
+
+    def _round_row(x: dict) -> dict:
+        # identity_rounds 逐轮行（缺失/非有限分量以 -1.0 如实占位;逐轮 identity_ok
+        # 消费原始轮值——可红,中位裁决落 profiles/*/identity_ok const true）。
+        return {
+            "gpu_sum_mean_ms": x.get("gpu_sum_mean_ms") if finite(x.get("gpu_sum_mean_ms")) else -1.0,
+            "render_wall_mean_ms": x.get("render_wall_mean_ms") if finite(x.get("render_wall_mean_ms")) else -1.0,
+            "host_residual_mean_ms": x.get("host_residual_mean_ms") if finite(x.get("host_residual_mean_ms")) else -1.0,
+            "identity_ok": identity_ok(x),
+        }
+
     gate_doc = {
         "schema": SCHEMA_ID,
         "subject": SUBJECT,
@@ -654,7 +722,7 @@ def run_gate() -> int:
         },
         "profiles": {
             "g31": {
-                "path": str(g31_profile_path.relative_to(ROOT)),
+                "path": str(g31_profile_paths[0].relative_to(ROOT)),
                 "frames_measured": prof_g31.get("frames_measured") or 0,
                 "gpu_sum_mean_ms": id_g31.get("gpu_sum_mean_ms") or -1.0,
                 "render_wall_mean_ms": id_g31.get("render_wall_mean_ms") or -1.0,
@@ -668,7 +736,7 @@ def run_gate() -> int:
                 "schema_valid": not schema_fails,
             },
             "g14": {
-                "path": str(g14_profile_path.relative_to(ROOT)),
+                "path": str(g14_profile_paths[0].relative_to(ROOT)),
                 "frames_measured": prof_g14.get("frames_measured") or 0,
                 "gpu_sum_mean_ms": id_g14.get("gpu_sum_mean_ms") or -1.0,
                 "render_wall_mean_ms": id_g14.get("render_wall_mean_ms") or -1.0,
@@ -682,11 +750,18 @@ def run_gate() -> int:
                 "schema_valid": not schema_fails,
             },
         },
+        "identity_rounds": {
+            "rounds": rounds,
+            "g31": [_round_row(x) for x in ids_g31],
+            "g14": [_round_row(x) for x in ids_g14],
+        },
         "zero_drift": {
             "g31_digest_identical": bool(drift_g31),
             "g31_render_digest_identical": bool(drift_g31),
             "g14_digest_identical": bool(drift_g14),
-            "method": "profiler on/off 双臂同参复跑 digest 位级对拍（g31 双锚 presented+render;g14 last_frame）",
+            "method": (f"profiler on/off 双臂同参复跑 digest 位级对拍（g31 双锚 presented+render;"
+                       f"g14 last_frame;G39 T4 加固:off 锚 × on 全 {rounds} 轮逐轮全等——"
+                       f"on 各轮 digest 位级恒值蕴含其中,判定只加严）"),
         },
         "annotations": {
             "extension": "VK_EXT_debug_utils",
@@ -723,6 +798,12 @@ def run_gate() -> int:
             "measured ③分解和≈帧墙钟恒等式（容差 0.10/2.00ms）④标注段存在 ⑤profiler on/off 位级零漂移 "
             "⑥捕获兼容核验 ⑦工具探测登记。g14_3 --profile-json 首接面 = tsr_device 静态臂 inflight=1,"
             "vendor 双臂/FIF 流水/dyn/skin 面 CLI fail-closed 拒跑（归后续,不冒充）。"
+            f"G39 T4 identity 多轮中位鲁棒化:on 腿 ×{rounds} 轮采样,判据消费逐分量中位数"
+            "（规则与容差字面 0-byte 不变,变的只是输入;逐轮明细见 identity_rounds 块,"
+            "r1 供其余 6 facts 口径不变消费）。逐轮 on digest 登记:"
+            f"g31={[str((e or {}).get('digest'))[:15] for e in evs_g31_on]},"
+            f"g14={[str((r or {}).get('last_frame_digest'))[:15] for r in recs_g14_on]}"
+            "（fact⑤ 断言 off 锚 × on 逐轮全等——各轮位级恒值加固）。"
             f"facts: {'; '.join(f['id'] + '=' + f['status'] for f in (facts[fid] for fid in FACT_IDS))}"
         ),
     }
@@ -823,6 +904,42 @@ def run_selftest() -> int:
     expect(not identity_ok({}), "RED:identity 空必红")
     bad = dict(ident, gpu_sum_mean_ms=float("nan"))
     expect(not identity_ok(bad), "RED:NaN 必红")
+    # 红绿臂①b：多轮中位鲁棒化（G39 T4;规则/容差不变,输入换 N 轮中位——
+    # 越界轮值取自三轮真红实测形态 −0.288 / +2.25）。
+
+    def _idr(gs, rw, hr):
+        return {"gpu_sum_mean_ms": gs, "render_wall_mean_ms": rw,
+                "host_residual_mean_ms": hr, "cpu_seg_sum_mean_ms": 2.5}
+
+    five_green = [_idr(2.0, 3.0, 0.5), _idr(2.0, 3.0, -0.288), _idr(2.0, 3.0, 0.45),
+                  _idr(2.0, 3.0, 2.25), _idr(2.0, 3.0, 0.62)]
+    med = median_identity(five_green)
+    expect(med.get("host_residual_mean_ms") == 0.5, "median:5 轮 residual 中位=0.5（2 轮越界不掀翻中位）")
+    expect(identity_ok(med), "GREEN:5 轮中 2 轮越界但中位在带 ⇒ 绿（中位鲁棒化语义）")
+    five_red = [_idr(2.0, 3.0, 2.1), _idr(2.0, 3.0, 2.3), _idr(2.0, 3.0, 2.2),
+                _idr(2.0, 3.0, 0.5), _idr(2.0, 3.0, 0.4)]
+    expect(not identity_ok(median_identity(five_red)), "RED:residual 中位 2.1 越上界 2.00 必红")
+    five_red_gs = [_idr(3.15, 3.0, 0.5), _idr(3.2, 3.0, 0.5), _idr(3.3, 3.0, 0.5),
+                   _idr(2.0, 3.0, 0.5), _idr(2.0, 3.0, 0.5)]
+    expect(not identity_ok(median_identity(five_red_gs)), "RED:gpu_sum 中位 3.15 超墙钟+0.10 必红")
+    five_red_low = [_idr(2.0, 3.0, -0.2), _idr(2.0, 3.0, -0.3), _idr(2.0, 3.0, -0.25),
+                    _idr(2.0, 3.0, 0.5), _idr(2.0, 3.0, 0.4)]
+    expect(not identity_ok(median_identity(five_red_low)), "RED:residual 中位 −0.2 低于 −0.10 必红")
+    expect(identity_ok(median_identity([_idr(2.0, 3.0, 0.5)])), "GREEN:N=1 中位退化 = 单轮语义")
+    expect(median_identity([]) == {}, "RED:空轮列 fail-closed 空 identity")
+    expect(median_identity([_idr(2.0, 3.0, 0.5), {"gpu_sum_mean_ms": 2.0}]) == {},
+           "RED:轮内判据分量缺失 fail-closed")
+    expect(median_identity([_idr(2.0, 3.0, 0.5), _idr(2.0, 3.0, float("nan"))]) == {},
+           "RED:轮内 NaN fail-closed")
+    m4 = median_identity([_idr(2.0, 3.0, 0.4), _idr(2.0, 3.0, 0.5),
+                          _idr(2.0, 3.0, 0.6), _idr(2.0, 3.0, 2.5)])
+    expect(abs(m4.get("host_residual_mean_ms", -9.0) - 0.55) < 1e-12, "median:偶数 N=4 线性插值 0.55")
+    # 闭集：--rounds ∈ [1,9]。
+    expect(rounds_valid(1) and rounds_valid(5) and rounds_valid(9), "GREEN:rounds 1/5/9 在闭集")
+    expect(not rounds_valid(0) and not rounds_valid(10) and not rounds_valid(-3),
+           "RED:rounds 0/10/−3 越闭集必拒")
+    expect(not rounds_valid(True) and not rounds_valid(5.0), "RED:rounds 非 int（bool/float）必拒")
+    expect(IDENTITY_ROUNDS == 5 and rounds_valid(IDENTITY_ROUNDS), "IDENTITY_ROUNDS 缺省 5 在闭集")
     # 红绿臂②：分解 measured 判。
     good = _fixture_profile()
     expect(check_profile_decomposition(good, "g31_window_present", 24, G31_PASSES) == [],
@@ -915,6 +1032,22 @@ def run_selftest() -> int:
         expect(surf["properties"]["cli"]["const"] == "--profile-json <path>", "cli const 互核")
         expect(len(surf["properties"]["g31_passes"]["items"]["enum"]) == 5, "g31 五段闭集互核")
         expect(len(surf["properties"]["g14_passes"]["items"]["enum"]) == 4, "g14 四段闭集互核")
+        # G39 T4 identity_rounds 纯追加可选块互核（required 15 闭集不变;
+        # 逐轮 identity_ok = boolean 可红,中位裁决落 profiles/*/identity_ok const true）。
+        expect("identity_rounds" not in gs.get("required", []), "identity_rounds 非 required（纯追加可选）")
+        ir = gs["properties"].get("identity_rounds") or {}
+        expect(bool(ir), "identity_rounds 可选块在 schema（_patch 已落地）")
+        if ir:
+            expect(ir["properties"]["rounds"]["minimum"] == IDENTITY_ROUNDS_MIN
+                   and ir["properties"]["rounds"]["maximum"] == IDENTITY_ROUNDS_MAX,
+                   "identity_rounds.rounds 闭集 [1,9] 互核")
+            for leg_key in ("g31", "g14"):
+                row = ir["properties"][leg_key]["items"]
+                expect(sorted(row["required"]) == sorted(
+                    ["gpu_sum_mean_ms", "render_wall_mean_ms", "host_residual_mean_ms", "identity_ok"]),
+                    f"identity_rounds.{leg_key} 逐轮行 required 四键互核")
+                expect(row["properties"]["identity_ok"] == {"type": "boolean"},
+                       f"identity_rounds.{leg_key} 逐轮 identity_ok boolean（可红;中位裁决落 profiles）")
     if PROFILE_SCHEMA_PATH.is_file():
         ps = json.loads(PROFILE_SCHEMA_PATH.read_text(encoding="utf-8"))
         expect(ps["properties"]["schema"]["const"] == PROFILE_SCHEMA_ID, "profile schema const 互核")
@@ -926,7 +1059,7 @@ def run_selftest() -> int:
     if failures:
         print(f"[{TAG}] selftest FAIL ({failures})", file=sys.stderr)
         return 1
-    print(f"[{TAG}] selftest PASS（facts=7；6 红臂组 + 正例组 + 双 schema 互核）")
+    print(f"[{TAG}] selftest PASS（facts=7；6 红臂组 + 正例组 + 中位鲁棒化臂 + 双 schema 互核）")
     return 0
 
 
@@ -934,6 +1067,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--gate", default="")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--rounds", type=int, default=IDENTITY_ROUNDS,
+                    help=(f"identity 采样轮数（on 腿 ×N 多轮中位;闭集 "
+                          f"[{IDENTITY_ROUNDS_MIN},{IDENTITY_ROUNDS_MAX}];缺省 {IDENTITY_ROUNDS};建议奇数）"))
     args = ap.parse_args()
     if args.selftest:
         return run_selftest()
@@ -941,7 +1077,11 @@ def main() -> int:
         if args.gate != GATE_KEY:
             print(f"[{TAG}] FAIL: 未知门键 {args.gate}（闭集 {GATE_KEY}）", file=sys.stderr)
             return 1
-        return run_gate()
+        if not rounds_valid(args.rounds):
+            print(f"[{TAG}] FAIL: --rounds {args.rounds} 越闭集 "
+                  f"[{IDENTITY_ROUNDS_MIN},{IDENTITY_ROUNDS_MAX}]", file=sys.stderr)
+            return 1
+        return run_gate(args.rounds)
     ap.print_help()
     return 1
 

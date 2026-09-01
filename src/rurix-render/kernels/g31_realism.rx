@@ -17,6 +17,9 @@
 //   [67] 臂⑥ --gi2-tex 门;[68] 臂⑦ --transparency 门(G37 W2);
 //   [69] 臂⑧ --gi2-ris 门 [70] ris_m 候选数 [71] --gi2-nee 门(G37 W2
 //   ris_nee,第 8 链位;原 [69..72) 预留槽全数启用,REAL_PARAMS_LEN=72 不变)
+//   [72..76) 臂⑨ --lamp-restir 门/m_cap/has_history/预留(G39 T1
+//   lamp_restir,第 9 链位;纯追加扩面 RESTIR_PARAMS_LEN=76——restir on 才
+//   扩,off 恒 72/56 既有面 0-byte)
 // ## 侧表扩面:tri_base 3 f32/tri 未衰减 baseColor(--metal-f0 off 绑 12B
 // 零哑表,门 off 地址钳 0 保底读——texmeta slot 钳 0 同律)。
 // ## G37 W2 transparency 臂⑦侧表:tri_transp 1 f32/tri(0 = 不透明,(0,1] =
@@ -34,6 +37,13 @@
 // nee off 而 ris on 时绑 80B 零哑表(header Q=0 + 首记录触达域 [4..20) 保底
 // 读——texmeta slot 钳 0 同律);ris|nee on 而 transp off 时 tri_transp 绑
 // tri_count×0.0 零表(阴影重走段 tri_transp[prim] 无门保底读,trinm 回退律)。
+// ## G39 T1 lamp_restir 臂⑨跨帧面:prev_vp 16 f32(上帧 VP 行主序——
+// pack_mv_params prev_vp 同布局,host 逐帧 buffer_uploads;reset 帧 = 当前
+// vp 且 [74]=0 门跳过)+ reservoir 双缓冲 4 f32/px = [y, w_sum, m, phat_y]
+// (y = f32 灯下标,-1.0 哨兵空;host parity 轮换 binding_overrides,TSR 五对
+// 同律;初值不清——首帧由 [74]=0 门零读,era 重建重置)。签名尾追 lamp_tbl
+// 之后成第 9 链位,仅编译 g31_realism_restir.spv〔22 路 View,--lamp-restir
+// on 独载〕;restir on 而下位臂 off 时下位链全占位(lamp_tbl 80B 哑表律)。
 //
 // ── 以下为 fork 基线头注(day_0828 谱系,逐字保留)──
 // Phase B 统一质量 kernel —— kernels/g18_smooth_nrm.rx 逐字 fork（平滑顶点
@@ -126,6 +136,12 @@ kernel fn g31_texture_nrm_gi(
     tri_transp: View<global, f32>,
     // G37 W2 ris_nee:灯片表 + 功率 CDF(第 8 链位签名扩展;头注布局)。
     lamp_tbl: View<global, f32>,
+    // G39 T1 lamp_restir:上帧 VP 16 f32(第 9 链位签名扩展;头注布局)。
+    prev_vp: View<global, f32>,
+    // G39 T1 lamp_restir:上帧 reservoir(4 f32/px;读面,parity 轮换)。
+    resv_prev: View<global, f32>,
+    // G39 T1 lamp_restir:本帧 reservoir 写回(4 f32/px;parity 轮换)。
+    resv_cur: ViewMut<global, f32>,
     out_color: ViewMut<global, f32>,
     out_depth: ViewMut<global, f32>,
 ) {
@@ -710,8 +726,14 @@ kernel fn g31_texture_nrm_gi(
             qi = qi + 1;
         }
         // ── point 灯 delta（A1 半径阴影截断 + 贡献剔除门；g18_smooth_nrm 逐字）──
+        // G39 T1 lamp_restir:臂⑨门(params[72])——gate on ⇒ 点灯逐盏循环整体
+        // 让位(lrs_ptn 零迭代;臂⑧ gi_neen ×(1−ris_gate) 同一先例形),替换块
+        // 在循环之后;gate off ⇒ lrs_ptn = point_count 旧路(off 面不载本 SPV,
+        // 不依赖 gate=0 恒等——字节隔离律)。
+        let lrs_gate = ((params[72] - 0.5) * big).min(1.0).max(0.0);
+        let lrs_ptn = ((1.0 - lrs_gate) * (point_count as f32)) as usize;
         let mut pi_ = 0usize;
-        while pi_ < point_count {
+        while pi_ < lrs_ptn {
             let pb = pi_ * 8;
             let lv_x = points[pb] - hx;
             let lv_y = points[pb + 1] - hy;
@@ -902,6 +924,273 @@ kernel fn g31_texture_nrm_gi(
                 spec_b = spec_b + li_b * g * keep * dgf * (f0_b + (1.0 - f0_b) * sch5);
             }
             pi_ = pi_ + 1;
+        }
+        // ── G39 T1 臂⑨ --lamp-restir:点灯直接光高档时域 reservoir 换选
+        //    (params[72] 门/[73] m_cap/[74] has_history;--lamp-restir/
+        //    --lamp-restir-mcap)──
+        // 语义:gate on 时以「M=8 候选 WRS + prev_vp 重投影时域 merge + 选中灯
+        // 1 条阴影验证射线」替换上方点灯全循环贡献(diffuse+GGX 双通道,光度式
+        // 与循环逐字同形);M=8 无历史时 lamp 数≤8 的退化域仍无偏(W 权封闭)。
+        // WRS:候选下标 = R2/R3 闭式随机(params[52] 帧序 + 像素坐标驱动,零
+        // 跨帧 RNG 状态;黄金比共轭独立相位 4×/5×/6×0.3819660112501051——臂⑧
+        // 1×..3× 已用不撞,候选序号 ×0.6180339887498949 步进 soft/rn 同形);
+        // w = phat·point_count(host estimate_ris w = phat·L 同式);消费门 =
+        // 既有算术门形((w/w_sum − u)·big 乘法-free 比较,L1456-1462 臂⑧/g28
+        // 冻结链同源,禁移项禁新比较式);phat = max3(li)·cos_s/d2s·gate_d·
+        // gate_cs·gate_lc(既有点灯 keep_pre 同源无阴影贡献标量,A1 max3 口径,
+        // 含 params[49] 贡献剔除门)。
+        // 时域:命中世界位 h{x,y,z} 经 prev_vp 重投影上帧像素(g14_mv.rx 机械
+        // 同式:行 0/1/3 左结合 + pcw>1e-8 门 + prev_u/v 折算 + floor);界内
+        // 且槽有效(y ∈ [0,point_count) 且 m>0)⇒ 读上帧 reservoir(y, w_sum,
+        // m, phat_y),当前着色点重算 phat(y) 后 merge:w_other = phat_new·
+        // W_prev·min(m_prev, m_cap),m += min(m_prev, m_cap)(host merge m_cap
+        // 截断同义——restir_reservoir.rs merge 形;跨像素重算 phat = 标准
+        // ReSTIR DI 时域形,host 金标准无偏证明覆盖同点 merge,跨点近似面如实
+        // 登记,m_cap 有界)。首帧/reset:[74]=0 ⇒ merge 计数门零迭代零读
+        // (reservoir 初值不清安全——gate on 时本 SPV 每帧全像素恒写回,miss
+        // 像素写 -1 哨兵空池,任意重投影目标读安全)。
+        // 验证射线:选中灯 1 条(if 包 ray query 白名单形,灯循环同构;A1 灯罩
+        // 豁免 t = d − max(2·ray_eps, lr) 同律)。已知税(如实登记):restir on
+        // ⇒ 点灯软阴影(params[60] 圆盘采样)与玻璃透明衰减重走段(params[68])
+        // 不进本臂验证射线——单射线换选形态,臂⑧ NEE 射线「玻璃不透明」同律。
+        // 无偏权:W = w_sum/(m·phat_y),g28 三算术门形(y 空/phat_y≤0/m=0 ⇒ 0,
+        // 安全分母);贡献 = f(y)·vis·W 入 dir_*/spec_*。f32 w_sum 精度域 =
+        // 单像素 m ≤ 8+m_cap 滚动窗,g28 device 腿同口径如实登记。
+        let lrs_pcf = point_count as f32;
+        let lrs_gpc = (lrs_pcf * big).min(1.0).max(0.0);
+        let mut lrs_y = 0.0 - 1.0;
+        let mut lrs_phy = 0.0;
+        let mut lrs_wsum = 0.0;
+        let mut lrs_m = 0.0;
+        let lrs_n = (lrs_gate * hit_f * lrs_gpc) as usize;
+        let mut lrs_i = 0usize;
+        while lrs_i < lrs_n {
+            // ── M=8 候选 WRS(字面常量;候选/判定双随机维)──
+            let mut lrs_j = 0usize;
+            while lrs_j < 8usize {
+                let lrs_f = params[52] + (lrs_j as f32) * 0.6180339887498949;
+                let lrs_t0 = (px as f32) * 0.8191725133961645
+                    + (py as f32) * 0.6710436067037893
+                    + (lrs_f + 1.5278640450004205) * 0.5497004779019703;
+                let lrs_uc = lrs_t0 - lrs_t0.floor();
+                let lrs_t1 = (px as f32) * 0.7548776662466927
+                    + (py as f32) * 0.5698402909980532
+                    + (lrs_f + 1.9098302562505255) * 0.7548776662466927;
+                let lrs_uwr = lrs_t1 - lrs_t1.floor();
+                let lrs_cand = ((lrs_uc * lrs_pcf).min(lrs_pcf - 1.0).max(0.0)) as usize;
+                // phat(cand) = 既有点灯评估同源无阴影标量(intensity·ndotl/
+                // dist² 形 × keep_pre 门族)。
+                let lrs_pb = lrs_cand * 8;
+                let lrs_lvx = points[lrs_pb] - hx;
+                let lrs_lvy = points[lrs_pb + 1] - hy;
+                let lrs_lvz = points[lrs_pb + 2] - hz;
+                let lrs_lir = points[lrs_pb + 3];
+                let lrs_lig = points[lrs_pb + 4];
+                let lrs_lib = points[lrs_pb + 5];
+                let lrs_d2 = lrs_lvx * lrs_lvx + lrs_lvy * lrs_lvy + lrs_lvz * lrs_lvz;
+                let lrs_gd = ((lrs_d2 - eps2) * big).min(1.0).max(0.0);
+                let lrs_d2s = lrs_d2.max(tiny * tiny);
+                let lrs_d = lrs_d2s.sqrt();
+                let lrs_cwx = lrs_lvx / lrs_d;
+                let lrs_cwy = lrs_lvy / lrs_d;
+                let lrs_cwz = lrs_lvz / lrs_d;
+                let lrs_cs = (nx * lrs_cwx + ny * lrs_cwy + nz * lrs_cwz).max(0.0);
+                let lrs_gcs = (lrs_cs * big).min(1.0).max(0.0);
+                let lrs_ctb = lrs_lir.max(lrs_lig).max(lrs_lib) / lrs_d2s;
+                let lrs_glc = ((lrs_ctb - params[49]) * big + 1.0).min(1.0).max(0.0);
+                let lrs_ph = lrs_lir.max(lrs_lig).max(lrs_lib) * (lrs_cs / lrs_d2s)
+                    * (lrs_gd * lrs_gcs * lrs_glc);
+                // update(host w = phat·L 同式;除法比较形 g28 同源禁移项)。
+                let lrs_w = lrs_ph * lrs_pcf;
+                lrs_wsum = lrs_wsum + lrs_w;
+                lrs_m = lrs_m + 1.0;
+                let lrs_wsg = (lrs_wsum * big).min(1.0).max(0.0);
+                let lrs_wss = lrs_wsum + (1.0 - lrs_wsg);
+                let lrs_take = ((lrs_w / lrs_wss - lrs_uwr) * big).min(1.0).max(0.0);
+                let lrs_keep = 1.0 - lrs_take;
+                lrs_y = lrs_take * (lrs_cand as f32) + lrs_keep * lrs_y;
+                lrs_phy = lrs_take * lrs_ph + lrs_keep * lrs_phy;
+                lrs_j = lrs_j + 1;
+            }
+            // ── prev_vp 重投影(g14_mv 机械同式)+ 时域 merge(计数门 =
+            //    has_history × pcw 门 × 界内——零迭代即零读)──
+            let lrs_hg = ((params[74] - 0.5) * big).min(1.0).max(0.0);
+            let lrs_pcx = ((prev_vp[0] * hx + prev_vp[1] * hy) + prev_vp[2] * hz) + prev_vp[3];
+            let lrs_pcy = ((prev_vp[4] * hx + prev_vp[5] * hy) + prev_vp[6] * hz) + prev_vp[7];
+            let lrs_pcw = ((prev_vp[12] * hx + prev_vp[13] * hy) + prev_vp[14] * hz) + prev_vp[15];
+            let lrs_gw = ((lrs_pcw - 0.00000001) * big).min(1.0).max(0.0);
+            let lrs_pws = lrs_pcw + (1.0 - lrs_gw);
+            let lrs_pu = 0.5 * (lrs_pcx / lrs_pws + 1.0);
+            let lrs_pv = 0.5 * (1.0 - lrs_pcy / lrs_pws);
+            let lrs_pxf = (lrs_pu * (width as f32)).floor();
+            let lrs_pyf = (lrs_pv * (height as f32)).floor();
+            let lrs_inx = (((lrs_pxf + 1.0) * big).min(1.0).max(0.0))
+                * ((((width as f32) - 1.0 - lrs_pxf) * big + 1.0).min(1.0).max(0.0));
+            let lrs_iny = (((lrs_pyf + 1.0) * big).min(1.0).max(0.0))
+                * ((((height as f32) - 1.0 - lrs_pyf) * big + 1.0).min(1.0).max(0.0));
+            let lrs_mn = (lrs_hg * lrs_gw * lrs_inx * lrs_iny) as usize;
+            // 界内钳位读地址(恒有效;消费经 lrs_mn 计数门)。
+            let lrs_ppx = lrs_pxf.max(0.0).min((width as f32) - 1.0) as usize;
+            let lrs_ppy = lrs_pyf.max(0.0).min((height as f32) - 1.0) as usize;
+            let mut lrs_mi = 0usize;
+            while lrs_mi < lrs_mn {
+                let lrs_pr = (lrs_ppy * width + lrs_ppx) * 4;
+                let lrs_ry = resv_prev[lrs_pr];
+                let lrs_rw = resv_prev[lrs_pr + 1];
+                let lrs_rm = resv_prev[lrs_pr + 2];
+                let lrs_rp = resv_prev[lrs_pr + 3];
+                // 槽有效门:y ≥ 0((y+1)·big,g28 同源)× y < point_count ×
+                // m > 0;phat_y > 0 单独入 W_prev 门(host merge w_other=0
+                // 分支同义,m 照加)。
+                let lrs_gy = ((lrs_ry + 1.0) * big).min(1.0).max(0.0);
+                let lrs_gylt = ((lrs_pcf - lrs_ry) * big).min(1.0).max(0.0);
+                let lrs_gm = (lrs_rm * big).min(1.0).max(0.0);
+                let lrs_gph = (lrs_rp * big).min(1.0).max(0.0);
+                let lrs_ok = lrs_gy * lrs_gylt * lrs_gm;
+                // m_cap 截断(host merge m_other = min(m, m_cap) 同义)。
+                let lrs_mcl = lrs_rm.min(params[73].max(1.0)) * lrs_ok;
+                // 当前着色点重算 phat(y)(候选同式;地址钳 0 保底读,消费经门)。
+                let lrs_yb = ((lrs_ry.max(0.0)) as usize) * 8;
+                let lrs_ylvx = points[lrs_yb] - hx;
+                let lrs_ylvy = points[lrs_yb + 1] - hy;
+                let lrs_ylvz = points[lrs_yb + 2] - hz;
+                let lrs_ylir = points[lrs_yb + 3];
+                let lrs_ylig = points[lrs_yb + 4];
+                let lrs_ylib = points[lrs_yb + 5];
+                let lrs_yd2 = lrs_ylvx * lrs_ylvx + lrs_ylvy * lrs_ylvy + lrs_ylvz * lrs_ylvz;
+                let lrs_ygd = ((lrs_yd2 - eps2) * big).min(1.0).max(0.0);
+                let lrs_yd2s = lrs_yd2.max(tiny * tiny);
+                let lrs_yd = lrs_yd2s.sqrt();
+                let lrs_ycs = (nx * (lrs_ylvx / lrs_yd) + ny * (lrs_ylvy / lrs_yd)
+                    + nz * (lrs_ylvz / lrs_yd))
+                    .max(0.0);
+                let lrs_ygcs = (lrs_ycs * big).min(1.0).max(0.0);
+                let lrs_yctb = lrs_ylir.max(lrs_ylig).max(lrs_ylib) / lrs_yd2s;
+                let lrs_yglc = ((lrs_yctb - params[49]) * big + 1.0).min(1.0).max(0.0);
+                let lrs_phn = lrs_ylir.max(lrs_ylig).max(lrs_ylib) * (lrs_ycs / lrs_yd2s)
+                    * (lrs_ygd * lrs_ygcs * lrs_yglc);
+                // w_other = phat_new·W_prev·m_cl(W_prev = w_sum/(phat_y·m),
+                // 安全分母 g28 形;phat_y≤0/m=0 ⇒ w_other=0——host merge 同义)。
+                let lrs_dn = lrs_rp * lrs_rm;
+                let lrs_dns = lrs_dn + (1.0 - lrs_gph * lrs_gm);
+                let lrs_wo = lrs_ok * lrs_gph * lrs_phn * (lrs_rw / lrs_dns) * lrs_mcl;
+                lrs_wsum = lrs_wsum + lrs_wo;
+                lrs_m = lrs_m + lrs_mcl;
+                // merge WRS 判定(独立 R3 维,6×共轭相位;比较形同源)。
+                let lrs_t2 = (px as f32) * 0.8191725133961645
+                    + (py as f32) * 0.6710436067037893
+                    + (params[52] + 2.2917963075006306) * 0.5497004779019703;
+                let lrs_um = lrs_t2 - lrs_t2.floor();
+                let lrs_wsg2 = (lrs_wsum * big).min(1.0).max(0.0);
+                let lrs_wss2 = lrs_wsum + (1.0 - lrs_wsg2);
+                let lrs_tk2 = ((lrs_wo / lrs_wss2 - lrs_um) * big).min(1.0).max(0.0);
+                let lrs_kp2 = 1.0 - lrs_tk2;
+                lrs_y = lrs_tk2 * lrs_ry + lrs_kp2 * lrs_y;
+                lrs_phy = lrs_tk2 * lrs_phn + lrs_kp2 * lrs_phy;
+                lrs_mi = lrs_mi + 1;
+            }
+            // ── 无偏权 W(g28 三算术门形)+ 选中灯重取光度 + 1 条验证射线 ──
+            let lrs_gne = ((lrs_y + 1.0) * big).min(1.0).max(0.0);
+            let lrs_gp2 = (lrs_phy * big).min(1.0).max(0.0);
+            let lrs_gm2 = (lrs_m * big).min(1.0).max(0.0);
+            let lrs_gall = lrs_gne * lrs_gp2 * lrs_gm2;
+            let lrs_den = lrs_phy * lrs_m;
+            let lrs_dens = lrs_den + (1.0 - lrs_gall);
+            let lrs_wgt = (lrs_wsum / lrs_dens) * lrs_gall;
+            // 选中灯几何/光度重取(点灯循环逐字同形;地址钳 0 保底读)。
+            let lrs_sb = ((lrs_y.max(0.0)) as usize) * 8;
+            let lrs_slvx = points[lrs_sb] - hx;
+            let lrs_slvy = points[lrs_sb + 1] - hy;
+            let lrs_slvz = points[lrs_sb + 2] - hz;
+            let lrs_slir = points[lrs_sb + 3];
+            let lrs_slig = points[lrs_sb + 4];
+            let lrs_slib = points[lrs_sb + 5];
+            let lrs_sd2 = lrs_slvx * lrs_slvx + lrs_slvy * lrs_slvy + lrs_slvz * lrs_slvz;
+            let lrs_sgd = ((lrs_sd2 - eps2) * big).min(1.0).max(0.0);
+            let lrs_sd2s = lrs_sd2.max(tiny * tiny);
+            let lrs_sd = lrs_sd2s.sqrt();
+            let lrs_swx = lrs_slvx / lrs_sd;
+            let lrs_swy = lrs_slvy / lrs_sd;
+            let lrs_swz = lrs_slvz / lrs_sd;
+            let lrs_scs = (nx * lrs_swx + ny * lrs_swy + nz * lrs_swz).max(0.0);
+            let lrs_sgcs = (lrs_scs * big).min(1.0).max(0.0);
+            let lrs_slr = points[lrs_sb + 6];
+            let lrs_stsh = lrs_sd - (2.0 * ray_eps).max(lrs_slr);
+            let lrs_sgfar = (lrs_stsh * big).min(1.0).max(0.0);
+            let lrs_stf = lrs_stsh.max(ray_eps);
+            let lrs_sctb = lrs_slir.max(lrs_slig).max(lrs_slib) / lrs_sd2s;
+            let lrs_sglc = ((lrs_sctb - params[49]) * big + 1.0).min(1.0).max(0.0);
+            let lrs_kpre = lrs_sgd * lrs_sgcs * lrs_sglc;
+            // 1 条阴影验证射线(if 包 ray query 白名单形,灯循环同构;W=0/几何
+            // 门=0 面零射线零贡献)。
+            let lrs_fire = lrs_kpre * lrs_gall;
+            let mut lrs_blk = 0.0;
+            if lrs_fire > 0.0 {
+                let mut lrs_sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (hx + lrs_swx * ray_eps, hy + lrs_swy * ray_eps, hz + lrs_swz * ray_eps),
+                    0.0,
+                    (lrs_swx, lrs_swy, lrs_swz),
+                    lrs_stf,
+                );
+                while lrs_sq.proceed() {
+                }
+                if lrs_sq.has_committed() {
+                    lrs_blk = 1.0;
+                } else {
+                    lrs_blk = 0.0;
+                }
+            }
+            let lrs_vis = 1.0 - lrs_sgfar * lrs_blk;
+            // 贡献 = f(y)·vis·W(diffuse 与循环 li·g·keep 同式,keep →
+            // kpre·vis·W)。
+            let lrs_geo = lrs_scs / lrs_sd2s;
+            let lrs_kw = lrs_kpre * lrs_vis * lrs_wgt;
+            dir_r = dir_r + lrs_slir * lrs_geo * lrs_kw;
+            dir_g = dir_g + lrs_slig * lrs_geo * lrs_kw;
+            dir_b = dir_b + lrs_slib * lrs_geo * lrs_kw;
+            // GGX 高光项(point delta 臂逐字同形;keep → kpre·vis·W)。
+            if params[48] > 0.5 {
+                let lrs_hvx = lrs_swx - dx;
+                let lrs_hvy = lrs_swy - dy;
+                let lrs_hvz = lrs_swz - dz;
+                let lrs_hl = (lrs_hvx * lrs_hvx + lrs_hvy * lrs_hvy + lrs_hvz * lrs_hvz).sqrt();
+                let lrs_ghl = (lrs_hl * big).min(1.0).max(0.0);
+                let lrs_hls = lrs_hl + (1.0 - lrs_ghl);
+                let lrs_ihl = 1.0 / lrs_hls;
+                let lrs_hnx = lrs_ghl * (lrs_hvx * lrs_ihl);
+                let lrs_hny = lrs_ghl * (lrs_hvy * lrs_ihl);
+                let lrs_hnz = lrs_ghl * (lrs_hvz * lrs_ihl);
+                let lrs_ch = (nx * lrs_hnx + ny * lrs_hny + nz * lrs_hnz).max(0.0);
+                let lrs_dd = lrs_ch * lrs_ch * (alpha2 - 1.0) + 1.0;
+                let lrs_dggx = alpha2 * inv_pi / (lrs_dd * lrs_dd).max(tiny);
+                let lrs_kg = alpha * 0.5;
+                let lrs_g1s = lrs_scs / (lrs_scs * (1.0 - lrs_kg) + lrs_kg);
+                let lrs_g1v = cos_v / (cos_v * (1.0 - lrs_kg) + lrs_kg);
+                let lrs_gsm = lrs_g1s * lrs_g1v;
+                let lrs_cwh = (0.0 - (dx * lrs_hnx + dy * lrs_hny + dz * lrs_hnz)).max(0.0);
+                let lrs_om = 1.0 - lrs_cwh;
+                let lrs_om2 = lrs_om * lrs_om;
+                let lrs_sch5 = lrs_om2 * lrs_om2 * lrs_om;
+                let lrs_dnm = 4.0 * lrs_scs * cos_v + 0.001;
+                let lrs_dgf = lrs_dggx * lrs_gsm / lrs_dnm;
+                spec_r = spec_r + lrs_slir * lrs_geo * lrs_kw * lrs_dgf * (f0_r + (1.0 - f0_r) * lrs_sch5);
+                spec_g = spec_g + lrs_slig * lrs_geo * lrs_kw * lrs_dgf * (f0_g + (1.0 - f0_g) * lrs_sch5);
+                spec_b = spec_b + lrs_slib * lrs_geo * lrs_kw * lrs_dgf * (f0_b + (1.0 - f0_b) * lrs_sch5);
+            }
+            lrs_i = lrs_i + 1;
+        }
+        // 写回本帧 reservoir(gate on 全像素恒写——miss/空池像素写 -1 哨兵,
+        // 下一帧任意重投影目标读安全;gate off 计数门零写,未来超集工件 off 面
+        // 占位 buffer 零触达)。
+        let lrs_wn = lrs_gate as usize;
+        let mut lrs_k = 0usize;
+        while lrs_k < lrs_wn {
+            resv_cur[i * 4] = lrs_y;
+            resv_cur[i * 4 + 1] = lrs_wsum;
+            resv_cur[i * 4 + 2] = lrs_m;
+            resv_cur[i * 4 + 3] = lrs_phy;
+            lrs_k = lrs_k + 1;
         }
         // ── Phase C GI2 加性臂：1 反弹间接光（params[51] 门；day_0828 C 相）──
         // 采样 = R2/Weyl 低差异序列（gi_rng_study 仿真形态：plastic 常数
