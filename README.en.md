@@ -12,6 +12,8 @@ CUDA-first, Windows-native, single-stack NVIDIA done deep: three backends emit P
 
 ---
 
+**Contents**: [What it solves](#what-it-solves) · [Project status](#project-status) · [Workspace](#workspace) · [Getting started](#getting-started) · [Governance & quality gates](#governance--quality-gates) · [Statement of restraint](#statement-of-restraint) · [Documentation map](#documentation-map) · [Contributing](#contributing) · [License](#license)
+
 ## What it solves
 
 | Today's pain | Rurix's answer |
@@ -25,61 +27,143 @@ CUDA-first, Windows-native, single-stack NVIDIA done deep: three backends emit P
 
 The full argument lives in [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) and [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md) (Chinese).
 
-## Project status: language 1.0 released (`v1.0.0`); 30 milestones closed through G16 (latest tag `g16-closed`); G17 DLSS performance-gap closure in progress
+## Project status
 
-The first-layer full acceptance (01 §6) is met. The three flagship use cases run end-to-end on real hardware, the resource-lifetime error classes are 100% intercepted at compile time, and every existing performance threshold is backed by `measured_local` evidence with zero `estimated` entries. The narrative below through G7 is a historical snapshot; progress after it is carried by the append-only status errata further down (latest: 2026-08-24, G9~G17):
+**Language 1.0 is released (tag `v1.0.0`). The milestone mainline M0 → G30 has closed 44 contracts (latest closed tag `g30-closed`); since 2026-08-27 the project runs in same-workspace campaign mode (G31–G39), with the six G31–G36 contracts honestly kept at `status: active` / `implementation_status: unlocked` rather than dressed up as closed.**
+
+- The first-layer full acceptance (01 §6) is met; the first mission criterion (11 §6) is delivered — ruridrop is the first production-grade renderer/simulation written with Rurix as its primary language (first-party).
+- The predefined resource-lifetime error classes are 100% intercepted at compile time; every existing performance threshold is backed by `measured_local` evidence with zero `estimated` entries (G6 explicitly set no hard performance gate).
+- Every gate's terminal state — including no-go, defer, and honest red — is recorded as-is and never rewritten to PASS.
+
+> **Facts of record** live in the milestone contracts (`milestones/<id>/*_CONTRACT.md` §8 close-out), the per-phase `*_P2_DECISIONS.md`, and [`registry/`](registry/); campaign deliverables and gate evidence live under `artifacts/day_*/` (hand-over sheets `HANDOVER.md`) and [`evidence/`](evidence/). This section is an index mirror only; the original append-only status errata are preserved in git history (`git log -p -- README.en.md`).
+
+### Milestone mainline (closed)
+
+| Phase | Closed | Theme / deliverables |
+|---|---|---|
+| M0–M8 (MVP) | 2026-06-17 `m8-closed` | Compiler / runtime / toolchain loop + the UC-01/02/03 flagships + cublas bindings + release pipeline + bilingual diagnostics / doc site |
+| G1 | 2026-06-22 `g1-closed` | CUDA–D3D12 interop real-time present, stream-ordered `AsyncBuffer<'stream,T>`, engine-integration DLL (C ABI), production fatbin distribution, geometry crate |
+| G2 | 2026-06-30 `g2-closed` | Shader stages in the type system, DXIL second backend (D-131 hybrid), binding-layout derivation (root signature), D3D12 runtime + UC-04 deferred renderer, language-1.0 machinery (edition "2026" + stable-surface snapshot freeze) |
+| V1 | 2026-07-14 `v1-closed` | First stable release of the language (tag `v1.0.0`): stabilization report, FCP-lite notice, stable-channel manifest (rurixup), first GitHub Release |
+| MS1 | 2026-07-15 `ms1-closed` | `std::gpu` single-source host orchestration (one `.rx` → one EXE) + ruridrop, the first all-`.rx` application (UC-07) |
+| MB1 | 2026-07-16 `mb1-closed` | Single Vulkan/SPIR-V cross-vendor backend (RFC-0011; AMD desktop + Android, compute + graphics; Android measured on device; the AMD real-card gate G-MB1-6 honestly stays open pending hardware; preview, default-off feature) |
+| G3 | 2026-07-19 `g3-closed` | Industrial rendering: RD-027 poison-path attribution gate + the full five-feature surface (sampling superset / bindless / render-graph auto barriers / UC-04 windowed present / mesh-task-RT dual backends) |
+| EI1 | 2026-07-23 `ei1-closed` | Engine integration: UC-05 minimal RHI + render-graph core + RD-009 `#[export(c)]` C-ABI export codegen with built-in header generation (D-113) |
+| G4 | 2026-07-24 `g4-closed` | Engine rendering: graphics-RHI raster/mesh library surface + auto barriers + engine_host v3 embedding + single-source `.rx` Vulkan RHI channel + BLACKHOLE production-tier acceptance (RD-036 stays open) |
+| EA1 | 2026-07-28 `ea1-closed` | Distribution & storefront: real rurixup distribution (RD-025 redeemed) + prebuilt toolchain bundles (`v1.0.1-dist` series, pre-release) + documentation storefront + cold-start acceptance |
+| G5 | 2026-07-29 `g5-closed` | Native renderer: declarative render graph (`rurix-render`) + RHI graphics dispatch bridge + virtualized geometry (meshlets / two-level GPU culling / VisBuffer) + VSM shadows + screen-probe GI + ray-traced effects + material streaming + temporal reconstruction (TAA/TSR); UC-06 full-pipeline demo on device |
+| G6 | 2026-08-01 `g6-closed` | Rendering & physics dual track: production-default Jolt physics + default-off Rapier fast path + one-way Physics→GpuScene bridge + UC-08 confluence demo + Taichi Vulkan AOT effects side track |
+| G7 | 2026-08-05 `g7-closed` | Production frame closure: RD-038 closed (compute SPIR-V 1.4 / RayQuery, W3 GI/RTAO/hard shadows, VisBuffer SW/HW diff=0, One True Device Frame + soak) |
+| G8 | 2026-08-06 (contract §8) | UE5-tier prerequisite capabilities: RFC-0019/0020/0021 + asset pipeline (`rurix-asset` / geometry pages / basis_universal texture codec) + waves G8.2–G8.8 accepted, with no-go / defer terminal states honestly kept |
+| G9 | 2026-08-15 (contract §8.10) | UE5-target rendering / physics platform: RFC-0022/0023/0024, five waves G9.2–G9.6 + 33-row P2 exhaustive decisions + ≥30 min soak; 15 P0 + 19 go-P1 gates green |
+| G10 | 2026-08-16 (contract §8.10) | UE5 visual-benchmark baseline: UE5 5.8 rendering environment / stress corpus / metrics infrastructure / first A/B round; 11-row gap register locked as G11's statutory input |
+| G11 | 2026-08-17 `g11-closed` | GI & lighting quality closure: caliber alignment, asset/scene repair, lamp seed set and multi-bounce GI (incl. M99-clipmap); re-test register final state converged 8 + aligned_closed 3 |
+| G12 | 2026-08-17 `g12-closed` | Path-tracing productionization: denoiser pipeline + TSR coupling, UE PT dual-end comparison, PT throughput baseline (50×3 protocol); 10-row gap register locked as G13's statutory input |
+| G13 | 2026-08-19 `g13-closed` | Vendor upscaling & Lumen comparison: DLSS SR (Streamline 2.10.3 NGX Vulkan) / FSR 3.1.5 / TSR device lane with runtime switching + UE DLSS / Lumen dual-arm comparison; 8+2-row registers locked as G14/G15 statutory input |
+| G14 (incl. G14plus) | 2026-08-23 `g14-closed` | Formal frame-rate parity & render-pipeline performance: M-d **18/18 at the ×1.00 line**, empty gap-register terminal state; RD-045 stays open |
+| G15 (incl. G15plus) | 2026-08-23 `g15-closed` | Image-quality closure & commercial final review: **double miss honestly recorded** — commercial sign-off 0/18 + performance 17/18 (single-cell environment event); three carry-over anchors handed to G16+ |
+| G16 (incl. G16plus) | 2026-08-24 `g16-closed` | UE cornell reference-arm repair (no longer dead-black) + affected-gate re-test; M-g absolute quality 18/18 under a programmatically calibrated threshold (p100×2.0), the historical G15 M-c 0/18 left unrewritten |
+| G17 | 2026-08-24 `g17-closed` | DLSS performance-gap closure: NGX 310.6.0 upgrade **rejected** (incompatible under the Streamline 2.10.3 pin), RFC-0032 D3D12-host lane **deferred**, M-d final verdict ratio 0.856326 keeps the honest-red 17/18 |
+| G18 | 2026-08-24 `g18-closed` | One-shot all-directions closure: nine P0 gates green with honest terminal states (Streamline not-available / fps 17/18 / mesh shader no-go / frame generation defer-to-G19+), 25-row P2 exhaustive decisions |
+| G19–G25 | 2026-08-24 `g19-closed` … `g25-closed` | Seven-phase serial campaign: frame-generation layer / virtualized geometry P4 / lighting P3+ / material·streaming·temporal / physics platform / present & tail gates / full commercial final review; 35 P0 gates green, 79-row P2, four host reference implementations (framegen / hzb / restir_reservoir / slab); summary in [`G19_G25_CAMPAIGN_RECORD.md`](milestones/g25/G19_G25_CAMPAIGN_RECORD.md) |
+| G26–G30 | 2026-08-25 `g26-closed` … `g30-closed` | Five-phase device-ization campaign: the four pieces above landed as real `.rx` device kernels (`g26_framegen` / `g27_hzb_reduce` / `g28_restir` / `g29_slab`, bit-level double-run + frozen-tolerance parity) + material side-table arm; RFC-0043–0047 with all 63 findings dispositioned; the G30 final review pins fps at an honest-red 17/18 (focus-cell ratio 0.960479); hand-over archive `g30_campaign_handover_registry.json` = the sole statutory input for G31+ |
+
+### Campaign mode (since 2026-08-27)
+
+Contract flips and formal chartering stay owner-pending; deliverables and gate evidence land per campaign under `artifacts/day_*/`.
+
+| Campaign | Date / commit | Summary |
+|---|---|---|
+| G31 / G32 / G33 + G34 | 2026-08-27 `058f8e68` | Real-time present (wave A) / visual completeness (wave B) / commercialization (wave C) delivered in one batch with §8 close-out records on file and contracts kept `active`; G34 full-feature merge acceptance: unified-lane foundation (8 facts) + HZB on the unified lane (6 facts) + skinning on the unified lane (9 criteria) + Stage A digest 18/18 zero drift + soak 5010/5010 frames zero crash |
+| G35 / G36 | 2026-08-27 | G35 GPU particle system (RFC-0049), nine waves of artifacts in tree, G35-4 transparency sort/OIT dual-arm gate PASS; G36 exclusivity repair & composition rendering W1–W5 delivered, `g36.wave1.geo_composition` ten-fact gate PASS on real hardware |
+| G37 commercial delivery wrap-up | 2026-08-30 `0e605c34` | `g31_window_present --quality` default **flipped off→full (19 arms)** inside the 11.11 ms frame budget (9.75 / 10.59 ms) + seven new arms (transparency / LUT / PSO ledger / VisBuffer evidence / RIS+NEE / per-frame cut / FG×full) + ten fixes (incl. rurixc if-while codegen back-edge pruning) + commercial GAP-01–03 closed + **SDK bundle candidate `sdk-1.1.0`** (24 components, dual SBOM, four-level verification) + two green soaks |
+| G38 five-task push | 2026-08-30 `b05cd4ef` | Normals v2 consumption switch with batch re-anchoring + FIF×dynamic #90 closed (RFC-0030 v1.1 L2a + `slot_as` production wiring + per-slot AS memory budget gate) + incremental frame_cut refit (build 8.78 ms, inside the 90 fps budget) + #96 consumption closed + RIS/NEE quality quantification and the lamp-k ladder (default kept at 12/0.6) |
+| DLSS 5 NR adaptation | 2026-08-30 `82a59ae3` | Hand-written NGX feature-18 D3D12 FFI integration + three-arm availability probe + NR lane harness; local Ada verdict = **not_available**, honestly recorded (fail-closed / default off / env opt-in; evaluation binaries not committed) |
+| G39 five-task push | 2026-09-01 `1478859a` | ReSTIR high-tier temporal-reservoir lamp arm wired into the production lane (26-cluster tier off 11.546 ms → **on 7.526 ms, inside the 11.11 ms budget**) + skin batch B + `slot_as` single-source fold + profiling gate N=5 median criterion + device-cut P1 equivalence gate; zero re-anchoring + CPU guards 7/7 + soak 1936.2 s zero failures. Hand-over: [`artifacts/day_0831_g39/HANDOVER.md`](artifacts/day_0831_g39/HANDOVER.md) |
+
+### Honestly recorded misses and open items
+
+- **fps focus cell 17/18** (bistro-interior / t100 / dlss_sr): honest red since G15; the G17 / G25 / G30 final verdicts all missed ×1.00 (ratio 0.856326 → 0.960479, G34 re-test 0.921836); carry-over anchors = NGX decomposition profiling / UE instrumentation.
+- **Commercial sign-off G15 M-c 0/18** stays on record unrewritten; G16plus M-g 18/18 is registered separately under a programmatically calibrated threshold.
+- **Eight RD entries stay open** (incl. RD-045 long-window observation maintain-open, RD-034 blocked, RD-036 carried); vendor / hardware facts — Streamline 310.6.0 and DLSS 5 NR not-available, mesh shader (M61) no-go, Work Graphs and HDR output not-available, async triple (M59) no-go — all backed by measured evidence.
+
+### Flagship use cases and key deliverables
+
+All accepted end-to-end on real hardware:
 
 - **UC-01 — PyTorch operator replacement**: `rx build --emit=pyd` produces a PYD (nanobind + scikit-build-core), zero-copy-bridged into PyTorch CUDA tensors over both `__cuda_array_interface__` v3 and DLPack; SAXPY/Reduction/GEMM operator replacements reach **≥ 90% of hand-written CUDA C++** (measured_local).
 - **UC-02 — three-stream overlapped pipeline**: affine Context/Stream/Event/Buffer + cross-thread ownership transfer + typed stream-ordered allocation; the four resource-lifetime error classes (use-after-free / double-free / cross-thread / cross-stream-unsynchronized) are **intercepted at compile time**.
-- **UC-03 — SPH simulation + compute soft rasterizer**: a single executable — particle update + spatial hashing + rasterization kernels + host frame loop — producing deterministic images.
-- **UC-04 — deferred renderer (D3D12)**: the DXIL second backend (D-131 hybrid: compute via a direct minimal-subset DXIL channel, graphics via a SPIR-V→HLSL→dxc validation bridge) + binding-layout derivation (root signature RTS0) + multi-pass orchestration with anchored barriers; the lighting pass truly samples the G-buffer, accepted on real hardware via off-screen readback pixel comparison.
-- **UC-07 — ruridrop, an all-`.rx` application**: `std::gpu` single-source host orchestration (one `.rx` entry → one EXE with embedded PTX+cubin); a GPU SPH dam-break simulation + sphere ray tracing, where the offline path-traced PPM and the realtime D3D12 present share the same kernel core; GPU frames match a CPU replay golden **byte-for-byte** (CI smoke tier); ~68 fps realtime at 1280×720 / 131k particles (measured_local).
+- **UC-03 — SPH simulation + compute soft rasterizer**: a single executable — deterministic SPH simulation + soft-raster kernels (binning / tile raster / depth / tonemap) + host frame loop — producing deterministic images.
+- **UC-04 — deferred renderer (D3D12)**: the DXIL second backend (D-131 hybrid: compute via a direct minimal-subset DXIL channel, graphics via a SPIR-V→HLSL→dxc validation bridge) + binding-layout derivation (root signature RTS0) + multi-pass orchestration with anchored barriers; the lighting pass truly samples the G-buffer, accepted via off-screen readback pixel comparison.
+- **UC-07 — ruridrop, an all-`.rx` application**: `std::gpu` single-source host orchestration (one `.rx` entry → one EXE with embedded PTX+cubin); GPU SPH dam-break simulation + sphere ray tracing, where the offline path-traced PPM and the realtime D3D12 present share the same kernel core; GPU frames match a CPU replay golden **byte-for-byte** (CI smoke tier); ~68 fps realtime at 1280×720 / 131k particles (measured_local).
 - **cublas binding package**: three-layer GEMM/GEMV bindings (raw FFI / safe wrapper / high-level API).
-- **Release pipeline**: rurixup (stable-channel manifest) + an Authenticode sign/verify release gate (currently a **self-signed test certificate**; the of-record production backend is Azure Artifact Signing behind a secret-gated manual step) + SBOM (SPDX/CycloneDX) + NVIDIA redistribution-whitelist audit.
+- **Release pipeline**: rurixup (stable-channel manifest) + an Authenticode sign/verify release gate (currently a test certificate; the of-record production backend is Azure Artifact Signing behind a secret-gated step) + SBOM (SPDX/CycloneDX) + NVIDIA redistribution-whitelist audit.
 - **Bilingual diagnostics with full coverage** (Chinese/English) + **documentation site** (`rx doc`).
 
-**Since the MVP, the G1 and G2 phases have both closed.** **G1** (`g1-closed`, PR #77): CUDA–D3D12 interop with real-time windowed present (RFC-0001), stream-ordered `AsyncBuffer` allocation (MR-0001), a first engine integration via a Rurix C-ABI DLL embedded in a C++/D3D12 harness (MR-0002), open-source community infrastructure plus a `geometry` crate (MR-0003/0004), and production fatbin distribution (MR-0005). **G2** (`g2-closed`, PR #117): the shader-stage type surface (RFC-0002, RXS-0153–0156), a DXIL backend (D-131 adjudicated = **hybrid**: compute via direct LLVM-DirectX emit / graphics via SPIR-V→DXIL), binding-layout derivation, a UC-04 deferred renderer + texture sampling (RFC-0006/0007), and a stable API + edition (RFC-0008, RD-008). Separately, an out-of-tree **GRX showcase** — a Godot 4.7-dev D3D12 integration/demo spike (**not a core-roadmap milestone**) — reached gated, opt-in, *measured* real-D3D12-dispatch compute passes with pixel-exact LDR parity (`max_abs = 0`); honest ceiling: **default-disabled / fallback-only, no performance claim, Amdahl 1.0669× hard ceiling**.
-
-**Since then, three more phases have closed.** **V1** (`v1-closed`, 2026-07-14): the first stable release of the language — tag `v1.0.0`, stabilization report, FCP-lite notice, stable-channel manifest (rurixup), and the first GitHub Release. **MS1** (`ms1-closed`, 2026-07-15): single-source host GPU orchestration (`std::gpu`, RFC-0009 — one `.rx` source produces one EXE with embedded PTX) and **ruridrop**, the first production-grade renderer/simulation written with Rurix as its primary language (application layer contains zero `.rs`; GPU frames match a CPU replay golden **byte-for-byte** in the CI smoke tier; ~68 fps realtime at 1280×720 / 131k particles, measured_local). **MB1** (`mb1-closed`, 2026-07-16): a single Vulkan/SPIR-V cross-platform backend (RFC-0011) covering AMD desktop + Android, compute + graphics; Android on-device runs are **measured on real hardware** (compute bit-exact across three vendors, windowed present + validation-clean); the AMD real-card gate (G-MB1-6) honestly stays **open pending hardware**, and the backend ships as a **preview behind a default-off feature flag** — no cross-vendor performance claim.
-
-**Since then, five more phases have closed.** **G3** (`g3-closed`, 2026-07-19): the industrial-rendering phase — the RD-027 poison-path attribution gate plus the full five-feature surface (sampling superset / bindless / render-graph automatic barriers / UC-04 windowed present / mesh-task-RT dual backends). **EI1** (`ei1-closed`, 2026-07-23): the engine-integration phase — UC-05 minimal RHI + render-graph core (the U5 flagship use case) and RD-009 `#[export(c)]` C-ABI export codegen with built-in header generation (D-113). **G4** (`g4-closed`, 2026-07-24): the engine-rendering phase — a graphics RHI raster/mesh library surface + automatic barriers + engine_host v3 embedding + a single-source `.rx` Vulkan RHI channel + BLACKHOLE production-tier acceptance (RD-036 stays open). **EA1** (`ea1-closed`, 2026-07-28): the distribution & storefront phase — real rurixup distribution (RD-025 redeemed) + prebuilt toolchain bundles (the `v1.0.1-dist` series, pre-release) + the documentation storefront + cold-start acceptance. **G5** (closed per contract §8.1, 2026-07-29): the native-renderer phase — a declarative render graph (`rurix-render`), an RHI graphics dispatch bridge, virtualized geometry (meshlets / two-level GPU culling / VisBuffer), VSM shadows, screen-probe GI, ray-traced effects, material streaming, and temporal reconstruction (TAA/TSR), with the UC-06 full-pipeline demo running on device (P3+ long-tail items registered as RD-037+; RD-038 wave redemption in progress).
-
-**G6** (closed per contract §8.2, 2026-08-01) added the production-default Jolt physics library, a default-off Rapier fast path, a one-way Physics→GpuScene bridge, the UC-08 confluence demo, and the Taichi Vulkan AOT effects side track. **G7** (active since 2026-08-01) is [Production Frame Closure](milestones/g7/G7_CONTRACT.md): compute SPIR-V 1.4/RayQuery, real W3 GI/RTAO/hard-shadow kernels, VisBuffer software/hardware raster parity, a literal RD-038 residual audit, and one continuously connected real device frame.
-
-> **Status erratum (2026-08-08, append-only)**: the heading and the paragraph above are snapshots — **G7 closed on 2026-08-05** (`g7-closed`, RD-038 closed) and **G8 closed on 2026-08-06** (`status: closed`, close-out flip commit `b4189e79`; see [`milestones/g8/G8_CONTRACT.md`](milestones/g8/G8_CONTRACT.md) close-out section for per-gate terminal states, including honest no-go/defer/degraded entries kept on record rather than rewritten as PASS). The stale lines are kept verbatim per append-only discipline.
-
-> **Status erratum (2026-08-24, append-only)**: since the erratum above, **eight more milestones have closed** on the UE5-benchmarking mainline (facts of record live in `milestones/*/G*_CONTRACT.md` close-out sections and `registry/`; this line is an index mirror only). **G9** (2026-08-15): UE5-target rendering/physics platform phase. **G10** (2026-08-16): UE5 visual-benchmark baseline phase — an 11-row gap register locked as G11's statutory input. **G11** (2026-08-17): GI & lighting quality closure — re-test register final state converged 8 + aligned_closed 3. **G12** (2026-08-17): path-tracing productionization — 10-row gap register locked as G13's statutory input. **G13** (2026-08-19): vendor upscaling & Lumen comparison — DLSS SR (Streamline 2.10.3 NGX Vulkan) / FSR 3.1.5 / TSR device lane, dual gap registers (8+2 rows) locked as G14/G15 statutory input. **G14** (2026-08-23): formal frame-rate parity & render-pipeline performance — M-d **18/18 pass at the ×1.00 line**, empty-register terminal state. **G15** (2026-08-23): image-quality closure & commercial final review — **double miss honestly recorded, not dressed up**: commercial sign-off 0/18 on the absolute-quality line and performance 17/18 (single-cell environment event), with three carry-over anchors handed to G16+. **G16** (2026-08-24, tag `g16-closed`, incl. G16plus): UE reference-arm repair (cornell arm no longer dead-black) and forced quality closure — M-g absolute quality 18/18 under a programmatically calibrated threshold while the historical G15 M-c 0/18 record stays unrewritten. **G17 (DLSS performance-gap closure, the statutory carrier of G15-MD-F1, `milestones/g17/`) is now in progress**: chartered and implementation-unlocked on 2026-08-24 (governance gates at CI steps 293–295; RFC-0032 D3D12-host NGX lane Agent Approved after D-409 adversarial review; measured baseline = an honest-red 17/18 rerun of the G14 M-d gate, focus cell bistro-interior/t100/dlss_sr ratio 0.9810; implementation gates materialized at steps 296–308). **G17.2 M-a (dual-end re-test & warm-state recalibration) is accepted** — ten facts green plus the wave-2 aggregate gate, four-round re-test window focus-cell ratios [0.981, 0.8157, 0.7966, 0.8086] recorded as registration (the pass/fail verdict belongs to the M-d final-verdict gate). **As of this line, waves G17.3–G17.7b are not yet accepted** (the same-day campaign session keeps executing; wave terminal states land append-only in contract §8); the single-cell performance miss stays honestly recorded, and both final outcomes (18/18, or a maintained miss registration if the physical floor makes ×1.00 unreachable) are legitimate ways to close (contract §7, adjudication 5).
-
-> **Status erratum (2026-09-01, append-only)**: since the erratum above, the milestone mainline closed through **G30** and then switched to same-workspace campaign mode (facts of record live in `milestones/*/G*_CONTRACT.md` close-out sections, per-day campaign artifacts under `artifacts/day_*/`, and `registry/`; this line is an index mirror only). **G17** closed 2026-08-24 (`g17-closed`), keeping the single-cell DLSS performance miss as an honest-red 17/18 registration (focus-cell ratio 0.856326). **G18** (one-shot all-directions closure, `g18-closed`, 2026-08-24): nine P0 gates green with honest terminal states (Streamline upgrade not-available, frame rate 17/18 honest red, mesh shader no-go, frame generation deferred). **G19–G25** (seven-phase serial campaign, tags `g19-closed`…`g25-closed`, 2026-08-24): 35 P0 gates green, four real implementation pieces (frame-generation host reference arm / HZB occlusion culling / ReSTIR high-tier reservoir / Substrate-like slab energy closure), commercial final review keeping image quality at its achieved terminal state while pinning fps at an honest-red 17/18. **G26–G30** (five-phase device-ization campaign, tags `g26-closed`…`g30-closed`, 2026-08-25): the four pieces above landed as real `.rx` device kernels with bit-level double-run and frozen-tolerance parity gates; the G30 final review pins fps at an honest-red 17/18 final verdict (focus-cell ratio 0.960479, zero dress-up). In campaign mode since then (contract flips stay owner-pending; the latest closed tag remains `g30-closed`): **G31–G34** (real-time present / visual completeness / commercialization / full-feature merge) delivered in one batch on 2026-08-27 with close-out records on file and contracts honestly kept `active`; **G35** (GPU particle system, RFC-0049) and **G36** (exclusivity-repair composition rendering, ten-fact gate PASS) are in tree; **G37** (2026-08-30) flipped the presentation default from off to the full 19-arm quality tier inside the 11.11 ms frame budget and produced the `sdk-1.1.0` SDK bundle candidate; **G38** re-anchored the default surface for normals v2, closed FIF×dynamic (#90), and brought incremental BLAS refit into the 90 fps budget; a **DLSS 5 NR (NGX feature-18) adaptation probe** honestly recorded verdict = not_available on the local Ada card; **G39** (closed 2026-09-01, HEAD `1478859a`) wired the ReSTIR temporal-reservoir lamp arm into the production lane — the 26-cluster tier now fits the 11.11 ms budget at a measured 7.526 ms — with zero re-anchoring and a green soak.
-
-> Stable-API snapshot freeze has been **active since the 1.0 release** ([`RD-008`](registry/deferred.json) closed): the stable surface (spec clause IDs + error-code meanings + edition values + the `rx` CLI command set) is anchored by snapshot comparison with bless-gated approval — additive-only within an edition; breaking changes require a new edition.
+> The stable-API snapshot freeze has been active since the 1.0 release ([`RD-008`](registry/deferred.json) closed): the stable surface (spec clause IDs + error-code meanings + edition values + the `rx` CLI command set) is anchored by snapshot comparison with bless-gated approval — additive-only within an edition; breaking changes require a new edition.
 
 ## Workspace
+
+**Language and toolchain**
 
 | Crate | Responsibility |
 |---|---|
 | `src/rurixc` | Compiler (frontend + MIR + NVPTX/DXIL/SPIR-V backends + borrow/resource checks + formatter + LSP session) |
-| `src/rurix-rt` | Runtime (CUDA Driver API bindings, execution resources) |
-| `src/rurix-rt-cabi` | Host-orchestration C-ABI runtime boundary (`rxrt_*`/`rxp_*`/`rxio_*`: single-source `.rx` apps ↔ the runtime — fatbin loading / launch / present / image dump) |
-| `src/rx` | Toolchain CLI (`build`/`check`/`run`/`fmt`/`bench`/`test`/`doc`/`vendor`) |
+| `src/rx` | Toolchain CLI (`build` / `check` / `run` / `fmt` / `bench` / `test` / `doc` / `vendor`) |
 | `src/rurix-pkg` | Package management (lockfile + vendor + checksum) |
+| `src/rurixup` | Installer / bootstrapper (release pipeline, stable-channel manifest) |
+
+**Runtime and interop**
+
+| Crate | Responsibility |
+|---|---|
+| `src/rurix-rt` | Runtime (thin CUDA Driver API layer: affine Context/Stream/Event/Buffer, launch, fatbin load negotiation, poisoned state machine) |
+| `src/rurix-rt-cabi` | Host-orchestration C-ABI runtime boundary (`rxrt_*` / `rxp_*` / `rxio_*`: single-source `.rx` apps ↔ the runtime — fatbin loading / launch / present / image dump) |
 | `src/rurix-interop` | PyTorch interop (PYD / `__cuda_array_interface__` / DLPack boundary) |
 | `src/rurix-cublas` | cublas v2 binding package |
-| `src/rurixup` | Installer / bootstrapper (release pipeline) |
 | `src/rurix-d3d12` | D3D12/DXGI present shim (the CUDA–D3D12 interop realtime-present boundary) |
 | `src/rurix-engine` | Engine-integration DLL (C-ABI cdylib; embedded in C++/D3D12 hosts to run compute passes) |
-| `src/rurix-geometry` | Geometry library (mesh/BVH, zero-dependency, all-safe) |
 | `src/rurix-android-present` | Android on-device present glue (MB1; zero-Java NativeActivity cdylib shell, compiles to an empty lib on desktop) |
-| `src/rurix-render` | Native engine renderer library (G5: declarative render graph / virtualized geometry / VSM / probe GI / ray-traced effects / material streaming / temporal reconstruction; the renderer is a library, not part of the language) |
-| `src/rurix-geom-build` | Offline geometry builder (G5: mesh → meshletization → grouped-and-simplified hierarchical DAG + a CPU reference culler; deterministic all-safe host code) |
-| `src/image-io` · `src/soft-raster` | Image I/O · compute soft-rasterizer library |
-| `src/uc02-demo` · `src/uc03-demo` · `src/uc04-demo` | Flagship use-case demos |
-| `apps/uc06-renderer` | UC-06 full-pipeline demo (G5: culling → VisBuffer → deferred shading → GI/VSM/RTAO → TAA/TSR → headless readback pixel assertions) |
+
+**Renderer, geometry, and assets**
+
+| Crate | Responsibility |
+|---|---|
+| `src/rurix-render` | Native engine renderer library (declarative render graph / virtualized geometry / VSM / probe GI / ray-traced effects / material streaming / temporal reconstruction / frame generation / ReSTIR; the renderer is a library, not part of the language) |
+| `src/rurix-renderer-sdk` | Renderer SDK C-ABI implementation layer (`rxsdk_*` session surface, the first stable embedding ABI; G31+) |
+| `src/rurix-geometry` | Geometry library (mesh/BVH, zero-dependency, all-safe) |
+| `src/rurix-geom-build` | Offline geometry builder (mesh → meshletization → grouped-and-simplified hierarchical DAG + CPU reference culler; deterministic all-safe host code) |
+| `src/rurix-geom-pages` | Geometry page formats (RXPL / RXPD / RXPM codecs, `spec/geometry_pages.md`) |
+| `src/rurix-asset` | Asset pipeline (RFC-0020: geometry-page build, canon / graph / cook / verify, glTF import, texture codec) |
+| `src/rurix-basis-sys` | basis_universal texture codec FFI boundary (UASTC→KTX2 / ETC1S / BCn·ASTC transcode; `unsafe` concentration point) |
+| `src/image-io` · `src/soft-raster` | Image I/O · soft-rasterizer host CPU reference library (numerically equivalent to the device kernels) |
+
+**Physics**
+
+| Crate | Responsibility |
+|---|---|
+| `src/rurix-physics` | Engine physics library (RFC-0017: fixed-step `PhysicsWorld`; Jolt production default / Rapier default-off fast path) |
+| `src/rurix-physics-sys` | JoltC FFI boundary (Jolt 5.3 baseline; the sole `unsafe` concentration point for physics) |
+| `src/rurix-physics-sys56` | Jolt 5.6 evaluation-arm FFI (coexists with 5.3, used for A/B) |
+
+**Applications and demos**
+
+| Crate | Responsibility |
+|---|---|
 | `apps/ruridrop` | UC-07 all-`.rx` application (renderer/simulation in one; not a Cargo crate — a declarative `rurix.toml` package, zero `.rs`) |
+| `apps/uc05-rhi` | UC-05 minimal RHI + render graph (`.rx` package, `--emit=dll` C-ABI export; the base of the renderer's minimal integration example) |
+| `apps/uc06-renderer` | UC-06 full-pipeline demo (culling → VisBuffer → deferred shading → GI/VSM/RTAO → TAA/TSR → headless readback pixel assertions) |
+| `apps/uc08-physics` · `apps/uc09-taichi-spike` | UC-08 rendering×physics confluence demo · Taichi Vulkan AOT effects side-track spike |
+| `apps/blackhole` | BLACKHOLE production-tier rendering demo (G4 acceptance) |
+| `apps/g31-renderer-sdk` | Renderer SDK `.rx` package + host example (with `API_VERSIONING.md`) |
+| `apps/g8-physics-gates` · `apps/g9-physics-gates` | G8 / G9 physics acceptance-gate harnesses |
+| `src/uc02-demo` · `src/uc03-demo` · `src/uc04-demo` | Flagship use-case demos |
 
 ## Getting started
 
 **Environment**: Windows 11 + an NVIDIA GPU (reference machine: RTX 4070 Ti), the CUDA Toolkit, and MSVC 2022. The Rurix toolchain itself is built with Rust (D-201).
+
+Prebuilt binaries (`rx.exe` / `rurixup.exe` + SBOM + `SHA256SUMS`) are on [GitHub Releases](https://github.com/qwasg/Rurix/releases) (since v1.0.0; currently Authenticode-signed with a test certificate, so SmartScreen may warn). To build from source:
 
 ```sh
 # Build the workspace
@@ -94,7 +178,8 @@ cargo run -p rx -- doc --root . --out target/doc   # generate the documentation 
 
 The documentation site (`rx doc`) is generated deterministically from a single source of truth (`spec/*.md`, `registry/error_codes.json`, `conformance/`): a spec-clause index, an error-code index, and a traceability matrix.
 
-**Want to learn how to write Rurix code?** See the [`guide/`](guide/README.en.md) tutorial (available in English) — a progressive path from your first host program to your first kernel, with every example exercised live by CI gates (`rx check` / `rx run`). (API is converging; see [`RD-008`](registry/deferred.json).)
+- **Want to learn how to write Rurix code?** See the [`guide/`](guide/README.en.md) tutorial (available in English) — a progressive path from your first host program to your first kernel, with every example exercised live by CI gates (`rx check` / `rx run`).
+- **Want to embed the renderer in your own engine?** See [`docs/renderer/integration_guide.md`](docs/renderer/integration_guide.md) (five-step C-ABI host + the minimal example project under `docs/renderer/examples/minimal_host/`), together with the [feature matrix](docs/renderer/feature_matrix.md), [performance tuning](docs/renderer/performance_tuning.md), [compatibility matrix](docs/renderer/compatibility_matrix.md), and the SDK bundle (`dist/sdk_bundle/`). These documents are Chinese-only for now.
 
 ## Governance & quality gates
 
@@ -103,8 +188,9 @@ Rurix builds governance in as a product capability from day one (language infras
 - **Spec ↔ test ↔ PR triangle**: every RXS spec clause is anchored by ≥1 test (`ci/trace_matrix.py`, currently 278/278).
 - **measured_local budgets**: all performance/diagnostics baselines are measured on real hardware, with zero `estimated` placeholders (`ci/budget_eval.py --strict`).
 - **Real red-green**: every CI gate is validated by "introduce a defect → red → restore → green" (anti-YAML-only), with run URLs archived in [`evidence/`](evidence/).
-- **Byte-level guardrails**, schema validation, structure validation, all-green conformance, and blessed UI/MIR/PTX goldens.
+- **Byte-level guardrails**, schema validation, structure validation, all-green conformance, and blessed UI/MIR/PTX/DXIL goldens plus the stable-API snapshot.
 - **deferred / spike-gating registries**: the single source of truth for deferred debt and expansion directions — append-only.
+- **Honest terminal states**: gate no-go / defer / honest-red outcomes are kept on record, never rewritten; contract close-outs are append-only and closed contracts are 0-byte immutable (machine-guarded by `ci/check_guardrails.py`).
 
 Milestone contracts and close-out trails live in [`milestones/`](milestones/); the governance mechanism overview is in [`14_ENGINEERING_DISCIPLINE.md`](14_ENGINEERING_DISCIPLINE.md).
 
@@ -114,7 +200,21 @@ Rurix does **not** replace the CUDA ecosystem (it provides a safe compile fronte
 
 ## Documentation map
 
-`00_MASTER_INDEX.md` is the master index; `01`–`14` are the planning dossier (vision / positioning / design principles / language & compiler architecture / GPU programming model / runtime & toolchain / standard library & ecosystem / governance / roadmap / engineering discipline). `spec/` is the testable specification (FLS-style, RXS clauses), and `conformance/` is the sole acceptance boundary. These are currently Chinese-only; for a single-page English distillation of `01`–`14`, see [`OVERVIEW.en.md`](OVERVIEW.en.md), and the per-file English summaries below are a quick map.
+| Location | Contents |
+|---|---|
+| [`00_MASTER_INDEX.md`](00_MASTER_INDEX.md) | Master index: document list, reading paths, glossary, maintenance rules |
+| `01`–`14` | Planning dossier (see the per-file table below); [`15_EXTERNAL_ADOPTION_REGISTER.md`](15_EXTERNAL_ADOPTION_REGISTER.md) is the external-adoption register; [`OVERVIEW.en.md`](OVERVIEW.en.md) is the single-page English distillation |
+| [`spec/`](spec/) | Testable specification (FLS-style, RXS clauses); [`conformance/`](conformance/) is the sole acceptance boundary |
+| [`rfcs/`](rfcs/) | Language-evolution RFC / Mini-RFC series (templates, numbering ledger, and the FCP-lite review window in `rfcs/README.md`) |
+| [`guide/`](guide/README.en.md) | Getting-started tutorial (Chinese / English) |
+| [`docs/renderer/`](docs/renderer/) | Renderer product docs: integration guide, feature matrix, performance tuning, compatibility matrix, release checklist, support policy, vendor license matrix |
+| [`milestones/`](milestones/) | Milestone contracts (four elements), P2 decision tables, close-out sign-offs |
+| [`registry/`](registry/) | Append-only registries: `deferred.json` / `spike_gating.json` / `error_codes.json` / `number_ledger.json` |
+| [`evidence/`](evidence/) | CI gate evidence (written only on PASS; fail-closed) |
+| `artifacts/day_*/` | Campaign deliverables: `CAMPAIGN_LOG.md` / `HANDOVER.md` / per-task reports / evidence |
+| [`dist/`](dist/) | SDK bundle (`sdk_bundle/sdk-1.1.0/`), SBOM, third-party notices, release notes |
+
+The planning dossier (Chinese-only) at a glance:
 
 | File | Topic |
 |---|---|
