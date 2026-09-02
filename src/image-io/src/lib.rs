@@ -229,6 +229,21 @@ fn png_chunk(tag: &[u8; 4], data: &[u8], out: &mut Vec<u8>) {
     out.extend_from_slice(&crc32(&chk).to_be_bytes());
 }
 
+/// zlib Adler-32（RFC 1950 §8952;zlib 流尾校验和,大端）。
+///
+/// 与 PNG 块 CRC32(IEEE 多项式)不同,zlib 流的 4 字节尾必须是 Adler-32,
+/// 否则标准解码器(libpng / image crate / 浏览器)判流损坏并拒绝整张 PNG。
+fn adler32(data: &[u8]) -> u32 {
+    const MOD: u32 = 65521;
+    let mut s1: u32 = 1;
+    let mut s2: u32 = 0;
+    for &b in data {
+        s1 = (s1 + u32::from(b)) % MOD;
+        s2 = (s2 + s1) % MOD;
+    }
+    (s2 << 16) | s1
+}
+
 /// zlib stored deflate（BTYPE=00）包裹 raw 字节；分块 ≤65535。
 fn zlib_stored(raw: &[u8]) -> Vec<u8> {
     let mut out = vec![0x78, 0x01]; // CMF/FLG 低压缩
@@ -244,7 +259,7 @@ fn zlib_stored(raw: &[u8]) -> Vec<u8> {
         out.extend_from_slice(&raw[off..off + take]);
         off += take;
     }
-    out.extend_from_slice(&crc32(raw).to_be_bytes());
+    out.extend_from_slice(&adler32(raw).to_be_bytes());
     out
 }
 
@@ -421,6 +436,64 @@ mod tests {
         assert!(!ppm.unwrap().is_empty());
         let png = encode(&buf, ImageFormat::Png).unwrap();
         assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+    }
+
+    //@ spec: RXS-0115
+    // PNG zlib 流校验和必须是 Adler-32(RFC 1950),而非 PNG 块 CRC32(IEEE)。
+    // 修复前 zlib_stored 误用 crc32 作 zlib 尾,产出的 IDAT 流被标准解码器
+    // (libpng / image crate / 浏览器)判为损坏而拒绝整张 PNG。本测试锚定该缺陷:
+    // (1) Adler-32 已知向量;(2) 解析 PNG 块定位 IDAT,断言 zlib 尾 4 字节
+    // 等于原始过滤数据的 Adler-32(大端)。
+    #[test]
+    fn png_zlib_trailer_is_adler32() {
+        // Adler-32 已知向量(RFC 1950)。
+        assert_eq!(adler32(&[]), 1);
+        assert_eq!(adler32(b"Wikipedia"), 0x11E6_0398);
+
+        // 2×1:像素0=(1,0,0)→255,0,0;像素1=(0,1,0)→0,255,0。
+        let mut buf = ImageBuffer::new(2, 1, Rgb::new(0.0, 0.0, 0.0));
+        buf.set(0, 0, Rgb::new(1.0, 0.0, 0.0));
+        buf.set(1, 0, Rgb::new(0.0, 1.0, 0.0));
+        let png = encode(&buf, ImageFormat::Png).unwrap();
+        assert!(png.starts_with(b"\x89PNG\r\n\x1a\n"));
+
+        // 复现 encode_png 的过滤行原始字节(filter 0 + 行主序 RGB)。
+        let (w, h) = (buf.width(), buf.height());
+        let mut raw = Vec::with_capacity((1 + w as usize * 3) * h as usize);
+        for y in 0..h {
+            raw.push(0); // filter none
+            for x in 0..w {
+                let [r, g, b] = buf.get(x, y).unwrap().to_rgb8();
+                raw.push(r);
+                raw.push(g);
+                raw.push(b);
+            }
+        }
+
+        // 解析 PNG 块定位 IDAT,取 zlib 流尾 4 字节。
+        let mut pos = 8usize; // 跳过签名
+        let mut idat: &[u8] = &[];
+        while pos + 8 <= png.len() {
+            let len = u32::from_be_bytes([png[pos], png[pos + 1], png[pos + 2], png[pos + 3]])
+                as usize;
+            let tag = &png[pos + 4..pos + 8];
+            let end = pos + 8 + len + 4; // len + tag + data + crc
+            if end > png.len() {
+                break;
+            }
+            if tag == b"IDAT" {
+                idat = &png[pos + 8..pos + 8 + len];
+            }
+            pos = end;
+        }
+        assert!(idat.len() >= 6, "IDAT zlib 流过短");
+        let trailer = &idat[idat.len() - 4..];
+        let expected = adler32(&raw).to_be_bytes();
+        assert_eq!(
+            trailer,
+            expected,
+            "zlib 流尾必须是 Adler-32(曾误用 CRC32,致标准解码器拒收 PNG)"
+        );
     }
 
     //@ spec: RXS-0116
