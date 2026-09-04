@@ -1,0 +1,158 @@
+{
+  "schema": "rurix.g40.deliverables.v1",
+  "campaign": "day_0903_clouds",
+  "gate": "g40.clouds.present",
+  "gate_status": "pending",
+  "gate_facts": 7,
+  "gate_status_note": "门 ci/g40_cloud_smoke.py 为补齐件,尚未真跑(target-dir 与设备被他役占用);静态校验绿(ast.parse 无输出、未知门键 rc=2)。跑绿后重跑本脚本传 --gate-status pass",
+  "upstream": {
+    "project": "HanPi Volume Cloud (HPVolumeCloud)",
+    "url": "https://github.com/AshenOneArt/HPVolumeCloud",
+    "license": "MIT + 署名要求",
+    "derivation": "其自身派生自 Unity HDRP 体积云",
+    "mode": "clean-room(只取技术方案,不含参考仓库任何源码文本)"
+  },
+  "sky_calibration": {
+    "source": "Poly Haven",
+    "license": "CC0-1.0",
+    "slug": "Pure Sky",
+    "note": "只取太阳高度角/方位角/浊度的标定数值,零二进制资产入库"
+  },
+  "generated_utc": "2026-09-04T02:14:45Z",
+  "committed": false,
+  "commit_note": "未 commit,入库归 owner",
+  "binary_policy": "previews/*.png 留盘不入库(仓库全局 *.png 规则);本清单 sha256 为其入库登记面",
+  "file_count": 23,
+  "groups": {
+    "source_in_tree": {
+      "count": 6,
+      "files": [
+        {
+          "path": "src/rurix-render/src/world/sky.rs",
+          "bytes": 34385,
+          "sha256": "c663e6de7f224b9511dabf5f25f701bf7584227ca5e910e9814ef40c7fa49bf3"
+        },
+        {
+          "path": "src/rurix-render/src/world/clouds.rs",
+          "bytes": 82916,
+          "sha256": "38f1d3e8110e399f4c2a9669645e384dc9f7c6ac21a6eaae2755e5a1d939f7ad"
+        },
+        {
+          "path": "src/rurix-render/kernels/g40_volumetric_cloud.rx",
+          "bytes": 39928,
+          "sha256": "74766ab8f141ed8d8ad6a9f134b4da00d19f302462c6c9bf605fe07ee8cd5ad2"
+        },
+        {
+          "path": "src/rurix-render/kernels/g40_cloud_encode.rx",
+          "bytes": 2769,
+          "sha256": "227ec1a1b3e288ecceea1580545d454bf6adf4ad5285afc260be1ff3bde97938"
+        },
+        {
+          "path": "src/rurix-render/src/bin/g40_cloud_present.rs",
+          "bytes": 26944,
+          "sha256": "c25c407dbd7e3c2279e95b2bb4fe6ef058b43a1a366c8177339ae3b7daf2072a"
+        },
+        {
+          "path": "ci/g40_cloud_smoke.py",
+          "bytes": 12323,
+          "sha256": "86f6b4abe8e6f9cf5c7cc5c1e797529ca6e59645baeca8ac962cbccbd0e39d69"
+        }
+      ]
+    },
+    "campaign_in_tree": {
+      "count": 4,
+      "files": [
+        {
+          "path": "artifacts/day_0903_clouds/CAMPAIGN_LOG.md",
+          "bytes": 4119,
+          "sha256": "4d4d26e7750605fed31e3d3ce91f02f45040d314478d43075e734a3e3a96481b"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/HANDOVER.md",
+          "bytes": 5081,
+          "sha256": "5b26b5feee095e93e140ce94790bfc017bf17e20f783c92e1528b7f47bce25f2"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/REPORT.md",
+          "bytes": 9018,
+          "sha256": "af040870c93b076a7bad27ec9d6e21684c3d0b4d7153f5a0b29ae6693d2c4729"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/tools/make_deliverables.py",
+          "bytes": 4572,
+          "sha256": "9d2c693990560656ddab3e1057f9d91364d3e71614bfdb46d1c54cb1a1d7b971"
+        }
+      ]
+    },
+    "media_on_disk_not_tracked": {
+      "count": 13,
+      "files": [
+        {
+          "path": "artifacts/day_0903_clouds/previews/clear_hq.png",
+          "bytes": 2765798,
+          "sha256": "18fe1a63274d0106ea584a959702de81d5006d00dd319c4120f3c77c807b7fd7"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/cmp_phifwd_off.png",
+          "bytes": 2765798,
+          "sha256": "b06b0e79b803b5532a0fe66ff617ab3df6cd6d261146c6a698b1ec8efb42f3e4"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/cmp_phifwd_on.png",
+          "bytes": 2765798,
+          "sha256": "3a49cc89dfe50587ee0a30dc066cab9db12e4043015d4f3f84ad4382ed43a13d"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/phi_20.png",
+          "bytes": 995903,
+          "sha256": "a59d81b5a6bd31892a1f26416e87d6cae06e426ed0d69f78c6baad16622c7c13"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/phi_5.png",
+          "bytes": 995903,
+          "sha256": "5433fc935b96e4256a82f4bf5d12edadc8a48cbf297df4b06e5b932a1a622883"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/phi_60.png",
+          "bytes": 995903,
+          "sha256": "9f38de589bdf32c40ad2cbeacffd4a0717b66509bac28c69116c188e40b8b2d0"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/phifwd_off.png",
+          "bytes": 1770251,
+          "sha256": "6a3e7764240d2719079c24faeb6f6e6908133ead330087fca5f8f2a4dcc61274"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/phifwd_on.png",
+          "bytes": 1770251,
+          "sha256": "8a1332bc074f33da22ef2242f07cc75ad69738070b95ff84026d47ca1effa99e"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/preset_clear.png",
+          "bytes": 2765798,
+          "sha256": "848db908e71061fe23dbe328d7254c0f9ac76a669d49b8a3118910f9fddd7c62"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/preset_golden.png",
+          "bytes": 2765798,
+          "sha256": "3a49cc89dfe50587ee0a30dc066cab9db12e4043015d4f3f84ad4382ed43a13d"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/preset_noon.png",
+          "bytes": 2765798,
+          "sha256": "1e03cad009ad1c2b75191d3f83cd7ad2fe089e65c7c2eac3b52397355df678c7"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/preset_sunset.png",
+          "bytes": 2765798,
+          "sha256": "8bd94bd74beb6c145a9db7b9ac557303dd78cd55f508effb2461e8975deb8468"
+        },
+        {
+          "path": "artifacts/day_0903_clouds/previews/smoke_clear.png",
+          "bytes": 1555923,
+          "sha256": "ac22fb1d790ea5431453d1bc2ec33bfb918abedcbbf5e1dc94443356caf0be4a"
+        }
+      ]
+    }
+  }
+}

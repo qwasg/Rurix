@@ -1,0 +1,691 @@
+// G40 体积云 device kernel(host 金标准 = `world::clouds` / `world::sky`,
+// 公式面逐字同源;门 `g40.clouds.volumetric`)。
+//
+// 复现 HanPi Volume Cloud(https://github.com/AshenOneArt/HPVolumeCloud,MIT +
+// 署名要求;其自身派生自 Unity HDRP 体积云)。五层结构:
+//   1. Schneider 密度模型(球壳 slab + weather map + 烘焙 Perlin-Worley 基础体
+//      + Worley 侵蚀体 + 三型高度廓形);
+//   2. 主射线自适应步进(空域大步跳过 / 云内小步精积分);
+//   3. 锥形几何级数光步进(比率 2.0,反解首步宽度);
+//   4. 双瓣 HG 相位 + Hillaire 2020 三倍频多重散射;
+//   5. phi_fwd 各向同性漫射场(1D 格林函数;加性项,与乘性 MS 正交)。
+//
+// ## 确定性协议(RXS-0357 L2 同律继承)
+//
+// 逐像素独立顺序求值,禁 atomic;只读输入缓冲、直写输出缓冲(无跨像素写竞争);
+// 全 f32;无 RNG 消费(全确定步进);固定输入双跑位级一致。
+//
+// ## 三处「不在 kernel 内算」的设计决定
+//
+// 1. **噪声**:基础/侵蚀两体由 host `NoiseVolumes::bake()` 一次烘焙后原字节
+//    上传——host 与 device 共享同一份噪声事实源,对拍容差里不含噪声项。逐样点
+//    现算 Perlin-Worley 需约 350 次 hash,实时不可承受。
+// 2. **天空**:Rayleigh/Mie/臭氧单散射由 host `world::sky` 预算成 sky-view LUT
+//    (生产引擎同律)。参数化取 `(dir.y, dot(dir, sun))` 二维——水平均匀大气下
+//    这两个量唯一决定辐亮度(绕天顶-太阳平面的镜像对称),且**只需两次点积,
+//    不需要 atan2**(device 数学内建表无 atan2)。
+// 3. **相位/廓形常量**:三型 slab 廓形的 b1/t0/t1 与密度倍率由 type 通道算术
+//    选型(禁 `if` 分叉,与全仓 `.rx` 分支纪律同)。
+//
+// ## 语言纪律(全仓 `.rx` 同律)
+//
+// - 无 `else` / `break` / `continue`:分支一律算术门 `a + (b−a)*g`,早退一律
+//   并入 while 条件的活跃标志。
+// - **无辅助函数**:`vulkan_codegen.rs` 的 `CallTarget::Fn` 恒拒(device fn 调用
+//   在 Vulkan 后端未接线),故三线性取样/双线性取样/HG/smoothstep 全部手工内联,
+//   同一块代码在主步进与光步进各出现一次(A / B 两段,逐字同式)。
+// - 噪声体边长取 2 的幂 ⇒ 环绕索引用位掩码 `& (dim−1)`,避免负坐标取模。
+//
+// ## 参数面(params: f32 SSBO;host `pack_cloud_params` 逐字同源,68 f32)
+//   [0]=width [1]=height
+//   [2..5]=cam_origin [5..8]=cam_forward [8..11]=cam_right [11..14]=cam_up
+//   [14]=tan_half_fov [15]=aspect
+//   [16..19]=sun_dir [19..22]=sun_color
+//   [22..25]=ambient_top [25..28]=ambient_bottom
+//   [28]=lowest_alt [29]=highest_alt [30]=max_ray_dist
+//   [31]=primary_steps [32]=light_steps
+//   [33]=noise_scale [34]=detail_scale [35]=detail_strength
+//   [36]=density_threshold [37]=density_multiplier [38]=coverage_multiplier
+//   [39]=bottom_smooth_height [40]=sigma_t [41]=weather_world_size
+//   [42]=wind_x [43]=wind_z
+//   [44]=forward_ecc [45]=backward_ecc
+//   [46]=ms_attenuation [47]=ms_contribution [48]=ms_eccentricity
+//   [49]=ao_upward_scale [50]=powder_intensity
+//   [51]=scatter_src_od_scale [52]=scatter_src_curve_pow
+//   [53]=phi_intensity [54]=phi_depth_pow [55]=phi_depth_bias
+//   [56]=phi_boundary_conf [57]=phi_ms_build [58]=phi_compress
+//   [59]=weather_w [60]=weather_h
+//   [61]=noise_base_dim [62]=noise_detail_dim
+//   [63]=sky_lut_w [64]=sky_lut_h
+//   [65]=earth_radius [66]=max_iter [67]=cone_pow_r(= 2^light_steps,host 预算)
+//
+//   weather: 3 f32/texel(coverage / humidity / type)
+//   noise_base: base_dim^3 f32;noise_detail: detail_dim^3 f32(行主序 [z][y][x])
+//   sky_lut: 3 f32/texel(u = (dot(dir,sun)+1)/2,v = (dir.y+1)/2)
+//   out_color: 3 f32/px scene-linear HDR
+#[numthreads(8, 8, 1)]
+kernel fn g40_volumetric_cloud(
+    t: ThreadCtx<2>,
+    params: View<global, f32>,
+    weather: View<global, f32>,
+    noise_base: View<global, f32>,
+    noise_detail: View<global, f32>,
+    sky_lut: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+) {
+    let px = t.global_id() as usize;
+    let py = t.global_id_y() as usize;
+    let w = params[0] as usize;
+    let h = params[1] as usize;
+    if px < w && py < h {
+        let pi: f32 = 3.1415927;
+        let tiny: f32 = 0.000001;
+        let big: f32 = 1e30;
+
+        // ── 参数解包 ──────────────────────────────────────────────────────
+        let co_x = params[2];
+        let co_y = params[3];
+        let co_z = params[4];
+        let cf_x = params[5];
+        let cf_y = params[6];
+        let cf_z = params[7];
+        let cr_x = params[8];
+        let cr_y = params[9];
+        let cr_z = params[10];
+        let cu_x = params[11];
+        let cu_y = params[12];
+        let cu_z = params[13];
+        let tan_half = params[14];
+        let aspect = params[15];
+        let sun_x = params[16];
+        let sun_y = params[17];
+        let sun_z = params[18];
+        let sunc_r = params[19];
+        let sunc_g = params[20];
+        let sunc_b = params[21];
+        let amb_t_r = params[22];
+        let amb_t_g = params[23];
+        let amb_t_b = params[24];
+        let amb_b_r = params[25];
+        let amb_b_g = params[26];
+        let amb_b_b = params[27];
+        let alt_lo = params[28];
+        let alt_hi = params[29];
+        let max_ray = params[30];
+        let n_primary = params[31];
+        let n_light = params[32] as usize;
+        let noise_scale = params[33].max(1.0);
+        let detail_scale = params[34].max(1.0);
+        let detail_str = params[35];
+        let dens_thresh = params[36];
+        let dens_mul = params[37];
+        let cov_mul = params[38];
+        let bottom_smooth = params[39].max(0.001);
+        let sigma_t_ref = params[40];
+        let weather_size = params[41].max(1.0);
+        let wind_x = params[42];
+        let wind_z = params[43];
+        let fwd_ecc = params[44];
+        let bwd_ecc = params[45];
+        let ms_att = params[46];
+        let ms_con = params[47];
+        let ms_ecc = params[48];
+        let ao_up = params[49].max(0.0);
+        let powder_int = params[50];
+        let src_od_scale = params[51].max(0.001);
+        let src_curve = params[52].max(0.01);
+        let phi_int = params[53];
+        let phi_depth_pow = params[54];
+        let phi_depth_bias = params[55];
+        let phi_bconf = params[56].max(0.0).min(1.0);
+        let phi_ms_build = params[57].max(0.0);
+        let phi_compress = params[58];
+        let wm_w = params[59] as usize;
+        let wm_h = params[60] as usize;
+        let wm_wf = params[59];
+        let wm_hf = params[60];
+        let nb_dim = params[61] as usize;
+        let nb_dimf = params[61];
+        let nd_dim = params[62] as usize;
+        let nd_dimf = params[62];
+        let sky_w = params[63] as usize;
+        let sky_wf = params[63];
+        let sky_hf = params[64];
+        let earth_r = params[65];
+        let max_iter = params[66] as usize;
+        let cone_pow_r = params[67];
+        // 噪声体边长为 2 的幂 ⇒ 环绕索引 = 位掩码。
+        let nb_mask = nb_dim - 1usize;
+        let nd_mask = nd_dim - 1usize;
+        let slab = (alt_hi - alt_lo).max(1.0);
+        let inv_thresh = (1.0 - dens_thresh).max(0.001);
+
+        // ── 主射线方向(相机基 + NDC)────────────────────────────────────
+        let ndc_x = ((px as f32) + 0.5) / (w as f32) * 2.0 - 1.0;
+        let ndc_y = 1.0 - ((py as f32) + 0.5) / (h as f32) * 2.0;
+        let scr_x = ndc_x * tan_half * aspect;
+        let scr_y = ndc_y * tan_half;
+        let rd_x0 = cf_x + cr_x * scr_x + cu_x * scr_y;
+        let rd_y0 = cf_y + cr_y * scr_x + cu_y * scr_y;
+        let rd_z0 = cf_z + cr_z * scr_x + cu_z * scr_y;
+        let rd_len = (rd_x0 * rd_x0 + rd_y0 * rd_y0 + rd_z0 * rd_z0).sqrt().max(tiny);
+        let rd_x = rd_x0 / rd_len;
+        let rd_y = rd_y0 / rd_len;
+        let rd_z = rd_z0 / rd_len;
+        let cos_a = rd_x * sun_x + rd_y * sun_y + rd_z * sun_z;
+
+        // ── 天空背景:sky-view LUT 双线性(u = (cos_a+1)/2,v = (rd_y+1)/2)──
+        let sky_u = (cos_a + 1.0) * 0.5;
+        let sky_v = (rd_y + 1.0) * 0.5;
+        let sfx = (sky_u * sky_wf - 0.5).max(0.0).min(sky_wf - 1.0);
+        let sfy = (sky_v * sky_hf - 0.5).max(0.0).min(sky_hf - 1.0);
+        let sx0f = sfx.floor();
+        let sy0f = sfy.floor();
+        let stx = sfx - sx0f;
+        let sty = sfy - sy0f;
+        let su0 = sx0f as usize;
+        let su1 = (sx0f + 1.0).min(sky_wf - 1.0) as usize;
+        let sv0 = sy0f as usize;
+        let sv1 = (sy0f + 1.0).min(sky_hf - 1.0) as usize;
+        let sk00 = (sv0 * sky_w + su0) * 3usize;
+        let sk10 = (sv0 * sky_w + su1) * 3usize;
+        let sk01 = (sv1 * sky_w + su0) * 3usize;
+        let sk11 = (sv1 * sky_w + su1) * 3usize;
+        let bg_r = (sky_lut[sk00] + (sky_lut[sk10] - sky_lut[sk00]) * stx)
+            + ((sky_lut[sk01] + (sky_lut[sk11] - sky_lut[sk01]) * stx)
+                - (sky_lut[sk00] + (sky_lut[sk10] - sky_lut[sk00]) * stx))
+                * sty;
+        let bg_g = (sky_lut[sk00 + 1usize] + (sky_lut[sk10 + 1usize] - sky_lut[sk00 + 1usize]) * stx)
+            + ((sky_lut[sk01 + 1usize]
+                + (sky_lut[sk11 + 1usize] - sky_lut[sk01 + 1usize]) * stx)
+                - (sky_lut[sk00 + 1usize]
+                    + (sky_lut[sk10 + 1usize] - sky_lut[sk00 + 1usize]) * stx))
+                * sty;
+        let bg_b = (sky_lut[sk00 + 2usize] + (sky_lut[sk10 + 2usize] - sky_lut[sk00 + 2usize]) * stx)
+            + ((sky_lut[sk01 + 2usize]
+                + (sky_lut[sk11 + 2usize] - sky_lut[sk01 + 2usize]) * stx)
+                - (sky_lut[sk00 + 2usize]
+                    + (sky_lut[sk10 + 2usize] - sky_lut[sk00 + 2usize]) * stx))
+                * sty;
+
+        // ── 云层球壳 slab 求交(球心 (0, −R, 0);观察者恒在云层下方)────────
+        let o_x = co_x;
+        let o_y = co_y + earth_r;
+        let o_z = co_z;
+        let r_lo = earth_r + alt_lo;
+        let r_hi = earth_r + alt_hi;
+        let ob = o_x * rd_x + o_y * rd_y + o_z * rd_z;
+        let oo = o_x * o_x + o_y * o_y + o_z * o_z;
+        let disc_e = ob * ob - (oo - earth_r * earth_r);
+        let hit_earth = (disc_e * big).min(1.0).max(0.0)
+            * ((0.0 - ob - disc_e.max(0.0).sqrt()) * big).min(1.0).max(0.0);
+        let disc_lo = ob * ob - (oo - r_lo * r_lo);
+        let disc_hi = ob * ob - (oo - r_hi * r_hi);
+        let t_enter = (0.0 - ob) + disc_lo.max(0.0).sqrt();
+        let t_exit = (0.0 - ob) + disc_hi.max(0.0).sqrt();
+        let has_slab = (disc_lo * big).min(1.0).max(0.0)
+            * (disc_hi * big).min(1.0).max(0.0)
+            * ((t_exit - t_enter) * big).min(1.0).max(0.0)
+            * (1.0 - hit_earth);
+        let seg_len = (t_exit - t_enter).max(0.0).min(max_ray);
+
+        // ── 双瓣 HG 相位 × 三倍频(偏心率按倍频衰减;HG 手工内联 6 次)────────
+        let inv4pi = 1.0 / (4.0 * pi);
+        let gf0 = fwd_ecc;
+        let gf0s = gf0 * gf0;
+        let hf0 = inv4pi * (1.0 - gf0s)
+            / (1.0 + gf0s - 2.0 * gf0 * cos_a).max(0.0).powf(1.5).max(tiny);
+        let gb0 = 0.0 - bwd_ecc;
+        let gb0s = gb0 * gb0;
+        let hb0 = inv4pi * (1.0 - gb0s)
+            / (1.0 + gb0s - 2.0 * gb0 * cos_a).max(0.0).powf(1.5).max(tiny);
+        let ph0 = hf0 + hb0;
+
+        let e1 = ms_ecc;
+        let gf1 = fwd_ecc * e1;
+        let gf1s = gf1 * gf1;
+        let hf1 = inv4pi * (1.0 - gf1s)
+            / (1.0 + gf1s - 2.0 * gf1 * cos_a).max(0.0).powf(1.5).max(tiny);
+        let gb1 = 0.0 - bwd_ecc * e1;
+        let gb1s = gb1 * gb1;
+        let hb1 = inv4pi * (1.0 - gb1s)
+            / (1.0 + gb1s - 2.0 * gb1 * cos_a).max(0.0).powf(1.5).max(tiny);
+        let ph1 = hf1 + hb1;
+
+        let e2 = ms_ecc * ms_ecc;
+        let gf2 = fwd_ecc * e2;
+        let gf2s = gf2 * gf2;
+        let hf2 = inv4pi * (1.0 - gf2s)
+            / (1.0 + gf2s - 2.0 * gf2 * cos_a).max(0.0).powf(1.5).max(tiny);
+        let gb2 = 0.0 - bwd_ecc * e2;
+        let gb2s = gb2 * gb2;
+        let hb2 = inv4pi * (1.0 - gb2s)
+            / (1.0 + gb2s - 2.0 * gb2 * cos_a).max(0.0).powf(1.5).max(tiny);
+        let ph2 = hf2 + hb2;
+
+        // ── 主射线步进 ────────────────────────────────────────────────────
+        let step_base = seg_len / n_primary.max(1.0);
+        let near_cap = slab * 0.0625;
+        let far_cap = slab * 0.5;
+
+        let mut acc_r = 0.0;
+        let mut acc_g = 0.0;
+        let mut acc_b = 0.0;
+        let mut trans = 1.0;
+        // 起点抖动(参考实现 `cloudRay.integrationNoise`):固定步进会在云内留下
+        // 同心环状条带(步长与视距耦合),逐像素抖动首步把条带换成高频噪点——
+        // 观感上远优于条带,且逐像素确定(hash 只吃像素坐标,双跑位级)。
+        let hs0 = (px as u32) * 1973u32 + (py as u32) * 9277u32 + 26699u32;
+        let mut hs = hs0 ^ 0x9e37_79b9u32;
+        hs = hs ^ (hs >> 15u32);
+        hs = hs * 0x85eb_ca6bu32;
+        hs = hs ^ (hs >> 13u32);
+        hs = hs * 0xc2b2_ae35u32;
+        hs = hs ^ (hs >> 16u32);
+        let jitter = ((hs >> 8u32) as f32) / 16777216.0;
+        let mut travel = jitter * near_cap;
+        let mut active = has_slab;
+        // 早退纪律:`while` 条件里的 `&&` 会破坏 SPIR-V 块支配序(rurixc Vulkan
+        // codegen 现状限制,全仓 .rx 亦无 `&&`-in-while 先例),故活跃标志不进
+        // 循环条件,改由「计数器跳到上限」实现——入口不活跃则一次不跑。
+        let mut it = max_iter - max_iter * ((has_slab - 0.5).max(0.0).min(1.0).ceil() as usize);
+        while it < max_iter {
+            let abs_d = t_enter + travel;
+            let dist_norm = (abs_d / max_ray).max(0.0).min(1.0);
+            let thick_cap = near_cap + (far_cap - near_cap) * dist_norm * dist_norm;
+            let step_large = step_base.min(abs_d / 8.0).min(thick_cap).max(1.0);
+
+            let sp_x = co_x + rd_x * abs_d;
+            let sp_y = co_y + rd_y * abs_d;
+            let sp_z = co_z + rd_z * abs_d;
+
+            // ══════ 密度求值 A(主步进采样点)══════════════════════════════
+            let a_rel_y = sp_y + earth_r;
+            let a_alt = (sp_x * sp_x + a_rel_y * a_rel_y + sp_z * sp_z).sqrt() - earth_r;
+            let a_in_slab = ((a_alt - alt_lo) * big).min(1.0).max(0.0)
+                * ((alt_hi - a_alt) * big).min(1.0).max(0.0);
+            let a_h = ((a_alt - alt_lo) / slab).max(0.0).min(1.0);
+            // weather 双线性(环绕平铺;加整数偏置避免负坐标取模)。
+            let a_wu0 = sp_x / weather_size + 0.5;
+            let a_wv0 = sp_z / weather_size + 0.5;
+            let a_wu = a_wu0 - a_wu0.floor();
+            let a_wv = a_wv0 - a_wv0.floor();
+            let a_wfx = a_wu * wm_wf - 0.5;
+            let a_wfy = a_wv * wm_hf - 0.5;
+            let a_wx0 = a_wfx.floor();
+            let a_wy0 = a_wfy.floor();
+            let a_wtx = a_wfx - a_wx0;
+            let a_wty = a_wfy - a_wy0;
+            let a_wi0 = ((a_wx0 + wm_wf * 4.0) as usize) % wm_w;
+            let a_wi1 = (a_wi0 + 1usize) % wm_w;
+            let a_wj0 = ((a_wy0 + wm_hf * 4.0) as usize) % wm_h;
+            let a_wj1 = (a_wj0 + 1usize) % wm_h;
+            let a_c00 = weather[(a_wj0 * wm_w + a_wi0) * 3usize];
+            let a_c10 = weather[(a_wj0 * wm_w + a_wi1) * 3usize];
+            let a_c01 = weather[(a_wj1 * wm_w + a_wi0) * 3usize];
+            let a_c11 = weather[(a_wj1 * wm_w + a_wi1) * 3usize];
+            let a_cx0 = a_c00 + (a_c10 - a_c00) * a_wtx;
+            let a_cx1 = a_c01 + (a_c11 - a_c01) * a_wtx;
+            let a_cov = ((a_cx0 + (a_cx1 - a_cx0) * a_wty) * cov_mul).max(0.0).min(1.0);
+            let a_y00 = weather[(a_wj0 * wm_w + a_wi0) * 3usize + 2usize];
+            let a_y10 = weather[(a_wj0 * wm_w + a_wi1) * 3usize + 2usize];
+            let a_y01 = weather[(a_wj1 * wm_w + a_wi0) * 3usize + 2usize];
+            let a_y11 = weather[(a_wj1 * wm_w + a_wi1) * 3usize + 2usize];
+            let a_yx0 = a_y00 + (a_y10 - a_y00) * a_wtx;
+            let a_yx1 = a_y01 + (a_y11 - a_y01) * a_wtx;
+            let a_type = a_yx0 + (a_yx1 - a_yx0) * a_wty;
+            // 三型廓形算术选型(Cu / Tcu / Cb)。
+            let a_g1 = ((a_type - 0.4) * big).min(1.0).max(0.0);
+            let a_g2 = ((a_type - 0.75) * big).min(1.0).max(0.0);
+            let a_b1 = 0.12 + (0.10 - 0.12) * a_g1 + (0.06 - 0.10) * a_g2;
+            let a_t0 = 0.28 + (0.55 - 0.28) * a_g1 + (0.82 - 0.55) * a_g2;
+            let a_t1 = 0.55 + (0.85 - 0.55) * a_g1 + (1.00 - 0.85) * a_g2;
+            let a_tmul = 1.0 + (1.35 - 1.0) * a_g1 + (1.8 - 1.35) * a_g2;
+            let a_pb = (a_h / a_b1.max(tiny)).max(0.0).min(1.0);
+            let a_pt = ((a_h - a_t0) / (a_t1 - a_t0).max(tiny)).max(0.0).min(1.0);
+            let a_prof = (a_pb * a_pb * (3.0 - 2.0 * a_pb))
+                * (1.0 - a_pt * a_pt * (3.0 - 2.0 * a_pt));
+            // 基础塑形体三线性平铺取样(位掩码环绕)。
+            let a_bfx = ((sp_x + wind_x) / noise_scale + 4096.0) * nb_dimf;
+            let a_bfy = (sp_y / noise_scale + 4096.0) * nb_dimf;
+            let a_bfz = ((sp_z + wind_z) / noise_scale + 4096.0) * nb_dimf;
+            let a_bx0f = a_bfx.floor();
+            let a_by0f = a_bfy.floor();
+            let a_bz0f = a_bfz.floor();
+            let a_btx = a_bfx - a_bx0f;
+            let a_bty = a_bfy - a_by0f;
+            let a_btz = a_bfz - a_bz0f;
+            let a_bx0 = (a_bx0f as usize) & nb_mask;
+            let a_bx1 = ((a_bx0f as usize) + 1usize) & nb_mask;
+            let a_by0 = (a_by0f as usize) & nb_mask;
+            let a_by1 = ((a_by0f as usize) + 1usize) & nb_mask;
+            let a_bz0 = (a_bz0f as usize) & nb_mask;
+            let a_bz1 = ((a_bz0f as usize) + 1usize) & nb_mask;
+            let a_n000 = noise_base[(a_bz0 * nb_dim + a_by0) * nb_dim + a_bx0];
+            let a_n100 = noise_base[(a_bz0 * nb_dim + a_by0) * nb_dim + a_bx1];
+            let a_n010 = noise_base[(a_bz0 * nb_dim + a_by1) * nb_dim + a_bx0];
+            let a_n110 = noise_base[(a_bz0 * nb_dim + a_by1) * nb_dim + a_bx1];
+            let a_n001 = noise_base[(a_bz1 * nb_dim + a_by0) * nb_dim + a_bx0];
+            let a_n101 = noise_base[(a_bz1 * nb_dim + a_by0) * nb_dim + a_bx1];
+            let a_n011 = noise_base[(a_bz1 * nb_dim + a_by1) * nb_dim + a_bx0];
+            let a_n111 = noise_base[(a_bz1 * nb_dim + a_by1) * nb_dim + a_bx1];
+            let a_nc00 = a_n000 + (a_n100 - a_n000) * a_btx;
+            let a_nc10 = a_n010 + (a_n110 - a_n010) * a_btx;
+            let a_nc01 = a_n001 + (a_n101 - a_n001) * a_btx;
+            let a_nc11 = a_n011 + (a_n111 - a_n011) * a_btx;
+            let a_nz0 = a_nc00 + (a_nc10 - a_nc00) * a_bty;
+            let a_nz1 = a_nc01 + (a_nc11 - a_nc01) * a_bty;
+            let a_base = a_nz0 + (a_nz1 - a_nz0) * a_btz;
+            // 覆盖度 remap。
+            let a_shaped = a_cov * a_prof;
+            let a_lo = 1.0 - a_shaped;
+            let a_d0 = ((a_base - a_lo) / (1.0 - a_lo).max(tiny)).max(0.0).min(1.0);
+            // 侵蚀体三线性平铺取样。
+            let a_dfx = ((sp_x + wind_x) / detail_scale + 4096.0) * nd_dimf;
+            let a_dfy = (sp_y / detail_scale + 4096.0) * nd_dimf;
+            let a_dfz = ((sp_z + wind_z) / detail_scale + 4096.0) * nd_dimf;
+            let a_dx0f = a_dfx.floor();
+            let a_dy0f = a_dfy.floor();
+            let a_dz0f = a_dfz.floor();
+            let a_dtx = a_dfx - a_dx0f;
+            let a_dty = a_dfy - a_dy0f;
+            let a_dtz = a_dfz - a_dz0f;
+            let a_dx0 = (a_dx0f as usize) & nd_mask;
+            let a_dx1 = ((a_dx0f as usize) + 1usize) & nd_mask;
+            let a_dy0 = (a_dy0f as usize) & nd_mask;
+            let a_dy1 = ((a_dy0f as usize) + 1usize) & nd_mask;
+            let a_dz0 = (a_dz0f as usize) & nd_mask;
+            let a_dz1 = ((a_dz0f as usize) + 1usize) & nd_mask;
+            let a_e000 = noise_detail[(a_dz0 * nd_dim + a_dy0) * nd_dim + a_dx0];
+            let a_e100 = noise_detail[(a_dz0 * nd_dim + a_dy0) * nd_dim + a_dx1];
+            let a_e010 = noise_detail[(a_dz0 * nd_dim + a_dy1) * nd_dim + a_dx0];
+            let a_e110 = noise_detail[(a_dz0 * nd_dim + a_dy1) * nd_dim + a_dx1];
+            let a_e001 = noise_detail[(a_dz1 * nd_dim + a_dy0) * nd_dim + a_dx0];
+            let a_e101 = noise_detail[(a_dz1 * nd_dim + a_dy0) * nd_dim + a_dx1];
+            let a_e011 = noise_detail[(a_dz1 * nd_dim + a_dy1) * nd_dim + a_dx0];
+            let a_e111 = noise_detail[(a_dz1 * nd_dim + a_dy1) * nd_dim + a_dx1];
+            let a_ec00 = a_e000 + (a_e100 - a_e000) * a_dtx;
+            let a_ec10 = a_e010 + (a_e110 - a_e010) * a_dtx;
+            let a_ec01 = a_e001 + (a_e101 - a_e001) * a_dtx;
+            let a_ec11 = a_e011 + (a_e111 - a_e011) * a_dtx;
+            let a_ez0 = a_ec00 + (a_ec10 - a_ec00) * a_dty;
+            let a_ez1 = a_ec01 + (a_ec11 - a_ec01) * a_dty;
+            let a_ero = a_ez0 + (a_ez1 - a_ez0) * a_dtz;
+            let a_elo = a_ero * detail_str * (0.7 + 0.3 * a_h);
+            let a_d1 = ((a_d0 - a_elo) / (1.0 - a_elo).max(tiny)).max(0.0).min(1.0);
+            // 云底软化 + 阈值 + 倍率。
+            let a_bs = (a_h / bottom_smooth).max(0.0).min(1.0);
+            let a_d2 = a_d1 * (a_bs * a_bs * (3.0 - 2.0 * a_bs));
+            let a_d3 = ((a_d2 - dens_thresh) / inv_thresh).max(0.0).min(1.0);
+            let a_density = (a_d3 * dens_mul * a_tmul).max(0.0).min(1.0) * a_in_slab;
+            // ══════ 密度求值 A 结束 ═══════════════════════════════════════
+
+            let hit = ((a_density - 0.0001) * big).min(1.0).max(0.0);
+            let step_small = step_large * 0.25;
+            let step_used = step_large + (step_small - step_large) * hit;
+
+            // ── phi_fwd 边界置信度 B_eff = C_top · C_bottom ────────────────
+            // C_top:2D 云顶高度代理 XZ 差分法线的 wrap 光照。代理采样取最近邻
+            // (参考实现同律:「只关心最近相关边界是否面向太阳,不参与密度本身的
+            // 精确评估」),四向差分 + 中心柱厚共 5 次。
+            let pstep = (weather_size * 0.001).max(25.0).min(200.0);
+            let q0u = (sp_x - pstep) / weather_size + 0.5;
+            let q0v = sp_z / weather_size + 0.5;
+            let q0i = (((q0u - q0u.floor()) * wm_wf) as usize) % wm_w;
+            let q0j = (((q0v - q0v.floor()) * wm_hf) as usize) % wm_h;
+            let hl = (weather[(q0j * wm_w + q0i) * 3usize] * cov_mul).max(0.0).min(1.0);
+            let q1u = (sp_x + pstep) / weather_size + 0.5;
+            let q1i = (((q1u - q1u.floor()) * wm_wf) as usize) % wm_w;
+            let hr = (weather[(q0j * wm_w + q1i) * 3usize] * cov_mul).max(0.0).min(1.0);
+            let q2u = sp_x / weather_size + 0.5;
+            let q2i = (((q2u - q2u.floor()) * wm_wf) as usize) % wm_w;
+            let q2v = (sp_z - pstep) / weather_size + 0.5;
+            let q2j = (((q2v - q2v.floor()) * wm_hf) as usize) % wm_h;
+            let hd = (weather[(q2j * wm_w + q2i) * 3usize] * cov_mul).max(0.0).min(1.0);
+            let q3v = (sp_z + pstep) / weather_size + 0.5;
+            let q3j = (((q3v - q3v.floor()) * wm_hf) as usize) % wm_h;
+            let hu = (weather[(q3j * wm_w + q2i) * 3usize] * cov_mul).max(0.0).min(1.0);
+            let col_thick = (weather[(q0j * wm_w + q2i) * 3usize] * cov_mul).max(0.0).min(1.0);
+            let dhdx = (hr - hl) * slab / (2.0 * pstep).max(1.0);
+            let dhdz = (hu - hd) * slab / (2.0 * pstep).max(1.0);
+            let nlen = (dhdx * dhdx + 1.0 + dhdz * dhdz).sqrt().max(tiny);
+            let ndl = ((0.0 - dhdx) * sun_x + sun_y + (0.0 - dhdz) * sun_z) / nlen;
+            let wrapl = ((ndl + 0.5) / 1.5).max(0.0).min(1.0);
+            let c_top = 1.0 + (wrapl - 1.0) * phi_bconf;
+            // C_bottom:底部入射置信度(厚云底部恢复更慢)。
+            let soft_h = (bottom_smooth * (1.0 + 3.0 * col_thick)).max(0.001);
+            let bh = (a_h + phi_depth_bias).max(0.0);
+            let has_dp = (phi_depth_pow * big).min(1.0).max(0.0);
+            let c_bot = 1.0 - (0.0 - bh / soft_h * phi_depth_pow).exp() * has_dp;
+            let src_conf = c_top * c_bot;
+
+            // ── 光路球壳求交(被地球遮挡 ⇒ 无直射)─────────────────────────
+            let lo_x = sp_x;
+            let lo_y = sp_y + earth_r;
+            let lo_z = sp_z;
+            let lbb = lo_x * sun_x + lo_y * sun_y + lo_z * sun_z;
+            let loo = lo_x * lo_x + lo_y * lo_y + lo_z * lo_z;
+            let ldisc_e = lbb * lbb - (loo - earth_r * earth_r);
+            let l_hit_earth = (ldisc_e * big).min(1.0).max(0.0)
+                * ((0.0 - lbb - ldisc_e.max(0.0).sqrt()) * big).min(1.0).max(0.0);
+            let ldisc_hi = lbb * lbb - (loo - r_hi * r_hi);
+            let l_ok = (1.0 - l_hit_earth) * (ldisc_hi * big).min(1.0).max(0.0);
+            let l_total = ((0.0 - lbb) + ldisc_hi.max(0.0).sqrt()).max(0.0);
+            let cover = l_total.min(6000.0) * l_ok;
+            // 锥形采样:w0 = cover·(r−1)/(r^N − 1),r = 2 ⇒ 分子 = cover。
+            let mut cw = (cover / (cone_pow_r - 1.0).max(0.0001)).max(5.0);
+
+            let mut ext_sum = 0.0;
+            let mut kappa_sum = 0.0;
+            let mut t_cum = 1.0;
+            let mut cum = 0.0;
+            let mut phi = 0.0;
+            let mut lactive = hit * l_ok;
+            // 入口门同律:未命中云体 / 太阳被地球遮挡 ⇒ 光步一次不跑(空域跳过
+            // 的性能来源;若并入 while 条件会破坏块支配序)。
+            let mut j = n_light - n_light * ((lactive - 0.5).max(0.0).min(1.0).ceil() as usize);
+            while j < n_light {
+                let sw0 = cw.min(cover - cum);
+                let sw = sw0.max(0.0);
+                let ld = cum + sw * 0.5;
+                let lp_x = sp_x + sun_x * ld;
+                let lp_y = sp_y + sun_y * ld;
+                let lp_z = sp_z + sun_z * ld;
+
+                // ══════ 密度求值 B(光步采样点;与 A 逐字同式)═══════════════
+                let b_rel_y = lp_y + earth_r;
+                let b_alt = (lp_x * lp_x + b_rel_y * b_rel_y + lp_z * lp_z).sqrt() - earth_r;
+                let b_in_slab = ((b_alt - alt_lo) * big).min(1.0).max(0.0)
+                    * ((alt_hi - b_alt) * big).min(1.0).max(0.0);
+                let b_h = ((b_alt - alt_lo) / slab).max(0.0).min(1.0);
+                let b_wu0 = lp_x / weather_size + 0.5;
+                let b_wv0 = lp_z / weather_size + 0.5;
+                let b_wu = b_wu0 - b_wu0.floor();
+                let b_wv = b_wv0 - b_wv0.floor();
+                let b_wfx = b_wu * wm_wf - 0.5;
+                let b_wfy = b_wv * wm_hf - 0.5;
+                let b_wx0 = b_wfx.floor();
+                let b_wy0 = b_wfy.floor();
+                let b_wtx = b_wfx - b_wx0;
+                let b_wty = b_wfy - b_wy0;
+                let b_wi0 = ((b_wx0 + wm_wf * 4.0) as usize) % wm_w;
+                let b_wi1 = (b_wi0 + 1usize) % wm_w;
+                let b_wj0 = ((b_wy0 + wm_hf * 4.0) as usize) % wm_h;
+                let b_wj1 = (b_wj0 + 1usize) % wm_h;
+                let b_c00 = weather[(b_wj0 * wm_w + b_wi0) * 3usize];
+                let b_c10 = weather[(b_wj0 * wm_w + b_wi1) * 3usize];
+                let b_c01 = weather[(b_wj1 * wm_w + b_wi0) * 3usize];
+                let b_c11 = weather[(b_wj1 * wm_w + b_wi1) * 3usize];
+                let b_cx0 = b_c00 + (b_c10 - b_c00) * b_wtx;
+                let b_cx1 = b_c01 + (b_c11 - b_c01) * b_wtx;
+                let b_cov = ((b_cx0 + (b_cx1 - b_cx0) * b_wty) * cov_mul).max(0.0).min(1.0);
+                let b_y00 = weather[(b_wj0 * wm_w + b_wi0) * 3usize + 2usize];
+                let b_y10 = weather[(b_wj0 * wm_w + b_wi1) * 3usize + 2usize];
+                let b_y01 = weather[(b_wj1 * wm_w + b_wi0) * 3usize + 2usize];
+                let b_y11 = weather[(b_wj1 * wm_w + b_wi1) * 3usize + 2usize];
+                let b_yx0 = b_y00 + (b_y10 - b_y00) * b_wtx;
+                let b_yx1 = b_y01 + (b_y11 - b_y01) * b_wtx;
+                let b_type = b_yx0 + (b_yx1 - b_yx0) * b_wty;
+                let b_g1 = ((b_type - 0.4) * big).min(1.0).max(0.0);
+                let b_g2 = ((b_type - 0.75) * big).min(1.0).max(0.0);
+                let b_b1 = 0.12 + (0.10 - 0.12) * b_g1 + (0.06 - 0.10) * b_g2;
+                let b_t0 = 0.28 + (0.55 - 0.28) * b_g1 + (0.82 - 0.55) * b_g2;
+                let b_t1 = 0.55 + (0.85 - 0.55) * b_g1 + (1.00 - 0.85) * b_g2;
+                let b_tmul = 1.0 + (1.35 - 1.0) * b_g1 + (1.8 - 1.35) * b_g2;
+                let b_pb = (b_h / b_b1.max(tiny)).max(0.0).min(1.0);
+                let b_pt = ((b_h - b_t0) / (b_t1 - b_t0).max(tiny)).max(0.0).min(1.0);
+                let b_prof = (b_pb * b_pb * (3.0 - 2.0 * b_pb))
+                    * (1.0 - b_pt * b_pt * (3.0 - 2.0 * b_pt));
+                let b_bfx = ((lp_x + wind_x) / noise_scale + 4096.0) * nb_dimf;
+                let b_bfy = (lp_y / noise_scale + 4096.0) * nb_dimf;
+                let b_bfz = ((lp_z + wind_z) / noise_scale + 4096.0) * nb_dimf;
+                let b_bx0f = b_bfx.floor();
+                let b_by0f = b_bfy.floor();
+                let b_bz0f = b_bfz.floor();
+                let b_btx = b_bfx - b_bx0f;
+                let b_bty = b_bfy - b_by0f;
+                let b_btz = b_bfz - b_bz0f;
+                let b_bx0 = (b_bx0f as usize) & nb_mask;
+                let b_bx1 = ((b_bx0f as usize) + 1usize) & nb_mask;
+                let b_by0 = (b_by0f as usize) & nb_mask;
+                let b_by1 = ((b_by0f as usize) + 1usize) & nb_mask;
+                let b_bz0 = (b_bz0f as usize) & nb_mask;
+                let b_bz1 = ((b_bz0f as usize) + 1usize) & nb_mask;
+                let b_n000 = noise_base[(b_bz0 * nb_dim + b_by0) * nb_dim + b_bx0];
+                let b_n100 = noise_base[(b_bz0 * nb_dim + b_by0) * nb_dim + b_bx1];
+                let b_n010 = noise_base[(b_bz0 * nb_dim + b_by1) * nb_dim + b_bx0];
+                let b_n110 = noise_base[(b_bz0 * nb_dim + b_by1) * nb_dim + b_bx1];
+                let b_n001 = noise_base[(b_bz1 * nb_dim + b_by0) * nb_dim + b_bx0];
+                let b_n101 = noise_base[(b_bz1 * nb_dim + b_by0) * nb_dim + b_bx1];
+                let b_n011 = noise_base[(b_bz1 * nb_dim + b_by1) * nb_dim + b_bx0];
+                let b_n111 = noise_base[(b_bz1 * nb_dim + b_by1) * nb_dim + b_bx1];
+                let b_nc00 = b_n000 + (b_n100 - b_n000) * b_btx;
+                let b_nc10 = b_n010 + (b_n110 - b_n010) * b_btx;
+                let b_nc01 = b_n001 + (b_n101 - b_n001) * b_btx;
+                let b_nc11 = b_n011 + (b_n111 - b_n011) * b_btx;
+                let b_nz0 = b_nc00 + (b_nc10 - b_nc00) * b_bty;
+                let b_nz1 = b_nc01 + (b_nc11 - b_nc01) * b_bty;
+                let b_base = b_nz0 + (b_nz1 - b_nz0) * b_btz;
+                let b_shaped = b_cov * b_prof;
+                let b_lo = 1.0 - b_shaped;
+                let b_d0 = ((b_base - b_lo) / (1.0 - b_lo).max(tiny)).max(0.0).min(1.0);
+                let b_dfx = ((lp_x + wind_x) / detail_scale + 4096.0) * nd_dimf;
+                let b_dfy = (lp_y / detail_scale + 4096.0) * nd_dimf;
+                let b_dfz = ((lp_z + wind_z) / detail_scale + 4096.0) * nd_dimf;
+                let b_dx0f = b_dfx.floor();
+                let b_dy0f = b_dfy.floor();
+                let b_dz0f = b_dfz.floor();
+                let b_dtx = b_dfx - b_dx0f;
+                let b_dty = b_dfy - b_dy0f;
+                let b_dtz = b_dfz - b_dz0f;
+                let b_dx0 = (b_dx0f as usize) & nd_mask;
+                let b_dx1 = ((b_dx0f as usize) + 1usize) & nd_mask;
+                let b_dy0 = (b_dy0f as usize) & nd_mask;
+                let b_dy1 = ((b_dy0f as usize) + 1usize) & nd_mask;
+                let b_dz0 = (b_dz0f as usize) & nd_mask;
+                let b_dz1 = ((b_dz0f as usize) + 1usize) & nd_mask;
+                let b_e000 = noise_detail[(b_dz0 * nd_dim + b_dy0) * nd_dim + b_dx0];
+                let b_e100 = noise_detail[(b_dz0 * nd_dim + b_dy0) * nd_dim + b_dx1];
+                let b_e010 = noise_detail[(b_dz0 * nd_dim + b_dy1) * nd_dim + b_dx0];
+                let b_e110 = noise_detail[(b_dz0 * nd_dim + b_dy1) * nd_dim + b_dx1];
+                let b_e001 = noise_detail[(b_dz1 * nd_dim + b_dy0) * nd_dim + b_dx0];
+                let b_e101 = noise_detail[(b_dz1 * nd_dim + b_dy0) * nd_dim + b_dx1];
+                let b_e011 = noise_detail[(b_dz1 * nd_dim + b_dy1) * nd_dim + b_dx0];
+                let b_e111 = noise_detail[(b_dz1 * nd_dim + b_dy1) * nd_dim + b_dx1];
+                let b_ec00 = b_e000 + (b_e100 - b_e000) * b_dtx;
+                let b_ec10 = b_e010 + (b_e110 - b_e010) * b_dtx;
+                let b_ec01 = b_e001 + (b_e101 - b_e001) * b_dtx;
+                let b_ec11 = b_e011 + (b_e111 - b_e011) * b_dtx;
+                let b_ez0 = b_ec00 + (b_ec10 - b_ec00) * b_dty;
+                let b_ez1 = b_ec01 + (b_ec11 - b_ec01) * b_dty;
+                let b_ero = b_ez0 + (b_ez1 - b_ez0) * b_dtz;
+                let b_elo = b_ero * detail_str * (0.7 + 0.3 * b_h);
+                let b_d1 = ((b_d0 - b_elo) / (1.0 - b_elo).max(tiny)).max(0.0).min(1.0);
+                let b_bs = (b_h / bottom_smooth).max(0.0).min(1.0);
+                let b_d2 = b_d1 * (b_bs * b_bs * (3.0 - 2.0 * b_bs));
+                let b_d3 = ((b_d2 - dens_thresh) / inv_thresh).max(0.0).min(1.0);
+                let b_density = (b_d3 * dens_mul * b_tmul).max(0.0).min(1.0) * b_in_slab;
+                // ══════ 密度求值 B 结束 ═══════════════════════════════════
+
+                let l_sigma_t = b_density * sigma_t_ref;
+                let l_od = l_sigma_t * sw;
+                // phi_fwd:φ += T_abs·(σ_s·Δs)·σ_tr·C_iso·B_eff·exp(−∫κ ds)·(1/r)
+                //   ω₀ = 0.999 写死;g_eff = 0 ⇒ σ_tr = σ_t;
+                //   κ·Δs = OD·sqrt(3(1−ω₀)) = OD·0.054772255(编译期常量,免开方)。
+                let q_src = l_sigma_t * 0.999 * sw;
+                let kappa_step = l_od * 0.054772255;
+                let per_src = (0.0 - (kappa_sum + kappa_step * 0.5)).exp();
+                let ms_build = 1.0 - (0.0 - (ext_sum + l_od * 0.5) * phi_ms_build).exp();
+                let inv_r = 1.0 / ld.max(sw * 0.5).max(tiny);
+                phi = phi + t_cum * q_src * l_sigma_t * src_conf * ms_build * per_src * inv_r;
+                kappa_sum = kappa_sum + kappa_step;
+                // T_abs:无逃逸漫射源只按 σ_a = (1−ω₀)σ_t 极慢衰减。
+                t_cum = t_cum * (0.0 - l_od * 0.001).exp();
+                ext_sum = ext_sum + l_od;
+                cum = cum + sw;
+                cw = cw * 2.0;
+                // 步宽塌零(锥形采样走完 cover)即停。
+                lactive = lactive * (sw0 * big).min(1.0).max(0.0);
+                j = j + 1usize;
+                j = j + n_light * ((0.5 - lactive).max(0.0).min(1.0).ceil() as usize);
+            }
+
+            // ── Hillaire 2020 三倍频多重散射 ──────────────────────────────
+            let tr0 = (0.0 - ext_sum).exp();
+            let tr1 = (0.0 - ext_sum * ms_att).exp();
+            let tr2 = (0.0 - ext_sum * ms_att * ms_att).exp();
+            let lum_w = (tr0 * ph0 + tr1 * ph1 * ms_con + tr2 * ph2 * ms_con * ms_con) * l_ok;
+
+            // ── 逐步合成 ──────────────────────────────────────────────────
+            let extinct = a_density * sigma_t_ref;
+            let step_trans = (0.0 - extinct * step_small).exp();
+            // 低密度散射源:本步散射 OD 决定源强(视线透射率仍用完整 extinction)。
+            let scat_od = extinct * 0.999 * step_small;
+            let src_amt = (1.0 - (0.0 - scat_od / src_od_scale).exp())
+                .max(0.0)
+                .min(1.0)
+                .powf(src_curve);
+            // powder effect(背光方向云边暗化;smoothstep(0.5, −0.5, cos_a))。
+            let pw0 = ((1.0 - (0.0 - a_density * 4.0).exp()) * 2.0).max(0.0).min(1.0);
+            let pw_t = ((cos_a - 0.5) / (0.0 - 1.0)).max(0.0).min(1.0);
+            let pw_s = pw_t * pw_t * (3.0 - 2.0 * pw_t);
+            let powder = 1.0 + ((1.0 + (pw0 - 1.0) * pw_s) - 1.0) * powder_int;
+            // phi_fwd 加性注入(软饱和压缩后按 transmittance 注入)。
+            let phi_s = phi * phi_int;
+            let has_cmp = (phi_compress * big).min(1.0).max(0.0);
+            let phi_c = (1.0 - (0.0 - phi_s * phi_compress).exp()) / phi_compress.max(tiny);
+            let phi_m = phi_s + (phi_c - phi_s) * has_cmp;
+            let phi_inj = phi_m * (1.0 - step_trans);
+            // 环境光(upward AO 由太阳光路真实 OD × sin(仰角) 折算)。
+            let sin_el = sun_y.max(0.05);
+            let up_ao = (0.0 - ext_sum * sin_el * ao_up).exp();
+            let amb_r = amb_t_r * up_ao + amb_b_r * (1.0 - a_h);
+            let amb_g = amb_t_g * up_ao + amb_b_g * (1.0 - a_h);
+            let amb_b2 = amb_t_b * up_ao + amb_b_b * (1.0 - a_h);
+
+            let ig_r = lum_w * sunc_r * src_amt + phi_inj * sunc_r + amb_r * src_amt * powder;
+            let ig_g = lum_w * sunc_g * src_amt + phi_inj * sunc_g + amb_g * src_amt * powder;
+            let ig_b = lum_w * sunc_b * src_amt + phi_inj * sunc_b + amb_b2 * src_amt * powder;
+
+            acc_r = acc_r + ig_r * trans * hit;
+            acc_g = acc_g + ig_g * trans * hit;
+            acc_b = acc_b + ig_b * trans * hit;
+            // 未命中步不改透射率(step_trans 经 hit 门恒等到 1)。
+            trans = trans * (1.0 + (step_trans - 1.0) * hit);
+
+            travel = travel + step_used;
+            // 走完区间 / 透射率见底 ⇒ 关活跃标志,计数器跳到上限(禁 break 同律)。
+            active = has_slab
+                * ((seg_len - travel) * big).min(1.0).max(0.0)
+                * ((trans - 0.003) * big).min(1.0).max(0.0);
+            it = it + 1usize;
+            it = it + max_iter * ((0.5 - active).max(0.0).min(1.0).ceil() as usize);
+        }
+
+        // ── 输出:云入散射 + 天空背景 × 剩余透射率 ─────────────────────────
+        let o = (py * w + px) * 3usize;
+        out_color[o] = acc_r + bg_r * trans;
+        out_color[o + 1usize] = acc_g + bg_g * trans;
+        out_color[o + 2usize] = acc_b + bg_b * trans;
+    }
+}

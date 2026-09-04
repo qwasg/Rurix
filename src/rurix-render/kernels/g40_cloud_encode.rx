@@ -1,0 +1,61 @@
+// G40 体积云展示链显示编码 kernel(曝光 → ACES filmic → sRGB → BGRA8 打包)。
+//
+// 与生产显示链 `g31_display_encode.rx`(ACES 1.3 RRT+ODT 全实现 + BT.1886)**不是
+// 同一件**:本 kernel 是 G40 展示车道自带的轻量编码腿,只服务 `g40_cloud_present`
+// 的窗口呈现,不进生产管线、不参与任何冻结 digest 锚。之所以不复用生产件,是为了
+// 让 G40 车道对 `display/` 与 g31 车道零触碰(冻结面 0-byte)。
+//
+// 在 device 侧编码的收益:回读量从 w×h×12B(f32 RGB)降到 w×h×4B(BGRA8),
+// 1920×1080 下 24.9MB → 8.3MB,present 腿不再是带宽瓶颈(A1 教训同律)。
+//
+// ## 确定性协议
+//
+// 逐像素独立顺序求值,禁 atomic;只读输入、直写输出;全 f32 到最后一步量化。
+//
+// ## 参数面(params: f32 SSBO;4 f32)
+//   [0]=width [1]=height [2]=exposure(线性倍率) [3]=inv_gamma(= 1/2.2)
+//   in_color: 3 f32/px scene-linear HDR;out_bgra: 1 u32/px(B|G<<8|R<<16|A<<24)
+#[numthreads(8, 8, 1)]
+kernel fn g40_cloud_encode(
+    t: ThreadCtx<2>,
+    in_color: View<global, f32>,
+    params: View<global, f32>,
+    out_bgra: ViewMut<global, u32>,
+) {
+    let px = t.global_id() as usize;
+    let py = t.global_id_y() as usize;
+    let w = params[0] as usize;
+    let h = params[1] as usize;
+    if px < w && py < h {
+        let exposure = params[2];
+        let inv_gamma = params[3];
+        let i = (py * w + px) * 3usize;
+
+        // 曝光。
+        let r0 = in_color[i] * exposure;
+        let g0 = in_color[i + 1usize] * exposure;
+        let b0 = in_color[i + 2usize] * exposure;
+
+        // ACES filmic 近似(Narkowicz 2015 曲线拟合;非完整 RRT+ODT——展示车道
+        // 只需观感正确的 S 曲线,完整 ACES 1.3 在生产链 g31_display_encode)。
+        let ca = 2.51;
+        let cb = 0.03;
+        let cc = 2.43;
+        let cd = 0.59;
+        let ce = 0.14;
+        let r1 = (r0 * (ca * r0 + cb) / (r0 * (cc * r0 + cd) + ce)).max(0.0).min(1.0);
+        let g1 = (g0 * (ca * g0 + cb) / (g0 * (cc * g0 + cd) + ce)).max(0.0).min(1.0);
+        let b1 = (b0 * (ca * b0 + cb) / (b0 * (cc * b0 + cd) + ce)).max(0.0).min(1.0);
+
+        // 伽马编码 + 8-bit 量化(round-half-up:+0.5 后截断)。
+        let r2 = (r1.powf(inv_gamma) * 255.0 + 0.5).max(0.0).min(255.0);
+        let g2 = (g1.powf(inv_gamma) * 255.0 + 0.5).max(0.0).min(255.0);
+        let b2 = (b1.powf(inv_gamma) * 255.0 + 0.5).max(0.0).min(255.0);
+
+        // BGRA8 打包(swapchain 通道序 = bgra8_unorm)。
+        let rb = r2 as u32;
+        let gb = g2 as u32;
+        let bb = b2 as u32;
+        out_bgra[py * w + px] = bb + gb * 256u32 + rb * 65536u32 + 255u32 * 16777216u32;
+    }
+}

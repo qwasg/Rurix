@@ -599,5 +599,21 @@ name = "g31_pt_gt"
 path = "src/bin/g31_pt_gt.rs"
 required-features = ["vendor-upscale"]
 
+# G40 体积云实时窗口呈现 harness(门 g40.clouds.present):复现 HanPi Volume
+# Cloud 方案(Schneider 密度模型 + 锥形光步 + 双瓣 HG + Hillaire 三倍频 MS +
+# phi_fwd 各向同性漫射场)接进真窗口实时车道——两 pass 持久 session
+# (kernels/g40_volumetric_cloud.rx 逐像素 slab ray march → kernels/
+# g40_cloud_encode.rx device 侧 ACES+sRGB→BGRA8,回读 8.3MB@1080p)+
+# ExternalImagePresent swapchain 呈现 + 飞行相机。天空为程序化 Rayleigh+Mie+
+# 臭氧解析积分(world::sky),四档预设标定自 Poly Haven CC0「Pure Sky」实拍天空
+# (只取数值不入库资产)。host 金标准 = world::clouds / world::sky,与两 kernel
+# 公式面逐字同源。对 g31_window_present / g14_3_lane_body / display/ 零触碰
+# (不 include 共享体、不复用生产 kernel、不动任何冻结 digest 锚)。
+# 三态:无设备/缺 SPV ⇒ skipped_dev_env 退 0,RURIX_REQUIRE_REAL=1 翻硬红。
+[[bin]]
+name = "g40_cloud_present"
+path = "src/bin/g40_cloud_present.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

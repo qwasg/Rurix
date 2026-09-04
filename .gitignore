@@ -109,3 +109,14 @@ artifacts/day_0831_site/*.mp4
 # G39 t1_restir 同律)。ev.json / prof.json / stderr.txt / T1_AB_MATRIX.json
 # 结论件保全入库。
 artifacts/day_0901_g40/t1_restir2/ab/**/p.raw*
+
+# day_0903_clouds G40 体积云展示面逐帧 presented 原始转储与媒体件不入库
+# (2026-09-04;day_0903_water 同律先例)。REPORT / HANDOVER / CAMPAIGN_LOG /
+# DELIVERABLES(含全部预览图的 sha256)/ 门 evidence / tools 脚本保全入库;
+# 天空四档只取 Poly Haven CC0「Pure Sky」的标定数值,零二进制资产入库。
+# previews/*.png 已由仓库全局 `*.png` 规则覆盖(故此处不重复登记),其 sha256
+# 是入库登记面——见 DELIVERABLES.json 的 groups.media_on_disk_not_tracked。
+artifacts/day_0903_clouds/**/*.raw
+artifacts/day_0903_clouds/**/*.raw.*
+artifacts/day_0903_clouds/**/*.mp4
+artifacts/day_0903_clouds/**/__pycache__/
