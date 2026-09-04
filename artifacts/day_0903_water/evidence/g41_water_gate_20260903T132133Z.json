@@ -1,0 +1,57 @@
+{
+  "schema": "rurix.g41.water_gate_evidence.v1",
+  "gate": "g41.water.surface",
+  "status": "pass",
+  "evidence_level": "measured_local",
+  "timestamp": "20260903T132133Z",
+  "mode": "full",
+  "require_real": true,
+  "facts": {
+    "kernel_g41_water_wave": {
+      "pass": true,
+      "detail": "SPIR-V emitted + spirv-val accepted"
+    },
+    "kernel_g41_water_scene": {
+      "pass": true,
+      "detail": "SPIR-V emitted + spirv-val accepted"
+    },
+    "kernel_g41_water_blur": {
+      "pass": true,
+      "detail": "SPIR-V emitted + spirv-val accepted"
+    },
+    "kernel_g41_water_surface": {
+      "pass": true,
+      "detail": "SPIR-V emitted + spirv-val accepted"
+    },
+    "kernel_g41_water_encode": {
+      "pass": true,
+      "detail": "SPIR-V emitted + spirv-val accepted"
+    },
+    "kernels_compile": {
+      "pass": true,
+      "detail": "5 kernels"
+    },
+    "host_gold_tests": {
+      "pass": true,
+      "detail": "test result: ok. 24 passed; 0 failed"
+    },
+    "wave_parity_in_band": {
+      "pass": true,
+      "detail": "max_abs_diff=1.2218952e-6"
+    },
+    "wave_parity_red_arm": {
+      "pass": true,
+      "detail": "收紧带后探针如期红"
+    },
+    "arms_distinguishable": {
+      "pass": true,
+      "detail": "8/8 组 digest 互异"
+    },
+    "double_run_bit_equal": {
+      "pass": true,
+      "detail": "71a9dabcb7eeb42d… × 2"
+    }
+  },
+  "rfc": "RFC-0050",
+  "campaign": "artifacts/day_0903_water"
+}

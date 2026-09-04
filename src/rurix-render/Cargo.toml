@@ -615,5 +615,31 @@ name = "g40_cloud_present"
 path = "src/bin/g40_cloud_present.rs"
 required-features = ["vulkan"]
 
+# G41 水面实时窗口呈现 harness(门 g41.water.surface):复现 HPWater 方案
+# (交互波方程 + 水体 GBuffer + 指数步进屏幕空间折射 + Fresnel/GGX + Beer-Lambert
+# 体积吸收散射 + 三波长色散 + 解析焦散)接进真窗口实时车道——五 pass 持久 session
+# (kernels/g41_water_{wave,scene,blur,surface,encode}.rx)+ ExternalImagePresent
+# swapchain 呈现 + 飞行相机 + 空格投水滴。场景为解析泻湖(碗盆海床 + 球形礁石),
+# 自持是因为屏幕空间折射需要**真视深**,而生产 Mega 车道的 U_SCENE_DEPTH 为
+# clip.x/y quirk 域。天空复用 G40 的 world::sky。host 金标准 =
+# world::water_surface,与五 kernel 公式面逐字同源。clean-room:不含 HPWater
+# (MPL-2.0)源码文本,只取技术参照(许可分析见 rfcs/0050 §7)。对
+# g31_window_present / g14_3_lane_body / display/ / world::water(M113 冻结带)
+# 零触碰。三态:无设备/缺 SPV ⇒ skipped_dev_env 退 0,RURIX_REQUIRE_REAL=1 翻硬红。
+[[bin]]
+name = "g41_water_present"
+path = "src/bin/g41_water_present.rs"
+required-features = ["vulkan"]
+
+# G41 波方程 device↔host 对拍探针(门 g41.water.surface 的 wave 腿):
+# kernels/g41_water_wave.rx 在真设备上逐帧推进,与 host 金标准
+# world::water_surface::WaveSim 同参数同注入次序并行推进,逐格比对高度场。
+# 波方程为纯 f32 加乘(无超越函数/无归约),期望位级相等;差值 measured 落
+# evidence,不手写阈值(P-09)。三态同 g41_water_present。
+[[bin]]
+name = "g41_water_probe"
+path = "src/bin/g41_water_probe.rs"
+required-features = ["vulkan"]
+
 [lints]
 workspace = true

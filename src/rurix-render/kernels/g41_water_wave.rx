@@ -1,0 +1,143 @@
+// G41 浅水波方程 device kernel(host 金标准 = `world::water_surface::WaveSim`,
+// 公式面逐字同源;门 `g41.water.surface`)。
+//
+// 复现 HPWater(https://github.com/AshenOneArt/HPWater,MPL-2.0)所述交互水波
+// 方案的**技术构造**——clean-room 重写,不含该仓库源码文本(见
+// `rfcs/0050-water-surface-rendering.md` §2 Prior art 与 §7 许可分析)。
+//
+// ## 物理
+//
+//   ∂²u/∂t² = c²∇²u
+//   中心差分:u(t+Δt) = u(t) + [u(t) − u(t−Δt)]·retention + c²Δt²·∇²u
+//   ∇²u ≈ u_l + u_r + u_u + u_d − 4u          (格距 dx = 1)
+//
+// 三个边界/耗散机制:
+//   1. **诺伊曼障碍边界**:障碍格(海床高于水面)与网格外的邻居一律取自身值
+//      ⇒ 该方向导数为 0 ⇒ 波全反射(岸线/礁石挡浪)。
+//   2. **边缘海绵层**:到边距离小于 sponge 厚度时按 smoothstep 抬升吸收,
+//      让出射波被吃掉而非从边界弹回(否则方形网格会积累驻波)。
+//   3. **全局阻尼**:每步能量保留 1 − damping。
+//
+// ## 波源注入次序(与 host 逐字对齐)
+//
+// 脉冲加在**算出的 next 上**,不加在 cur 上——kernel 内 `h_cur` 为只读且其它
+// 线程正在读,无法回写。host `WaveSim::step_with_drops` 同律(先 step 后 poke)。
+//
+// ## 确定性协议(RXS-0357 L2 同律)
+//
+// 逐格独立顺序求值,禁 atomic;只读 `h_cur`/`h_prev`/`obstacle`,直写 `h_next`
+// (三缓冲 ping-pong 由 host 经 `binding_overrides` 轮转);全 f32;无 RNG。
+// 分支一律算术门,无 `else`/`break`/`continue`。
+//
+// ## 参数面(params: f32 SSBO;24 f32;host `pack_wave_params` 逐字同源)
+//   [0]=dim [1]=c2dt2(= c²·Δt²) [2]=damping [3]=sponge_frac
+//   [4]=drop_count(0..=4)
+//   [8+i*4 + 0..4] = 第 i 滴 (u, v, intensity, radius),i ∈ 0..4
+//
+//   h_cur / h_prev / h_next: dim² f32(行主序 [y][x])
+//   obstacle: dim² f32(1.0 = 障碍/陆地,0.0 = 水)
+#[numthreads(8, 8, 1)]
+kernel fn g41_water_wave(
+    t: ThreadCtx<2>,
+    params: View<global, f32>,
+    h_cur: View<global, f32>,
+    h_prev: View<global, f32>,
+    obstacle: View<global, f32>,
+    h_next: ViewMut<global, f32>,
+) {
+    let gx = t.global_id() as usize;
+    let gy = t.global_id_y() as usize;
+    let dim = params[0] as usize;
+    let dimf = params[0];
+    if gx < dim && gy < dim {
+        let big: f32 = 1e30;
+        let c2dt2 = params[1];
+        let damping = params[2];
+        let sponge_frac = params[3];
+        let drop_count = params[4] as usize;
+
+        let i = gy * dim + gx;
+        let is_obs = obstacle[i];
+        let u_c = h_cur[i];
+        let u_p = h_prev[i];
+
+        // ── 邻居采样(越界钳到自身格 + 障碍格取自身值 ⇒ 诺伊曼反射)──────────
+        // 钳制下标:越界时索引落回自身,再由 oob 门把值强制换成 u_c。
+        let xm1 = (gx as f32 - 1.0).max(0.0) as usize;
+        let xp1 = (gx as f32 + 1.0).min(dimf - 1.0) as usize;
+        let ym1 = (gy as f32 - 1.0).max(0.0) as usize;
+        let yp1 = (gy as f32 + 1.0).min(dimf - 1.0) as usize;
+
+        let il = gy * dim + xm1;
+        let ir = gy * dim + xp1;
+        let id = ym1 * dim + gx;
+        let iu = yp1 * dim + gx;
+
+        // 障碍门:1.0 = 该邻居是障碍(或越界钳回自身)⇒ 取 u_c。
+        // 越界情形下 il == i,obstacle[i] 未必为 1,故额外并入几何越界门。
+        let oob_l = 1.0 - ((gx as f32) * big).min(1.0).max(0.0);
+        let oob_r = 1.0 - ((dimf - 1.0 - gx as f32) * big).min(1.0).max(0.0);
+        let oob_d = 1.0 - ((gy as f32) * big).min(1.0).max(0.0);
+        let oob_u = 1.0 - ((dimf - 1.0 - gy as f32) * big).min(1.0).max(0.0);
+
+        let bl = (obstacle[il] + oob_l).min(1.0);
+        let br = (obstacle[ir] + oob_r).min(1.0);
+        let bd = (obstacle[id] + oob_d).min(1.0);
+        let bu = (obstacle[iu] + oob_u).min(1.0);
+
+        let u_l = h_cur[il] + (u_c - h_cur[il]) * bl;
+        let u_r = h_cur[ir] + (u_c - h_cur[ir]) * br;
+        let u_d = h_cur[id] + (u_c - h_cur[id]) * bd;
+        let u_u = h_cur[iu] + (u_c - h_cur[iu]) * bu;
+
+        let lap = u_l + u_r + u_d + u_u - 4.0 * u_c;
+
+        // ── 海绵层能量保留率(host `sponge_retention` 逐字同源)──────────────
+        let thickness = (dimf * sponge_frac).max(1.0);
+        let dxe = (gx as f32).min(dimf - 1.0 - gx as f32);
+        let dye = (gy as f32).min(dimf - 1.0 - gy as f32);
+        // smoothstep(0, thickness, d) 内联。
+        let tx = (dxe / thickness).max(0.0).min(1.0);
+        let ty = (dye / thickness).max(0.0).min(1.0);
+        let sx = tx * tx * (3.0 - 2.0 * tx);
+        let sy = ty * ty * (3.0 - 2.0 * ty);
+        let ex = 1.0 - sx;
+        let ey = 1.0 - sy;
+        let absorb = 1.0 - (1.0 - ex) * (1.0 - ey);
+        let keep = (1.0 - absorb * absorb).max(0.0).min(1.0);
+        let retention = (1.0 - damping) * keep;
+
+        // ── 步进 ──────────────────────────────────────────────────────────
+        let inertia = (u_c - u_p) * retention;
+        let u_next_raw = u_c + inertia + c2dt2 * lap;
+
+        // ── 波源注入(先步进后注入;障碍格不接受注入)────────────────────────
+        // 定长 4 槽循环,drop_count 之外的槽由 active 门置零贡献(无 break)。
+        let mut ripple = 0.0;
+        let mut k = 0usize;
+        while k < 4usize {
+            let base = 8usize + k * 4usize;
+            let du = params[base];
+            let dv = params[base + 1usize];
+            let di = params[base + 2usize];
+            let dr = params[base + 3usize].max(0.5);
+            // 槽活跃门:k < drop_count。
+            let live = ((drop_count as f32 - k as f32) * big).min(1.0).max(0.0);
+            let cx = du * dimf;
+            let cy = dv * dimf;
+            let ddx = gx as f32 + 0.5 - cx;
+            let ddy = gy as f32 + 0.5 - cy;
+            let d2 = ddx * ddx + ddy * ddy;
+            // 半径门(d2 <= r²)。
+            let inside = ((dr * dr - d2) * big).min(1.0).max(0.0);
+            let sigma = dr * 0.4;
+            let g = (0.0 - d2 / (2.0 * sigma * sigma)).exp();
+            ripple = ripple + live * inside * g * di;
+            k = k + 1usize;
+        }
+
+        // 障碍格恒 0(与 host `step` 的 obstacle 分支同义)。
+        let u_next = (u_next_raw + ripple) * (1.0 - is_obs);
+        h_next[i] = u_next;
+    }
+}

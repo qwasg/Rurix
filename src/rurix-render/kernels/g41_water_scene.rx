@@ -1,0 +1,402 @@
+// G41 泻湖场景 device kernel(host 金标准 = `world::water_surface::LagoonScene`,
+// 公式面逐字同源;门 `g41.water.surface`)。
+//
+// 渲染**不含水体**的不透明场景:解析高度场海床(碗盆 + 岸坡 + 沙丘 + 沙纹)+
+// 天空背景,产 scene-linear HDR 颜色与**真视深**。水面合成由
+// `g41_water_surface.rx` 在其上完成。
+//
+// ## 为什么自持场景
+//
+// 屏幕空间折射的前提是**真深度**:生产 Mega 车道的 `U_SCENE_DEPTH` 是
+// clip.x/clip.y quirk 域(沿视线为常量,只能做屏幕序判而非距离遮挡,见
+// `g35_render_splat.rx` ③ 段头注),不能用于折射步进。G41 因此自持一条解析
+// 场景腿:既拿到真视深,又让水深梯度(深水 → 浅滩 → 干岸)完全可控——这是
+// 水体渲染最有信息量的构图,也让 host/device 对拍不依赖任何外部资产。
+//
+// ## 场景构造(host `LagoonScene::floor_height` 逐字同源)
+//
+//   r      = |xz − center|
+//   rn     = min(r / shore_radius, 1)
+//   bowl   = −max_depth · 0.5 · (1 + cos(π·rn))      中心最深,岸线处恰达水面
+//   rise   = beach_rise · min(max(r − shore_radius, 0) / shore_radius, 1)
+//   dune   = amp · [ sin(f·x)·cos(0.87f·z)
+//                  + 0.45·sin(2.3f·x + 1.7f·z)
+//                  + 0.30·sin(5.5f·x + 1.2·sin(2f·z)) ]   ← 第三项 = 弯曲沙纹
+//   floor_y = water_level + bowl + rise + dune
+//
+// 沙纹项是刻意加的:折射与焦散只有落在**有高频结构的底面**上才看得出来,
+// 平滑碗盆会把两者都吃掉。
+//
+// ## 求交
+//
+// **高度场**:`scene_march_steps` 步均匀步进找符号翻转,再 6 次二分细化。
+// 均匀步(而非 sphere tracing)是刻意的:高度场无解析 Lipschitz 界,均匀步 +
+// 二分在固定成本下给出确定性结果,且无早退 ⇒ 双跑位级。
+//
+// ## 诚实边界:本 kernel **不含解析礁石**
+//
+// 曾实现「球形礁石解析求交 + 礁石投影阴影」(第三、四个 while 循环),实测在
+// 本后端**结果不可信**:命中距离 `rock_t` 在礁石像素上恒取 0(直接输出实测
+// = 0),而其球面轮廓门却正确成形——即求交的判别式段对、距离段错。同一文件
+// 内前两个循环(主步进 / 二分)一切正常,且逐项排除了动态下标、哨兵灾难性
+// 抵消、跨段浮点相等、多累加器锁存四类成因(各自单独修复后症状不变)。
+// 症状与在树已登记的 rurixc 缺陷同型——`kernels/g31_realism.rx` 头注记录
+// 「`if` 包 `while` 深层嵌套」的 codegen 缺陷,而本 kernel 的整个函数体正处在
+// `if px < w && py < h { … }` 之内,当时内含**四个** while 循环(可用的
+// `g41_water_wave` 为一个、`g41_water_surface` 为两个)。
+//
+// 故本波如实**移除礁石**,循环数降到两个(主步进 + 二分),并以沙纹项补偿
+// 底面结构。礁石留窗:`LagoonScene::rocks` 与参数面 [96..160) 的槽位**保留**
+// (host 侧仍有打包与单测),device 侧暂不消费;恢复条件 = rurixc 该缺陷定位
+// 修复,或改走 TLAS ray query 路径。见 `rfcs/0050` §6 留窗表。
+//
+// ## 确定性协议(RXS-0357 L2 同律)
+//
+// 逐像素独立顺序求值,禁 atomic;只读输入、直写输出;全 f32;无 RNG;
+// 分支一律算术门,无 `else`/`break`/`continue`;无辅助函数(全手工内联)。
+//
+// ## 参数面
+//
+// 与 `world::water_surface::pack_water_params` 同一份 buffer(布局见该函数
+// 文档);本 kernel 消费 [0..44) + [72..77) + [88]。
+//
+//   noise2d: dim² f32(行主序,值 ∈ [0,1];沙地反照率斑驳)
+//   sky_lut: sky_w × sky_h × 3 f32(u = (dot(dir,sun)+1)/2,v = (dir.y+1)/2)
+//   out_color: 3 f32/px scene-linear HDR
+//   out_depth: 1 f32/px 视深(= dot(hit − origin, forward);未命中 = 1e30)
+#[numthreads(8, 8, 1)]
+kernel fn g41_water_scene(
+    t: ThreadCtx<2>,
+    params: View<global, f32>,
+    noise2d: View<global, f32>,
+    sky_lut: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+    out_depth: ViewMut<global, f32>,
+) {
+    let px = t.global_id() as usize;
+    let py = t.global_id_y() as usize;
+    let w = params[0] as usize;
+    let h = params[1] as usize;
+    if px < w && py < h {
+        let pi: f32 = 3.1415927;
+        let tiny: f32 = 0.000001;
+        let big: f32 = 1e30;
+
+        // ── 参数解包 ──────────────────────────────────────────────────────
+        let wf = params[0];
+        let hf = params[1];
+        let co_x = params[2];
+        let co_y = params[3];
+        let co_z = params[4];
+        let cf_x = params[5];
+        let cf_y = params[6];
+        let cf_z = params[7];
+        let cr_x = params[8];
+        let cr_y = params[9];
+        let cr_z = params[10];
+        let cu_x = params[11];
+        let cu_y = params[12];
+        let cu_z = params[13];
+        let tan_half = params[14];
+        let aspect = params[15];
+        let sun_x = params[16];
+        let sun_y = params[17];
+        let sun_z = params[18];
+        let sunc_r = params[19];
+        let sunc_g = params[20];
+        let sunc_b = params[21];
+        let amb_t_r = params[22];
+        let amb_t_g = params[23];
+        let amb_t_b = params[24];
+        let amb_b_r = params[25];
+        let amb_b_g = params[26];
+        let amb_b_b = params[27];
+        let water_level = params[28];
+        let cen_x = params[29];
+        let cen_z = params[30];
+        let max_depth = params[31];
+        let shore_r = params[32].max(1.0);
+        let beach_rise = params[33];
+        let dune_amp = params[34];
+        let dune_f = params[35];
+        let sand_r = params[36];
+        let sand_g = params[37];
+        let sand_b = params[38];
+        let shore_ar = params[39];
+        let shore_ag = params[40];
+        let shore_ab = params[41];
+        let n2_dim = params[72] as usize;
+        let n2_dimf = params[72];
+        let n2_mask = n2_dim - 1usize;
+        let sky_w = params[73] as usize;
+        let sky_wf = params[73];
+        let sky_hf = params[74];
+        let march_steps = params[75] as usize;
+        let max_dist = params[76];
+
+        // ── 主射线 ────────────────────────────────────────────────────────
+        let ndc_x = ((px as f32) + 0.5) / wf * 2.0 - 1.0;
+        let ndc_y = 1.0 - ((py as f32) + 0.5) / hf * 2.0;
+        let scr_x = ndc_x * tan_half * aspect;
+        let scr_y = ndc_y * tan_half;
+        let rd0_x = cf_x + cr_x * scr_x + cu_x * scr_y;
+        let rd0_y = cf_y + cr_y * scr_x + cu_y * scr_y;
+        let rd0_z = cf_z + cr_z * scr_x + cu_z * scr_y;
+        let rd_len = (rd0_x * rd0_x + rd0_y * rd0_y + rd0_z * rd0_z)
+            .sqrt()
+            .max(tiny);
+        let rd_x = rd0_x / rd_len;
+        let rd_y = rd0_y / rd_len;
+        let rd_z = rd0_z / rd_len;
+
+        // ── 高度场步进(均匀步;无早退,首次符号翻转算术锁存)────────────────
+        let step = max_dist / (march_steps as f32).max(1.0);
+        let mut hit_lo = 0.0;
+        let mut hit_hi = 0.0;
+        let mut found = 0.0;
+        let mut prev_t = 0.0;
+        let mut s = 1usize;
+        let step_end = march_steps + 1usize;
+        while s < step_end {
+            let tc = (s as f32) * step;
+            let sx = co_x + rd_x * tc;
+            let sy = co_y + rd_y * tc;
+            let sz = co_z + rd_z * tc;
+            // ══ 高度场求值 A(主步进)══════════════════════════════════════
+            let a_dx = sx - cen_x;
+            let a_dz = sz - cen_z;
+            let a_r = (a_dx * a_dx + a_dz * a_dz).sqrt();
+            let a_rn = (a_r / shore_r).min(1.0);
+            let a_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * a_rn).cos());
+            let a_rise = beach_rise * ((a_r - shore_r).max(0.0) / shore_r).min(1.0);
+            let a_dune = dune_amp
+                * ((dune_f * sx).sin() * (dune_f * 0.87 * sz).cos()
+                    + 0.45 * (dune_f * 2.3 * sx + dune_f * 1.7 * sz).sin()
+                    + 0.30 * (dune_f * 5.5 * sx + 1.2 * (dune_f * 2.0 * sz).sin()).sin());
+            let a_floor = water_level + a_bowl + a_rise + a_dune;
+            // 首次由上方穿到下方(sy − floor 由正变负)即锁存区间。
+            let below = ((a_floor - sy) * big).min(1.0).max(0.0);
+            let latch = below * (1.0 - found);
+            hit_lo = hit_lo + (prev_t - hit_lo) * latch;
+            hit_hi = hit_hi + (tc - hit_hi) * latch;
+            found = found + latch;
+            prev_t = tc;
+            s = s + 1usize;
+        }
+
+        // ── 二分细化(定 6 次;未命中时区间恒为 0 段,结果由 hit_any 门掉)────
+        let mut lo = hit_lo;
+        let mut hi = hit_hi;
+        let mut bi = 0usize;
+        while bi < 6usize {
+            let mid = (lo + hi) * 0.5;
+            let sx = co_x + rd_x * mid;
+            let sy = co_y + rd_y * mid;
+            let sz = co_z + rd_z * mid;
+            // ══ 高度场求值 B(二分细化)════════════════════════════════════
+            let b_dx = sx - cen_x;
+            let b_dz = sz - cen_z;
+            let b_r = (b_dx * b_dx + b_dz * b_dz).sqrt();
+            let b_rn = (b_r / shore_r).min(1.0);
+            let b_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * b_rn).cos());
+            let b_rise = beach_rise * ((b_r - shore_r).max(0.0) / shore_r).min(1.0);
+            let b_dune = dune_amp
+                * ((dune_f * sx).sin() * (dune_f * 0.87 * sz).cos()
+                    + 0.45 * (dune_f * 2.3 * sx + dune_f * 1.7 * sz).sin()
+                    + 0.30 * (dune_f * 5.5 * sx + 1.2 * (dune_f * 2.0 * sz).sin()).sin());
+            let b_floor = water_level + b_bowl + b_rise + b_dune;
+            let b_below = ((b_floor - sy) * big).min(1.0).max(0.0);
+            // below ⇒ 交点在 [lo, mid];否则在 [mid, hi]。
+            hi = hi + (mid - hi) * b_below;
+            lo = lo + (mid - lo) * (1.0 - b_below);
+            bi = bi + 1usize;
+        }
+        let floor_t = (lo + hi) * 0.5;
+
+        // ── 远场地面回退(消除硬地平线)────────────────────────────────────
+        // `rise` 在 r ≥ 2·shore_radius 后饱和 ⇒ 海床渐近为水平面
+        // y = water_level + beach_rise。步进只走到 max_dist,其后若仍向下看就
+        // 解析求交该渐近面,让沙滩一直铺到地平线;否则 max_dist 之外会直接露出
+        // 「地平线以下的天空」(LUT 下半为暗色),形成一条硬黑边。
+        let far_plane_y = water_level + beach_rise;
+        let t_far = ((far_plane_y - co_y) / rd_y.min(0.0 - tiny)).min(2500.0);
+        let use_far = (1.0 - found.min(1.0))
+            * ((0.0 - rd_y) * big).min(1.0).max(0.0)
+            * (t_far * big).min(1.0).max(0.0);
+        let hit_any = (found.min(1.0) + use_far).min(1.0);
+        // 乘性择一(三态:高度场命中 / 远场面命中 / 未命中钳到 max_dist)。
+        let near_hit = found.min(1.0);
+        let hit_t = floor_t.min(max_dist) * near_hit
+            + t_far * use_far
+            + max_dist * (1.0 - near_hit) * (1.0 - use_far);
+        let hx = co_x + rd_x * hit_t;
+        let hy = co_y + rd_y * hit_t;
+        let hz = co_z + rd_z * hit_t;
+
+        // ── 法线(高度场中心差分解析梯度;ε = 0.12 m)────────────────────────
+        let eps = 0.12;
+        // ══ 高度场求值 C(+X)══════════════════════════════════════════════
+        let cx_x = hx + eps;
+        let c_dx = cx_x - cen_x;
+        let c_dz = hz - cen_z;
+        let c_r = (c_dx * c_dx + c_dz * c_dz).sqrt();
+        let c_rn = (c_r / shore_r).min(1.0);
+        let c_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * c_rn).cos());
+        let c_rise = beach_rise * ((c_r - shore_r).max(0.0) / shore_r).min(1.0);
+        let c_dune = dune_amp
+            * ((dune_f * cx_x).sin() * (dune_f * 0.87 * hz).cos()
+                + 0.45 * (dune_f * 2.3 * cx_x + dune_f * 1.7 * hz).sin()
+                + 0.30 * (dune_f * 5.5 * cx_x + 1.2 * (dune_f * 2.0 * hz).sin()).sin());
+        let f_px = water_level + c_bowl + c_rise + c_dune;
+        // ══ 高度场求值 D(−X)══════════════════════════════════════════════
+        let dx_x = hx - eps;
+        let d_dx = dx_x - cen_x;
+        let d_r = (d_dx * d_dx + c_dz * c_dz).sqrt();
+        let d_rn = (d_r / shore_r).min(1.0);
+        let d_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * d_rn).cos());
+        let d_rise = beach_rise * ((d_r - shore_r).max(0.0) / shore_r).min(1.0);
+        let d_dune = dune_amp
+            * ((dune_f * dx_x).sin() * (dune_f * 0.87 * hz).cos()
+                + 0.45 * (dune_f * 2.3 * dx_x + dune_f * 1.7 * hz).sin()
+                + 0.30 * (dune_f * 5.5 * dx_x + 1.2 * (dune_f * 2.0 * hz).sin()).sin());
+        let f_mx = water_level + d_bowl + d_rise + d_dune;
+        // ══ 高度场求值 E(+Z)══════════════════════════════════════════════
+        let ez_z = hz + eps;
+        let e_dz = ez_z - cen_z;
+        let e_dx0 = hx - cen_x;
+        let e_r = (e_dx0 * e_dx0 + e_dz * e_dz).sqrt();
+        let e_rn = (e_r / shore_r).min(1.0);
+        let e_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * e_rn).cos());
+        let e_rise = beach_rise * ((e_r - shore_r).max(0.0) / shore_r).min(1.0);
+        let e_dune = dune_amp
+            * ((dune_f * hx).sin() * (dune_f * 0.87 * ez_z).cos()
+                + 0.45 * (dune_f * 2.3 * hx + dune_f * 1.7 * ez_z).sin()
+                + 0.30 * (dune_f * 5.5 * hx + 1.2 * (dune_f * 2.0 * ez_z).sin()).sin());
+        let f_pz = water_level + e_bowl + e_rise + e_dune;
+        // ══ 高度场求值 F(−Z)══════════════════════════════════════════════
+        let fz_z = hz - eps;
+        let g_dz = fz_z - cen_z;
+        let g_r = (e_dx0 * e_dx0 + g_dz * g_dz).sqrt();
+        let g_rn = (g_r / shore_r).min(1.0);
+        let g_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * g_rn).cos());
+        let g_rise = beach_rise * ((g_r - shore_r).max(0.0) / shore_r).min(1.0);
+        let g_dune = dune_amp
+            * ((dune_f * hx).sin() * (dune_f * 0.87 * fz_z).cos()
+                + 0.45 * (dune_f * 2.3 * hx + dune_f * 1.7 * fz_z).sin()
+                + 0.30 * (dune_f * 5.5 * hx + 1.2 * (dune_f * 2.0 * fz_z).sin()).sin());
+        let f_mz = water_level + g_bowl + g_rise + g_dune;
+
+        let gx = (f_px - f_mx) / (2.0 * eps);
+        let gz = (f_pz - f_mz) / (2.0 * eps);
+        let fn_len = (gx * gx + 1.0 + gz * gz).sqrt().max(tiny);
+        let nx = (0.0 - gx) / fn_len;
+        let ny = 1.0 / fn_len;
+        let nz = (0.0 - gz) / fn_len;
+
+        // ── 反照率(湿沙 → 干岸按命中点高度混合;host `floor_albedo` 同式)──
+        // 命中点高度直接由四邻均值取(等价于同点求值,省一次内联)。
+        let floor_h_at = (f_px + f_mx + f_pz + f_mz) * 0.25;
+        // smoothstep(water_level − 0.15, water_level + 0.6, floor_h) 内联。
+        let sst = ((floor_h_at - (water_level - 0.15)) / 0.75).max(0.0).min(1.0);
+        let shore_mix = sst * sst * (3.0 - 2.0 * sst);
+        // 沙地斑驳(烘焙 2D 噪声双线性;世界 XZ / 6 m 平铺)。
+        let nu = hx / 6.0;
+        let nv = hz / 6.0;
+        let nfx = nu - nu.floor();
+        let nfy = nv - nv.floor();
+        let nix0 = ((nfx * n2_dimf) as usize) & n2_mask;
+        let niy0 = ((nfy * n2_dimf) as usize) & n2_mask;
+        let nix1 = (nix0 + 1usize) & n2_mask;
+        let niy1 = (niy0 + 1usize) & n2_mask;
+        let ntx = nfx * n2_dimf - (nfx * n2_dimf).floor();
+        let nty = nfy * n2_dimf - (nfy * n2_dimf).floor();
+        let n00 = noise2d[niy0 * n2_dim + nix0];
+        let n10 = noise2d[niy0 * n2_dim + nix1];
+        let n01 = noise2d[niy1 * n2_dim + nix0];
+        let n11 = noise2d[niy1 * n2_dim + nix1];
+        let nax = n00 + (n10 - n00) * ntx;
+        let nbx = n01 + (n11 - n01) * ntx;
+        let mottle = 0.86 + 0.28 * (nax + (nbx - nax) * nty);
+
+        let alb_r = (sand_r + (shore_ar - sand_r) * shore_mix) * mottle;
+        let alb_g = (sand_g + (shore_ag - sand_g) * shore_mix) * mottle;
+        let alb_b = (sand_b + (shore_ab - sand_b) * shore_mix) * mottle;
+
+        // ── 着色(Lambert 漫射 + 半球环境光)────────────────────────────────
+        // 无投影阴影:场景只有一张连续高度场,碗盆凸向上、自阴影仅在极低日角的
+        // 岸坡出现,如实登记不冒充全局阴影(礁石阴影随礁石一并移除,见头注)。
+        let ndl = (nx * sun_x + ny * sun_y + nz * sun_z).max(0.0);
+        let inv_pi = 1.0 / pi;
+        let up_mix = (ny * 0.5 + 0.5).max(0.0).min(1.0);
+        let amb_r = amb_b_r + (amb_t_r - amb_b_r) * up_mix;
+        let amb_g = amb_b_g + (amb_t_g - amb_b_g) * up_mix;
+        let amb_b2 = amb_b_b + (amb_t_b - amb_b_b) * up_mix;
+        let lit_r = alb_r * inv_pi * (sunc_r * ndl) + alb_r * amb_r;
+        let lit_g = alb_g * inv_pi * (sunc_g * ndl) + alb_g * amb_g;
+        let lit_b = alb_b * inv_pi * (sunc_b * ndl) + alb_b * amb_b2;
+
+        // ── 天空背景(sky-view LUT 双线性)─────────────────────────────────
+        let cos_a = rd_x * sun_x + rd_y * sun_y + rd_z * sun_z;
+        let sky_u = (cos_a + 1.0) * 0.5;
+        let sky_v = (rd_y + 1.0) * 0.5;
+        let sfx = (sky_u * sky_wf - 0.5).max(0.0).min(sky_wf - 1.0);
+        let sfy = (sky_v * sky_hf - 0.5).max(0.0).min(sky_hf - 1.0);
+        let sx0f = sfx.floor();
+        let sy0f = sfy.floor();
+        let stx = sfx - sx0f;
+        let sty = sfy - sy0f;
+        let su0 = sx0f as usize;
+        let su1 = (sx0f + 1.0).min(sky_wf - 1.0) as usize;
+        let sv0 = sy0f as usize;
+        let sv1 = (sy0f + 1.0).min(sky_hf - 1.0) as usize;
+        let sk00 = (sv0 * sky_w + su0) * 3usize;
+        let sk10 = (sv0 * sky_w + su1) * 3usize;
+        let sk01 = (sv1 * sky_w + su0) * 3usize;
+        let sk11 = (sv1 * sky_w + su1) * 3usize;
+        let sa_r = sky_lut[sk00] + (sky_lut[sk10] - sky_lut[sk00]) * stx;
+        let sb_r = sky_lut[sk01] + (sky_lut[sk11] - sky_lut[sk01]) * stx;
+        let bg_r = sa_r + (sb_r - sa_r) * sty;
+        let sa_g = sky_lut[sk00 + 1usize] + (sky_lut[sk10 + 1usize] - sky_lut[sk00 + 1usize]) * stx;
+        let sb_g = sky_lut[sk01 + 1usize] + (sky_lut[sk11 + 1usize] - sky_lut[sk01 + 1usize]) * stx;
+        let bg_g = sa_g + (sb_g - sa_g) * sty;
+        let sa_b = sky_lut[sk00 + 2usize] + (sky_lut[sk10 + 2usize] - sky_lut[sk00 + 2usize]) * stx;
+        let sb_b = sky_lut[sk01 + 2usize] + (sky_lut[sk11 + 2usize] - sky_lut[sk01 + 2usize]) * stx;
+        let bg_b = sa_b + (sb_b - sa_b) * sty;
+
+        // ── 输出 ──────────────────────────────────────────────────────────
+        let o = (py * w + px) * 3usize;
+        let base_out_r = bg_r + (lit_r - bg_r) * hit_any;
+        let base_out_g = bg_g + (lit_g - bg_g) * hit_any;
+        let base_out_b = bg_b + (lit_b - bg_b) * hit_any;
+
+        // 调试视图(params[88];0 = 关。诊断腿,非展示路径。`--debug-view` 下
+        // 编码 pass 走**直通**量化,故像素值 = 量值 × 255,可定量判读)。
+        //   1 = 反照率  2 = 法线(×0.5+0.5)  3 = N·L  4 = 命中距离/100
+        //   5 = |N|×0.5(应恒 0.5)  6 = 是否命中
+        let dbg = params[88];
+        let m1 = (1.0 - (dbg - 1.0).abs()).max(0.0).min(1.0);
+        let m2 = (1.0 - (dbg - 2.0).abs()).max(0.0).min(1.0);
+        let m3 = (1.0 - (dbg - 3.0).abs()).max(0.0).min(1.0);
+        let m4 = (1.0 - (dbg - 4.0).abs()).max(0.0).min(1.0);
+        let m5 = (1.0 - (dbg - 5.0).abs()).max(0.0).min(1.0);
+        let m6 = (1.0 - (dbg - 6.0).abs()).max(0.0).min(1.0);
+        let any_dbg = (m1 + m2 + m3 + m4 + m5 + m6).min(1.0);
+        let td = (hit_t * 0.01).max(0.0).min(1.0) * hit_any;
+        let nlen = (nx * nx + ny * ny + nz * nz).sqrt() * 0.5;
+        let dbg_common = ndl * m3 + td * m4 + nlen * m5 + hit_any * m6;
+        let dbg_r = alb_r * m1 + (nx * 0.5 + 0.5) * m2 + dbg_common;
+        let dbg_g = alb_g * m1 + (ny * 0.5 + 0.5) * m2 + dbg_common;
+        let dbg_b = alb_b * m1 + (nz * 0.5 + 0.5) * m2 + dbg_common;
+
+        out_color[o] = base_out_r + (dbg_r - base_out_r) * any_dbg;
+        out_color[o + 1usize] = base_out_g + (dbg_g - base_out_g) * any_dbg;
+        out_color[o + 2usize] = base_out_b + (dbg_b - base_out_b) * any_dbg;
+
+        // 视深 = 命中点在相机前向轴上的投影(线性 eye depth 口径)。
+        // **乘性择一**:`big + (view_z − big)·hit` 在 f32 下恒得 0
+        // (1e30 ± 57 == 1e30 ⇒ 差为 −1e30 ⇒ 和为 0),会让消费侧把整幅判成
+        // 「场景在相机处」,水面「在场景之前」的门因此全关(首版实测症状)。
+        let view_z = (hx - co_x) * cf_x + (hy - co_y) * cf_y + (hz - co_z) * cf_z;
+        out_depth[py * w + px] = view_z * hit_any + big * (1.0 - hit_any);
+    }
+}

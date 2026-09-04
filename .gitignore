@@ -120,3 +120,14 @@ artifacts/day_0903_clouds/**/*.raw
 artifacts/day_0903_clouds/**/*.raw.*
 artifacts/day_0903_clouds/**/*.mp4
 artifacts/day_0903_clouds/**/__pycache__/
+
+# day_0903_water G41 水面展示面逐帧 presented 原始转储与媒体件不入库
+# (2026-09-03;环绕短片 360 帧 ×3.7MB ≈1.3GB raw + PNG 帧目录 + mp4,
+# day_0902_rain_night 同律先例)。REPORT / HANDOVER / CAMPAIGN_LOG / DELIVERABLES
+# (含全部预览图与 mp4 的 sha256)/ 冻结带 / 门 evidence / tools 脚本保全入库;
+# Poly Haven CC0 HDRI 与烘焙 LUT 落 K:\rurix_g10_cache\polyhaven-env(git 零二进制)。
+artifacts/day_0903_water/**/*.raw
+artifacts/day_0903_water/**/*.raw.*
+artifacts/day_0903_water/**/*.mp4
+artifacts/day_0903_water/clip_frames/
+artifacts/day_0903_water/**/__pycache__/

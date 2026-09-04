@@ -1,0 +1,223 @@
+{
+  "schema": "rurix.g41.deliverables.v1",
+  "campaign": "day_0903_water",
+  "gate": "g41.water.surface",
+  "gate_status": "pass",
+  "gate_facts": 11,
+  "rfc": "RFC-0050 (Draft)",
+  "generated_utc": "2026-09-03T13:22:42Z",
+  "committed": false,
+  "commit_note": "未 commit,入库归 owner",
+  "binary_policy": "previews/*.png 与 *.mp4 留盘不入库(仓库全局 *.png + 战役 .gitignore 块);本清单 sha256 为其入库登记面",
+  "env_asset": {
+    "source": "Poly Haven",
+    "license": "CC0-1.0",
+    "slug": "lakeside_sunrise",
+    "res": "1k",
+    "cache": "K:/rurix_g10_cache/polyhaven-env/lakeside_sunrise/",
+    "note": "HDR 与烘焙 LUT 留缓存根不入 git;完整 sha256 见该目录 *.skylut.json"
+  },
+  "file_count": 37,
+  "groups": {
+    "source_in_tree": {
+      "count": 10,
+      "files": [
+        {
+          "path": "src/rurix-render/src/world/water_surface.rs",
+          "bytes": 63424,
+          "sha256": "340a7bc7830cb2ca3be358955d3b8657f9e94c11d73b8f89124ba23518e927a1"
+        },
+        {
+          "path": "src/rurix-render/kernels/g41_water_blur.rx",
+          "bytes": 2534,
+          "sha256": "9bfddaaaa5c38381ea2d3f1a86e589e24b48a966f3a8fc876b94815c19baf5b3"
+        },
+        {
+          "path": "src/rurix-render/kernels/g41_water_encode.rx",
+          "bytes": 3513,
+          "sha256": "cf2b22333f51236f99c797fb5f5301631d3665738ef088de99c870e8dfab281d"
+        },
+        {
+          "path": "src/rurix-render/kernels/g41_water_scene.rx",
+          "bytes": 22223,
+          "sha256": "0c392b9c0369042a41c7c695a3fee3e8bf033a5f38640ade199a2afb83740047"
+        },
+        {
+          "path": "src/rurix-render/kernels/g41_water_surface.rx",
+          "bytes": 39118,
+          "sha256": "76bfd804f0447da31fa2587a09e2fbb2fa5bae42cd05cecae072c187354e21fa"
+        },
+        {
+          "path": "src/rurix-render/kernels/g41_water_wave.rx",
+          "bytes": 6699,
+          "sha256": "2182ce816b53f2c7803d0710920f71b2f3df4e4251f7e2888f1ef8f94f194878"
+        },
+        {
+          "path": "src/rurix-render/src/bin/g41_water_present.rs",
+          "bytes": 43102,
+          "sha256": "577264d5ffa22aa7e5bef9caa422c226ccd81965b5633bd847bc7fd57c3b54a2"
+        },
+        {
+          "path": "src/rurix-render/src/bin/g41_water_probe.rs",
+          "bytes": 16953,
+          "sha256": "7278cad941a5e2bda507f6f6aeeb23ab5535885a8380cf7c92b18df44210320c"
+        },
+        {
+          "path": "ci/g41_water_smoke.py",
+          "bytes": 9387,
+          "sha256": "b25732bcbc9743010e7dca8f46d291ed7d1fcc35106c87871eddd75c7e4cc4c6"
+        },
+        {
+          "path": "rfcs/0050-water-surface-rendering.md",
+          "bytes": 9029,
+          "sha256": "031563d69c4ec10a3d92413cd6e15a9716badb3f623818b0adb4f67d49e03800"
+        }
+      ]
+    },
+    "campaign_in_tree": {
+      "count": 12,
+      "files": [
+        {
+          "path": "artifacts/day_0903_water/CAMPAIGN_LOG.md",
+          "bytes": 4867,
+          "sha256": "249b06ffc9ca22eb64107e947ca7e47e257db3cfc1ac72400a274907a1367991"
+        },
+        {
+          "path": "artifacts/day_0903_water/HANDOVER.md",
+          "bytes": 4331,
+          "sha256": "d9117c0fcd74f461569e1c3b2cc2dba990a0c2d94f0e18f1118802a602d85f74"
+        },
+        {
+          "path": "artifacts/day_0903_water/REPORT.md",
+          "bytes": 11508,
+          "sha256": "ba7c35f63ce0e3e193968e3109d871f547de5a0eea94e96b47be11a0516b59c2"
+        },
+        {
+          "path": "artifacts/day_0903_water/tools/fetch_env_hdri.py",
+          "bytes": 12676,
+          "sha256": "93f61113262ef3d4581d07986db3e059cba4cb00b624fc30f61c8a4c1cc548be"
+        },
+        {
+          "path": "artifacts/day_0903_water/tools/make_deliverables.py",
+          "bytes": 3915,
+          "sha256": "cdead1f6cbd1e9b41fd7cc6769311b7adaf81eed2ba20d90209aef39ba0bbf4b"
+        },
+        {
+          "path": "artifacts/day_0903_water/tools/make_water_clip.py",
+          "bytes": 5155,
+          "sha256": "10528915c2e6b44c65bd89a1f1fe25e68bfe9505a9d49c33345ae53fdec9cb6f"
+        },
+        {
+          "path": "artifacts/day_0903_water/g41_wave_band.json",
+          "bytes": 545,
+          "sha256": "e7ced0bea7a689f88adc841933b1fac30b8db5883950ab234d901f579d1d274b"
+        },
+        {
+          "path": "artifacts/day_0903_water/evidence/g41_water_gate_20260903T125839Z.json",
+          "bytes": 1504,
+          "sha256": "264403c92be14cb65e8db18c5e2d1971643ecda672ff6a118f1faf0a5613f4bc"
+        },
+        {
+          "path": "artifacts/day_0903_water/evidence/g41_water_gate_20260903T130305Z.json",
+          "bytes": 1504,
+          "sha256": "dacbe33445288639d390190f8fd07228d02e926cf39867a381e4017c1389205e"
+        },
+        {
+          "path": "artifacts/day_0903_water/evidence/g41_water_gate_20260903T130542Z.json",
+          "bytes": 1504,
+          "sha256": "ec95f6a02f90aa4b8b10171d4035ec65abb8be47f5aa7601fd44d7d44645b115"
+        },
+        {
+          "path": "artifacts/day_0903_water/evidence/g41_water_gate_20260903T132133Z.json",
+          "bytes": 1504,
+          "sha256": "2719e2629408e1e9cde67e23d363af10cc911d5b5a6f35c47cb02429d9f2a074"
+        },
+        {
+          "path": "artifacts/day_0903_water/lagoon_orbit.mp4.json",
+          "bytes": 699,
+          "sha256": "93a9b2ccdf508b27c16a91fbf79d2636c600b1d08466bea8a513e0ebbba4410c"
+        }
+      ]
+    },
+    "media_on_disk_not_tracked": {
+      "count": 15,
+      "files": [
+        {
+          "path": "artifacts/day_0903_water/previews/arm_all_on.png",
+          "bytes": 2765798,
+          "sha256": "3ea974e93c74b1afb35335500e2cde7a1da1d8fc01dc71ae7f16ee3638f2f855"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_no_caustic.png",
+          "bytes": 2765798,
+          "sha256": "3de0c3c511582192de822701cc12bff218d6da418da3842dbabac2b7eb0393a6"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_no_disp.png",
+          "bytes": 2765798,
+          "sha256": "6380a39fc7daa133f13c97a7071c54876e9ffb29cd44e79dcbd60b903f9341f6"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_no_foam.png",
+          "bytes": 2765798,
+          "sha256": "518d9568ce5e772e11ae52fe9609feaac807ebca1abc6b298c24bdfda42b6043"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_no_reflect.png",
+          "bytes": 2765798,
+          "sha256": "a0964751c9e66ddde7b5e34eb3a223dc99d42609241b8b96f1cbfb401f813c22"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_no_refract.png",
+          "bytes": 2765798,
+          "sha256": "2c80d4db610011ba2a08d21622680f7dee736d24b28a2909780a8770dbc22b7f"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_no_volume.png",
+          "bytes": 2765798,
+          "sha256": "c6f9180e3ba75b55259762b1bcb189fc9cc1b6572556f9d589f2665516de6261"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/arm_water_off.png",
+          "bytes": 2765798,
+          "sha256": "ee6af8c2e1e9b90b7313ed9712bd6195d3d3ecb0dc16d2b6471af0f517130122"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/lagoon_clear.png",
+          "bytes": 4321293,
+          "sha256": "3116a66a1b216b02e766a70e267ea750f3310daa46c24bb979e0e4868df7c0fe"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/lagoon_drops.png",
+          "bytes": 1555923,
+          "sha256": "17b9faac70a968a9921b1609fba575bbcab90e59414ac307200a44a3799d06e5"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/lagoon_golden.png",
+          "bytes": 4321293,
+          "sha256": "102d16c1de73bac8483bf0deb43d8630d4db149d59c90186f9fcc74fcca3a59a"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/lagoon_lakeside_hdri.png",
+          "bytes": 4321293,
+          "sha256": "f15b1cfc69a14e530314fa02a9e2e127258e74797e419ca21d41c3301ba40c86"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/lagoon_noon.png",
+          "bytes": 4321293,
+          "sha256": "23a900682d5853e32fe7ac304718612fbaf9fa873bcaf1f494326bace4562741"
+        },
+        {
+          "path": "artifacts/day_0903_water/previews/lagoon_sunset.png",
+          "bytes": 4321293,
+          "sha256": "e7cd3433a6ba145accd122f9b912be23bb29f374a554ac28d64986eb846f3027"
+        },
+        {
+          "path": "artifacts/day_0903_water/lagoon_orbit.mp4",
+          "bytes": 2611356,
+          "sha256": "34f09c083ea66fabb0e3087b141afb87ca62e0510bb02cf19cf4d2f018051ef3"
+        }
+      ]
+    }
+  }
+}

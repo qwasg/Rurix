@@ -1,0 +1,745 @@
+// G41 水面着色 device kernel(host 金标准 = `world::water_surface`,公式面逐字
+// 同源;门 `g41.water.surface`)。
+//
+// 复现 HPWater(https://github.com/AshenOneArt/HPWater,MPL-2.0)水面渲染方案的
+// **技术构造**——clean-room 重写,不含该仓库源码文本(许可分析见
+// `rfcs/0050-water-surface-rendering.md` §7)。六层:
+//
+//   1. 水面求交与水体 GBuffer(法线 / 粗糙度 / 泡沫 / σa / σs);
+//   2. 指数步进屏幕空间折射(IGN 抖动 + 厚度阈值 + 边界衰减 + 水上回退);
+//   3. Beer-Lambert 体积吸收 / 单次散射(6 采样指数步进 + 太阳光路衰减);
+//   4. Fresnel/GGX 直接光高光 + 天空环境反射;
+//   5. 解析焦散(水面 ∇²h → 折射光束面积压缩比的闭式估计);
+//   6. 三波长色散 + 泡沫合成。
+//
+// ## 与 HPWater 的三处**刻意偏离**(如实登记,不冒充等价)
+//
+// - **焦散**:HPWater 用 compute 光线步进 + `InterlockedAdd` 光子累积 + À-trous
+//   降噪(三 pass)。本 kernel 取**解析闭式**:水面局部曲率决定折射光束的面积
+//   压缩比 ≈ `1 + D·k·∇²h`,强度与之成反比。无原子、无额外 pass、逐像素确定,
+//   代价 = 不含多次折射与全反射焦散。
+// - **体积光**:HPWater 有半分辨率累积 + 运动矢量时域重投影 + À-trous + 联合
+//   双边上采样的完整降噪管线。本 kernel 取全分辨率 6 采样**解析**单次散射
+//   (指数步进,无蒙特卡洛 ⇒ 无噪声 ⇒ 无需降噪),代价 = 不含多次散射与
+//   体积阴影。
+// - **模糊**:HPWater 按散射密度选 mipmap 级。本执行面纹理单 mip 且 compute
+//   不能硬件采样,故改为 3 级显式 box 降采样链 + 帐篷权重混合。
+//
+// ## 确定性协议(RXS-0357 L2 同律)
+//
+// 逐像素独立顺序求值,禁 atomic;只读输入、直写输出;全 f32;抖动取 IGN
+// **解析式**(无 RNG 状态);分支一律算术门,无 `else`/`break`/`continue`;
+// 无辅助函数(全手工内联)。
+//
+// ## 参数面
+//
+// 与 `world::water_surface::pack_water_params` 同一份 buffer(布局见该函数文档)。
+//
+//   wave_h:  wave_dim² f32 波高场(格值;世界位移 = 格值 × wave_amplitude)
+//   noise2d: n2_dim² f32 ∈ [0,1](水面法线细节)
+//   sky_lut: sky_w × sky_h × 3 f32
+//   scene_color / blur1 / blur2: 3 f32/px(全 / 半 / 四分之一分辨率)
+//   scene_depth: 1 f32/px 视深(未命中 = 1e30)
+//   out_color: 3 f32/px scene-linear HDR
+#[numthreads(8, 8, 1)]
+kernel fn g41_water_surface(
+    t: ThreadCtx<2>,
+    params: View<global, f32>,
+    wave_h: View<global, f32>,
+    noise2d: View<global, f32>,
+    sky_lut: View<global, f32>,
+    scene_color: View<global, f32>,
+    blur1: View<global, f32>,
+    blur2: View<global, f32>,
+    scene_depth: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+) {
+    let px = t.global_id() as usize;
+    let py = t.global_id_y() as usize;
+    let w = params[0] as usize;
+    let h = params[1] as usize;
+    if px < w && py < h {
+        let pi: f32 = 3.1415927;
+        let tiny: f32 = 0.000001;
+        let big: f32 = 1e30;
+
+        // ── 参数解包 ──────────────────────────────────────────────────────
+        let wf = params[0];
+        let hf = params[1];
+        let co_x = params[2];
+        let co_y = params[3];
+        let co_z = params[4];
+        let cf_x = params[5];
+        let cf_y = params[6];
+        let cf_z = params[7];
+        let cr_x = params[8];
+        let cr_y = params[9];
+        let cr_z = params[10];
+        let cu_x = params[11];
+        let cu_y = params[12];
+        let cu_z = params[13];
+        let tan_half = params[14];
+        let aspect = params[15];
+        let sun_x = params[16];
+        let sun_y = params[17];
+        let sun_z = params[18];
+        let sunc_r = params[19];
+        let sunc_g = params[20];
+        let sunc_b = params[21];
+        let amb_t_r = params[22];
+        let amb_t_g = params[23];
+        let amb_t_b = params[24];
+        let water_level = params[28];
+        let cen_x = params[29];
+        let cen_z = params[30];
+        let max_depth = params[31];
+        let shore_r = params[32].max(1.0);
+        let beach_rise = params[33];
+        let dune_amp = params[34];
+        let dune_f = params[35];
+        let wave_extent = params[42].max(1.0);
+        let wave_dim = params[43] as usize;
+        let wave_dimf = params[43];
+        let wave_amp = params[44];
+        let abs_r = params[45];
+        let abs_g = params[46];
+        let abs_b = params[47];
+        let sct_r = params[48];
+        let sct_g = params[49];
+        let sct_b = params[50];
+        let roughness = params[51].max(0.008);
+        let normal_detail = params[52];
+        let refr_gain = params[53];
+        let max_refr_cross = params[54];
+        let max_cross = params[55];
+        let refract_steps = params[56] as usize;
+        let refr_thick = params[57];
+        let phase_g = params[58];
+        let dispersion = params[59];
+        let blur_density = params[60];
+        let foam_thresh = params[61];
+        let foam_int = params[62];
+        let shore_foam_d = params[63];
+        let caustic_int = params[64];
+        let caustic_conv = params[65];
+        let reflect_str = params[66];
+        let eta = params[67];
+        let f0 = params[68];
+        let exp_factor = params[69].max(1.000001);
+        let refr_ref = params[70].max(tiny);
+        let frame_i = params[71];
+        let n2_dim = params[72] as usize;
+        let n2_dimf = params[72];
+        let n2_mask = n2_dim - 1usize;
+        let sky_w = params[73] as usize;
+        let sky_wf = params[73];
+        let sky_hf = params[74];
+        let time_s = params[81];
+        let arm_caustic = params[82];
+        let arm_refract = params[83];
+        let arm_disp = params[84];
+        let arm_foam = params[85];
+        let arm_volume = params[86];
+        let arm_reflect = params[87];
+        let water_on = params[89];
+
+        let pidx = py * w + px;
+        let o3 = pidx * 3usize;
+
+        // ── 主射线 ────────────────────────────────────────────────────────
+        let ndc_x = ((px as f32) + 0.5) / wf * 2.0 - 1.0;
+        let ndc_y = 1.0 - ((py as f32) + 0.5) / hf * 2.0;
+        let scr_x = ndc_x * tan_half * aspect;
+        let scr_y = ndc_y * tan_half;
+        let rd0_x = cf_x + cr_x * scr_x + cu_x * scr_y;
+        let rd0_y = cf_y + cr_y * scr_x + cu_y * scr_y;
+        let rd0_z = cf_z + cr_z * scr_x + cu_z * scr_y;
+        let rd_len = (rd0_x * rd0_x + rd0_y * rd0_y + rd0_z * rd0_z)
+            .sqrt()
+            .max(tiny);
+        let rd_x = rd0_x / rd_len;
+        let rd_y = rd0_y / rd_len;
+        let rd_z = rd0_z / rd_len;
+
+        // 场景视深 → 场景射线参数 t(view_z = t · dot(d, forward))。
+        let s_vz = scene_depth[pidx];
+        let d_dot_f = (rd_x * cf_x + rd_y * cf_y + rd_z * cf_z).max(tiny);
+        let scene_t = s_vz / d_dot_f;
+
+        // ── 水面求交(平面 + 一次波高细化)────────────────────────────────
+        // 只处理相机在水面上方、视线向下的构型(展示车道构型;如实登记)。
+        let looking_down = ((0.0 - rd_y) * big).min(1.0).max(0.0);
+        let above_water = ((co_y - water_level) * big).min(1.0).max(0.0);
+        let denom_y = rd_y.min(0.0 - tiny);
+        let t_flat = (water_level - co_y) / denom_y;
+
+        // ══ 波高双线性取样 A(平面交点处;用于细化 t)══════════════════════
+        let a_px = co_x + rd_x * t_flat;
+        let a_pz = co_z + rd_z * t_flat;
+        let a_u = (a_px - cen_x) / wave_extent + 0.5;
+        let a_v = (a_pz - cen_z) / wave_extent + 0.5;
+        let a_in = ((a_u) * big).min(1.0).max(0.0)
+            * ((1.0 - a_u) * big).min(1.0).max(0.0)
+            * ((a_v) * big).min(1.0).max(0.0)
+            * ((1.0 - a_v) * big).min(1.0).max(0.0);
+        let a_fx = (a_u * wave_dimf - 0.5).max(0.0).min(wave_dimf - 1.0);
+        let a_fy = (a_v * wave_dimf - 0.5).max(0.0).min(wave_dimf - 1.0);
+        let a_x0 = a_fx.floor();
+        let a_y0 = a_fy.floor();
+        let a_tx = a_fx - a_x0;
+        let a_ty = a_fy - a_y0;
+        let a_i0 = a_x0 as usize;
+        let a_i1 = (a_x0 + 1.0).min(wave_dimf - 1.0) as usize;
+        let a_j0 = a_y0 as usize;
+        let a_j1 = (a_y0 + 1.0).min(wave_dimf - 1.0) as usize;
+        let a_h00 = wave_h[a_j0 * wave_dim + a_i0];
+        let a_h10 = wave_h[a_j0 * wave_dim + a_i1];
+        let a_h01 = wave_h[a_j1 * wave_dim + a_i0];
+        let a_h11 = wave_h[a_j1 * wave_dim + a_i1];
+        let a_hx0 = a_h00 + (a_h10 - a_h00) * a_tx;
+        let a_hx1 = a_h01 + (a_h11 - a_h01) * a_tx;
+        let a_hgt_raw = (a_hx0 + (a_hx1 - a_hx0) * a_ty) * a_in;
+
+        // ── 浅化(shoaling):水深趋零时波幅同步趋零 ────────────────────────
+        // 不做浅化时,波谷会在极浅处把水面压到海床之下,水面判据 `water_depth > 0`
+        // 随之翻转,画面上出现沿沙纹分布的**硬边黑弧洞**(实测)。真实浅水波在
+        // 触底前就已浅化/破碎,故按 smoothstep(0, 2·amp+0.3, depth) 收波幅——
+        // 既消除空洞,也顺带给出岸线处自然的平静带。
+        // 诚实边界:本式只收幅度,不模拟破碎波形(无卷浪/白沫抛射)。
+        let fa_dx = a_px - cen_x;
+        let fa_dz = a_pz - cen_z;
+        let fa_r = (fa_dx * fa_dx + fa_dz * fa_dz).sqrt();
+        let fa_rn = (fa_r / shore_r).min(1.0);
+        let fa_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * fa_rn).cos());
+        let fa_rise = beach_rise * ((fa_r - shore_r).max(0.0) / shore_r).min(1.0);
+        let fa_dune = dune_amp
+            * ((dune_f * a_px).sin() * (dune_f * 0.87 * a_pz).cos()
+                + 0.45 * (dune_f * 2.3 * a_px + dune_f * 1.7 * a_pz).sin()
+                + 0.30 * (dune_f * 5.5 * a_px + 1.2 * (dune_f * 2.0 * a_pz).sin()).sin());
+        let depth_a = (water_level - (water_level + fa_bowl + fa_rise + fa_dune)).max(0.0);
+        let sh_t = (depth_a / (2.0 * wave_amp + 0.3).max(0.01)).max(0.0).min(1.0);
+        let shoal = sh_t * sh_t * (3.0 - 2.0 * sh_t);
+        let a_hgt = a_hgt_raw * shoal;
+
+        // 细化:曲面 y = water_level + h·amp。
+        let surf_y = water_level + a_hgt * wave_amp;
+        let t_water = (surf_y - co_y) / denom_y;
+
+        let wx = co_x + rd_x * t_water;
+        let wy = co_y + rd_y * t_water;
+        let wz = co_z + rd_z * t_water;
+
+        // ══ 波高双线性取样 B(细化后交点;同时解析出双线性面的梯度)══════════
+        let b_u = (wx - cen_x) / wave_extent + 0.5;
+        let b_v = (wz - cen_z) / wave_extent + 0.5;
+        let b_in = ((b_u) * big).min(1.0).max(0.0)
+            * ((1.0 - b_u) * big).min(1.0).max(0.0)
+            * ((b_v) * big).min(1.0).max(0.0)
+            * ((1.0 - b_v) * big).min(1.0).max(0.0);
+        let b_fx = (b_u * wave_dimf - 0.5).max(0.0).min(wave_dimf - 1.0);
+        let b_fy = (b_v * wave_dimf - 0.5).max(0.0).min(wave_dimf - 1.0);
+        let b_x0 = b_fx.floor();
+        let b_y0 = b_fy.floor();
+        let b_tx = b_fx - b_x0;
+        let b_ty = b_fy - b_y0;
+        let b_i0 = b_x0 as usize;
+        let b_i1 = (b_x0 + 1.0).min(wave_dimf - 1.0) as usize;
+        let b_j0 = b_y0 as usize;
+        let b_j1 = (b_y0 + 1.0).min(wave_dimf - 1.0) as usize;
+        let b_h00 = wave_h[b_j0 * wave_dim + b_i0];
+        let b_h10 = wave_h[b_j0 * wave_dim + b_i1];
+        let b_h01 = wave_h[b_j1 * wave_dim + b_i0];
+        let b_h11 = wave_h[b_j1 * wave_dim + b_i1];
+        let b_hx0 = b_h00 + (b_h10 - b_h00) * b_tx;
+        let b_hx1 = b_h01 + (b_h11 - b_h01) * b_tx;
+        let wave_height = (b_hx0 + (b_hx1 - b_hx0) * b_ty) * b_in * shoal;
+        // 双线性面的解析偏导(与 host `WaveSim::gradient` 的中心差分同一量,
+        // 但取自插值面本身 ⇒ 无额外取样、且在格内连续)。
+        let b_cross = b_h00 - b_h10 - b_h01 + b_h11;
+        let dh_dtx = (b_h10 - b_h00) + b_cross * b_ty;
+        let dh_dty = (b_h01 - b_h00) + b_cross * b_tx;
+        // 格 → 米:每格 wave_extent / wave_dim 米。
+        let cell_m = wave_extent / wave_dimf;
+        let grad_x = dh_dtx * wave_amp / cell_m * b_in * shoal;
+        let grad_z = dh_dty * wave_amp / cell_m * b_in * shoal;
+
+        // ── 高频法线细节(烘焙噪声双向滚动;两层反向 ⇒ 不呈现单向平移感)──────
+        let nd_u0 = wx / 3.5 + time_s * 0.035;
+        let nd_v0 = wz / 3.5 + time_s * 0.021;
+        let nd_fx0 = nd_u0 - nd_u0.floor();
+        let nd_fy0 = nd_v0 - nd_v0.floor();
+        let nd_i0 = ((nd_fx0 * n2_dimf) as usize) & n2_mask;
+        let nd_j0 = ((nd_fy0 * n2_dimf) as usize) & n2_mask;
+        let nd_i0p = (nd_i0 + 1usize) & n2_mask;
+        let nd_j0p = (nd_j0 + 1usize) & n2_mask;
+        let d_c0 = noise2d[nd_j0 * n2_dim + nd_i0];
+        let d_x0 = noise2d[nd_j0 * n2_dim + nd_i0p];
+        let d_z0 = noise2d[nd_j0p * n2_dim + nd_i0];
+        let nd_u1 = wx / 1.3 - time_s * 0.052;
+        let nd_v1 = wz / 1.3 + time_s * 0.041;
+        let nd_fx1 = nd_u1 - nd_u1.floor();
+        let nd_fy1 = nd_v1 - nd_v1.floor();
+        let nd_i1 = ((nd_fx1 * n2_dimf) as usize) & n2_mask;
+        let nd_j1 = ((nd_fy1 * n2_dimf) as usize) & n2_mask;
+        let nd_i1p = (nd_i1 + 1usize) & n2_mask;
+        let nd_j1p = (nd_j1 + 1usize) & n2_mask;
+        let d_c1 = noise2d[nd_j1 * n2_dim + nd_i1];
+        let d_x1 = noise2d[nd_j1 * n2_dim + nd_i1p];
+        let d_z1 = noise2d[nd_j1p * n2_dim + nd_i1];
+        // 前向差分作细节梯度(幅度按 normal_detail 缩放)。
+        let det_gx = ((d_x0 - d_c0) * 0.62 + (d_x1 - d_c1) * 0.38) * normal_detail;
+        let det_gz = ((d_z0 - d_c0) * 0.62 + (d_z1 - d_c1) * 0.38) * normal_detail;
+
+        let tot_gx = grad_x + det_gx;
+        let tot_gz = grad_z + det_gz;
+        let n_len = (tot_gx * tot_gx + 1.0 + tot_gz * tot_gz).sqrt().max(tiny);
+        let nx = (0.0 - tot_gx) / n_len;
+        let ny = 1.0 / n_len;
+        let nz = (0.0 - tot_gz) / n_len;
+
+        // ── 该处水深(海床高度场;host `LagoonScene::floor_height` 同式)──────
+        let w_dx = wx - cen_x;
+        let w_dz = wz - cen_z;
+        let w_r = (w_dx * w_dx + w_dz * w_dz).sqrt();
+        let w_rn = (w_r / shore_r).min(1.0);
+        let w_bowl = 0.0 - max_depth * 0.5 * (1.0 + (pi * w_rn).cos());
+        let w_rise = beach_rise * ((w_r - shore_r).max(0.0) / shore_r).min(1.0);
+        let w_dune = dune_amp
+            * ((dune_f * wx).sin() * (dune_f * 0.87 * wz).cos()
+                + 0.45 * (dune_f * 2.3 * wx + dune_f * 1.7 * wz).sin());
+        let floor_y = water_level + w_bowl + w_rise + w_dune;
+        let water_depth = water_level - floor_y;
+
+        // ── 水面可见性门 ──────────────────────────────────────────────────
+        // 五条:主开关 / 向下看 / 相机在水上 / 水面在不透明场景之前 / 该处确有水。
+        // 主开关关 ⇒ 整条水面链不参与合成(本 pass 逐像素直通场景色),使
+        // `--water off` 与调试视图不被水面重采样/模糊污染。
+        let has_water = water_on
+            * looking_down
+            * above_water
+            * ((t_water) * big).min(1.0).max(0.0)
+            * ((scene_t - t_water) * big).min(1.0).max(0.0)
+            * ((water_depth) * big).min(1.0).max(0.0);
+
+        // ── IGN 抖动(host `interleaved_gradient_noise` 逐字同源)──────────
+        let ign_x = (px as f32) + frame_i * 5.588238;
+        let ign_y = (py as f32) + frame_i * 5.588238;
+        let ign_m = 0.06711056 * ign_x + 0.00583715 * ign_y;
+        let ign_t = 52.982918 * (ign_m - ign_m.floor());
+        let dither = ign_t - ign_t.floor();
+
+        // ── 折射方向(只保留法线扰动分量;host `refraction_direction` 同式)──
+        let ng_len = (nx * refr_gain * nx * refr_gain + ny * ny + nz * refr_gain * nz * refr_gain)
+            .sqrt()
+            .max(tiny);
+        let ngx = nx * refr_gain / ng_len;
+        let ngy = ny / ng_len;
+        let ngz = nz * refr_gain / ng_len;
+        // refract(I, N, eta) 内联(I = 视线方向 rd)。
+        let dnI = ngx * rd_x + ngy * rd_y + ngz * rd_z;
+        let kk = 1.0 - eta * eta * (1.0 - dnI * dnI);
+        let tir = (kk * big).min(1.0).max(0.0);
+        let ss = eta * dnI + kk.max(0.0).sqrt();
+        let bent_x = (eta * rd_x - ss * ngx) * tir;
+        let bent_y = (eta * rd_y - ss * ngy) * tir;
+        let bent_z = (eta * rd_z - ss * ngz) * tir;
+        // 平面基准 refract(I, +Y, eta)。
+        let dnF = rd_y;
+        let kf = 1.0 - eta * eta * (1.0 - dnF * dnF);
+        let sf = eta * dnF + kf.max(0.0).sqrt();
+        let flat_x = eta * rd_x;
+        let flat_y = eta * rd_y - sf;
+        let flat_z = eta * rd_z;
+        let rf0_x = bent_x - flat_x + rd_x;
+        let rf0_y = bent_y - flat_y + rd_y;
+        let rf0_z = bent_z - flat_z + rd_z;
+        let rf_len = (rf0_x * rf0_x + rf0_y * rf0_y + rf0_z * rf0_z)
+            .sqrt()
+            .max(tiny);
+        let rf_x = rf0_x / rf_len;
+        let rf_y = rf0_y / rf_len;
+        let rf_z = rf0_z / rf_len;
+
+        // ── 屏幕空间折射步进(指数步进 + IGN 抖动 + 厚度阈值)──────────────
+        // 自适应指数因子(host `adaptive_exp_factor` 同式)。
+        let ratio = max_refr_cross.max(0.01) / refr_ref;
+        let adapt_f = (ratio * ratio).max(1.01).min(32.0);
+        let base_u = ((px as f32) + 0.5) / wf;
+        let base_v = ((py as f32) + 0.5) / hf;
+
+        let mut hit_u = base_u;
+        let mut hit_v = base_v;
+        let mut hit_found = 0.0;
+        let mut m = 0usize;
+        let march_n = refract_steps;
+        while m < march_n {
+            // t_norm = (F^s − 1)/(F − 1),s = (m + dither)/N。
+            let sfrac = ((m as f32) + dither) / (march_n as f32);
+            let tnorm = (adapt_f.powf(sfrac) - 1.0) / (adapt_f - 1.0);
+            let dist = tnorm * max_refr_cross;
+            let sp_x = wx + rf_x * dist;
+            let sp_y = wy + rf_y * dist;
+            let sp_z = wz + rf_z * dist;
+            // 世界 → 屏幕投影。
+            let rel_x = sp_x - co_x;
+            let rel_y = sp_y - co_y;
+            let rel_z = sp_z - co_z;
+            let p_vz = rel_x * cf_x + rel_y * cf_y + rel_z * cf_z;
+            let p_vzs = p_vz.max(tiny);
+            let p_nx = (rel_x * cr_x + rel_y * cr_y + rel_z * cr_z) / (p_vzs * tan_half * aspect);
+            let p_ny = (rel_x * cu_x + rel_y * cu_y + rel_z * cu_z) / (p_vzs * tan_half);
+            let p_u = p_nx * 0.5 + 0.5;
+            let p_v = 0.5 - p_ny * 0.5;
+            let inb = ((p_u) * big).min(1.0).max(0.0)
+                * ((1.0 - p_u) * big).min(1.0).max(0.0)
+                * ((p_v) * big).min(1.0).max(0.0)
+                * ((1.0 - p_v) * big).min(1.0).max(0.0)
+                * ((p_vz) * big).min(1.0).max(0.0);
+            let sxi = (p_u * wf).max(0.0).min(wf - 1.0) as usize;
+            let syi = (p_v * hf).max(0.0).min(hf - 1.0) as usize;
+            let samp_vz = scene_depth[syi * w + sxi];
+            // 命中:射线视深越过场景视深(且在厚度带内 ⇒ 非远处穿模)。
+            let crossed = ((p_vz - samp_vz) * big).min(1.0).max(0.0);
+            let within = ((samp_vz + refr_thick - p_vz) * big).min(1.0).max(0.0);
+            let latch = inb * crossed * within * (1.0 - hit_found);
+            hit_u = hit_u + (p_u - hit_u) * latch;
+            hit_v = hit_v + (p_v - hit_v) * latch;
+            hit_found = hit_found + latch;
+            m = m + 1usize;
+        }
+
+        // 未命中回退:沿折射方向走"水面到场景"的直线距离后投影(HPWater 同律)。
+        let sc_x = co_x + rd_x * scene_t;
+        let sc_y = co_y + rd_y * scene_t;
+        let sc_z = co_z + rd_z * scene_t;
+        let fb_d = ((sc_x - wx) * (sc_x - wx)
+            + (sc_y - wy) * (sc_y - wy)
+            + (sc_z - wz) * (sc_z - wz))
+            .sqrt()
+            .min(max_refr_cross);
+        let fb_x = wx + rf_x * fb_d;
+        let fb_y = wy + rf_y * fb_d;
+        let fb_z = wz + rf_z * fb_d;
+        let fbr_x = fb_x - co_x;
+        let fbr_y = fb_y - co_y;
+        let fbr_z = fb_z - co_z;
+        let fb_vz = (fbr_x * cf_x + fbr_y * cf_y + fbr_z * cf_z).max(tiny);
+        let fb_u = (fbr_x * cr_x + fbr_y * cr_y + fbr_z * cr_z) / (fb_vz * tan_half * aspect) * 0.5
+            + 0.5;
+        let fb_v = 0.5 - (fbr_x * cu_x + fbr_y * cu_y + fbr_z * cu_z) / (fb_vz * tan_half) * 0.5;
+        let ru0 = fb_u + (hit_u - fb_u) * hit_found;
+        let rv0 = fb_v + (hit_v - fb_v) * hit_found;
+
+        // 边界衰减(屏幕边缘折射偏移收敛到 0,防越界穿帮;HPWater 同律)。
+        let bnd_x = (base_u * 6.0).max(0.0).min(1.0) * ((1.0 - base_u) * 6.0).max(0.0).min(1.0);
+        let bnd_y = (base_v * 6.0).max(0.0).min(1.0) * ((1.0 - base_v) * 6.0).max(0.0).min(1.0);
+        let bnd = (bnd_x * bnd_y).max(0.0).min(1.0).sqrt();
+        // 折射关臂 ⇒ 偏移为 0(退化为直视)。
+        let off_u = (ru0 - base_u) * bnd * arm_refract;
+        let off_v = (rv0 - base_v) * bnd * arm_refract;
+        let mut ref_u = (base_u + off_u).max(0.0).min(1.0);
+        let mut ref_v = (base_v + off_v).max(0.0).min(1.0);
+
+        // 折射目标若落在水面之上(如岸上物体)⇒ 撤销偏移,防"岸被吸进水里"。
+        let gxi = (ref_u * wf).max(0.0).min(wf - 1.0) as usize;
+        let gyi = (ref_v * hf).max(0.0).min(hf - 1.0) as usize;
+        let g_vz = scene_depth[gyi * w + gxi];
+        let g_ndx = ref_u * 2.0 - 1.0;
+        let g_ndy = 1.0 - ref_v * 2.0;
+        let g_dx0 = cf_x + cr_x * (g_ndx * tan_half * aspect) + cu_x * (g_ndy * tan_half);
+        let g_dy0 = cf_y + cr_y * (g_ndx * tan_half * aspect) + cu_y * (g_ndy * tan_half);
+        let g_dz0 = cf_z + cr_z * (g_ndx * tan_half * aspect) + cu_z * (g_ndy * tan_half);
+        let g_dl = (g_dx0 * g_dx0 + g_dy0 * g_dy0 + g_dz0 * g_dz0).sqrt().max(tiny);
+        let g_dx = g_dx0 / g_dl;
+        let g_dy = g_dy0 / g_dl;
+        let g_dz = g_dz0 / g_dl;
+        let g_t = g_vz / (g_dx * cf_x + g_dy * cf_y + g_dz * cf_z).max(tiny);
+        let g_py = co_y + g_dy * g_t;
+        // g_py > water_level ⇒ 该点在水上 ⇒ 撤销。
+        let undo = ((g_py - water_level) * big).min(1.0).max(0.0);
+        ref_u = ref_u + (base_u - ref_u) * undo;
+        ref_v = ref_v + (base_v - ref_v) * undo;
+
+        // ── 折射点世界位置与水下光程 ──────────────────────────────────────
+        let f_xi = (ref_u * wf).max(0.0).min(wf - 1.0) as usize;
+        let f_yi = (ref_v * hf).max(0.0).min(hf - 1.0) as usize;
+        let f_vz = scene_depth[f_yi * w + f_xi];
+        let f_ndx = ref_u * 2.0 - 1.0;
+        let f_ndy = 1.0 - ref_v * 2.0;
+        let f_dx0 = cf_x + cr_x * (f_ndx * tan_half * aspect) + cu_x * (f_ndy * tan_half);
+        let f_dy0 = cf_y + cr_y * (f_ndx * tan_half * aspect) + cu_y * (f_ndy * tan_half);
+        let f_dz0 = cf_z + cr_z * (f_ndx * tan_half * aspect) + cu_z * (f_ndy * tan_half);
+        let f_dl = (f_dx0 * f_dx0 + f_dy0 * f_dy0 + f_dz0 * f_dz0).sqrt().max(tiny);
+        let f_dxn = f_dx0 / f_dl;
+        let f_dyn = f_dy0 / f_dl;
+        let f_dzn = f_dz0 / f_dl;
+        let f_t = f_vz / (f_dxn * cf_x + f_dyn * cf_y + f_dzn * cf_z).max(tiny);
+        // 天空哨兵(scene_depth = 1e30)会让 f_t 爆到无穷,进而使 fp_* 为 ±inf、
+        // fp_depth 为 inf;后续 `fp_depth · lap` 在 lap = 0 处得 inf·0 = **NaN**,
+        // 会沿焦散项污染整条水面链。故按物理上界钳死:折射采样点不可能比
+        // 「水面交点再往前 max_cross」更远。
+        let f_t_safe = f_t.min(t_water + max_cross).max(0.0);
+        let fp_x = co_x + f_dxn * f_t_safe;
+        let fp_y = co_y + f_dyn * f_t_safe;
+        let fp_z = co_z + f_dzn * f_t_safe;
+        let cross_d = ((fp_x - wx) * (fp_x - wx)
+            + (fp_y - wy) * (fp_y - wy)
+            + (fp_z - wz) * (fp_z - wz))
+            .sqrt()
+            .max(0.0)
+            .min(max_cross);
+        // 折射点在水面下的深度(太阳光路长度用);上界钳到 max_cross,双保险。
+        let fp_depth = (water_level - fp_y).max(0.0).min(max_cross);
+
+        // ── 三波长色散(折射偏移按波长微调;长波折射少、短波折射多)──────────
+        let disp_u = off_u * dispersion * arm_disp;
+        let disp_v = off_v * dispersion * arm_disp;
+        let ur_ = (ref_u - disp_u).max(0.0).min(1.0);
+        let vr_ = (ref_v - disp_v).max(0.0).min(1.0);
+        let ub_ = (ref_u + disp_u).max(0.0).min(1.0);
+        let vb_ = (ref_v + disp_v).max(0.0).min(1.0);
+
+        // ── 模糊级(host `blur_level` 同式)+ 三级帐篷权重 ──────────────────
+        let eff_scale = 0.2 + blur_density * 10.0;
+        let lvl = (1.0 + cross_d.max(0.0) * eff_scale).log2().max(0.0).min(2.0);
+        let w0 = (1.0 - (lvl - 0.0).abs()).max(0.0);
+        let w1 = (1.0 - (lvl - 1.0).abs()).max(0.0);
+        let w2 = (1.0 - (lvl - 2.0).abs()).max(0.0);
+        let wsum = (w0 + w1 + w2).max(tiny);
+        let b1_w = w / 2usize;
+        let b1_h = h / 2usize;
+        let b2_w = w / 4usize;
+        let b2_h = h / 4usize;
+        let b1_wf = wf * 0.5;
+        let b1_hf = hf * 0.5;
+        let b2_wf = wf * 0.25;
+        let b2_hf = hf * 0.25;
+
+        // 红通道取样(u_r, v_r)。
+        let r0i = ((vr_ * hf).max(0.0).min(hf - 1.0) as usize) * w
+            + ((ur_ * wf).max(0.0).min(wf - 1.0) as usize);
+        let r1i = ((vr_ * b1_hf).max(0.0).min(b1_hf - 1.0) as usize) * b1_w
+            + ((ur_ * b1_wf).max(0.0).min(b1_wf - 1.0) as usize);
+        let r2i = ((vr_ * b2_hf).max(0.0).min(b2_hf - 1.0) as usize) * b2_w
+            + ((ur_ * b2_wf).max(0.0).min(b2_wf - 1.0) as usize);
+        let scn_r = (scene_color[r0i * 3usize] * w0
+            + blur1[r1i * 3usize] * w1
+            + blur2[r2i * 3usize] * w2)
+            / wsum;
+        // 绿通道(未偏移)。
+        let g0i = ((ref_v * hf).max(0.0).min(hf - 1.0) as usize) * w
+            + ((ref_u * wf).max(0.0).min(wf - 1.0) as usize);
+        let g1i = ((ref_v * b1_hf).max(0.0).min(b1_hf - 1.0) as usize) * b1_w
+            + ((ref_u * b1_wf).max(0.0).min(b1_wf - 1.0) as usize);
+        let g2i = ((ref_v * b2_hf).max(0.0).min(b2_hf - 1.0) as usize) * b2_w
+            + ((ref_u * b2_wf).max(0.0).min(b2_wf - 1.0) as usize);
+        let scn_g = (scene_color[g0i * 3usize + 1usize] * w0
+            + blur1[g1i * 3usize + 1usize] * w1
+            + blur2[g2i * 3usize + 1usize] * w2)
+            / wsum;
+        // 蓝通道(u_b, v_b)。
+        let bl0i = ((vb_ * hf).max(0.0).min(hf - 1.0) as usize) * w
+            + ((ub_ * wf).max(0.0).min(wf - 1.0) as usize);
+        let bl1i = ((vb_ * b1_hf).max(0.0).min(b1_hf - 1.0) as usize) * b1_w
+            + ((ub_ * b1_wf).max(0.0).min(b1_wf - 1.0) as usize);
+        let bl2i = ((vb_ * b2_hf).max(0.0).min(b2_hf - 1.0) as usize) * b2_w
+            + ((ub_ * b2_wf).max(0.0).min(b2_wf - 1.0) as usize);
+        let scn_b = (scene_color[bl0i * 3usize + 2usize] * w0
+            + blur1[bl1i * 3usize + 2usize] * w1
+            + blur2[bl2i * 3usize + 2usize] * w2)
+            / wsum;
+
+        // ── 解析焦散(水面 ∇²h;5 点模板取最近格)──────────────────────────
+        let l_i = (b_fx + 0.5).max(0.0).min(wave_dimf - 1.0) as usize;
+        let l_j = (b_fy + 0.5).max(0.0).min(wave_dimf - 1.0) as usize;
+        let l_im = (l_i as f32 - 1.0).max(0.0) as usize;
+        let l_ip = (l_i as f32 + 1.0).min(wave_dimf - 1.0) as usize;
+        let l_jm = (l_j as f32 - 1.0).max(0.0) as usize;
+        let l_jp = (l_j as f32 + 1.0).min(wave_dimf - 1.0) as usize;
+        let lap_c = wave_h[l_j * wave_dim + l_i];
+        let lap = (wave_h[l_j * wave_dim + l_im]
+            + wave_h[l_j * wave_dim + l_ip]
+            + wave_h[l_jm * wave_dim + l_i]
+            + wave_h[l_jp * wave_dim + l_i]
+            - 4.0 * lap_c)
+            * b_in
+            * shoal;
+        // host `caustic_gain` 同式:compression = 1 + D·k·∇²h,gain = 1/compression。
+        let compression = (1.0 + fp_depth * caustic_conv * lap * wave_amp).max(0.12);
+        let caustic = 1.0 + (1.0 / compression - 1.0) * caustic_int * arm_caustic;
+
+        // ── Beer-Lambert 体积吸收 + 6 采样单次散射 ────────────────────────
+        let sig_r = abs_r + sct_r;
+        let sig_g = abs_g + sct_g;
+        let sig_b = abs_b + sct_b;
+        // 全程透射率(水下场景色的衰减)。
+        let tr_r = (0.0 - sig_r * cross_d).exp();
+        let tr_g = (0.0 - sig_g * cross_d).exp();
+        let tr_b = (0.0 - sig_b * cross_d).exp();
+        // 散射相位(host `scatter_phase` 同式:瑞利 5% + HG 95%)。
+        let cos_sv = 0.0 - (rd_x * sun_x + rd_y * sun_y + rd_z * sun_z);
+        let g2 = phase_g * phase_g;
+        let hg_den = (1.0 + g2 - 2.0 * phase_g * cos_sv).abs().max(tiny);
+        // 含 1/4π 归一化(host `henyey_greenstein` 同式);漏掉它会让内散射
+        // 整体偏大 4π ≈ 12.6 倍,深水反比浅水亮。
+        let hg = (1.0 - g2) / (4.0 * pi * hg_den.powf(1.5));
+        let ray_p = (1.0 + cos_sv * cos_sv) * (3.0 / (16.0 * pi));
+        let ph_r = 0.418 * ray_p * 0.05 + hg * 0.95;
+        let ph_g = 1.0 * ray_p * 0.05 + hg * 0.95;
+        let ph_b = 2.452 * ray_p * 0.05 + hg * 0.95;
+        // 太阳向上分量(水下光程 = 深度 / sun.y)。
+        let sun_up = sun_y.max(0.12);
+
+        let mut sc_acc_r = 0.0;
+        let mut sc_acc_g = 0.0;
+        let mut sc_acc_b = 0.0;
+        let mut acc_t_r = 1.0;
+        let mut acc_t_g = 1.0;
+        let mut acc_t_b = 1.0;
+        let mut vi = 0usize;
+        while vi < 6usize {
+            let s0 = ((vi as f32) + dither) / 6.0;
+            let s1 = ((vi as f32) + 1.0 + dither) / 6.0;
+            let d0 = (exp_factor.powf(s0) - 1.0) / (exp_factor - 1.0) * cross_d;
+            let d1 = (exp_factor.powf(s1) - 1.0) / (exp_factor - 1.0) * cross_d;
+            let seg = (d1 - d0).max(0.0);
+            // 采样点深度(自水面沿折射方向下潜)。
+            let sd = (water_level - (wy + rf_y * d0)).max(0.0);
+            let sun_path = sd / sun_up;
+            // 太阳光抵达该点的衰减。
+            let sa_r = (0.0 - sig_r * sun_path).exp();
+            let sa_g = (0.0 - sig_g * sun_path).exp();
+            let sa_b = (0.0 - sig_b * sun_path).exp();
+            // 段内散射(host `scattered_light` 同式)。
+            let st_r = (0.0 - sig_r * seg).exp();
+            let st_g = (0.0 - sig_g * seg).exp();
+            let st_b = (0.0 - sig_b * seg).exp();
+            let alb_r = sct_r / sig_r.max(tiny);
+            let alb_g = sct_g / sig_g.max(tiny);
+            let alb_b = sct_b / sig_b.max(tiny);
+            sc_acc_r = sc_acc_r + acc_t_r * (sunc_r * sa_r) * (1.0 - st_r) * alb_r * ph_r;
+            sc_acc_g = sc_acc_g + acc_t_g * (sunc_g * sa_g) * (1.0 - st_g) * alb_g * ph_g;
+            sc_acc_b = sc_acc_b + acc_t_b * (sunc_b * sa_b) * (1.0 - st_b) * alb_b * ph_b;
+            acc_t_r = acc_t_r * st_r;
+            acc_t_g = acc_t_g * st_g;
+            acc_t_b = acc_t_b * st_b;
+            vi = vi + 1usize;
+        }
+        sc_acc_r = sc_acc_r * arm_volume;
+        sc_acc_g = sc_acc_g * arm_volume;
+        sc_acc_b = sc_acc_b * arm_volume;
+        // 体积关臂 ⇒ 透射率恒 1(水变全透明)。
+        let use_tr_r = 1.0 + (tr_r - 1.0) * arm_volume;
+        let use_tr_g = 1.0 + (tr_g - 1.0) * arm_volume;
+        let use_tr_b = 1.0 + (tr_b - 1.0) * arm_volume;
+
+        // 水下项 = 折射场景色 × 焦散 × 透射率 + 累积散射。
+        let under_r = scn_r * caustic * use_tr_r + sc_acc_r;
+        let under_g = scn_g * caustic * use_tr_g + sc_acc_g;
+        let under_b = scn_b * caustic * use_tr_b + sc_acc_b;
+
+        // ── 反射(天空 LUT + GGX 太阳高光)────────────────────────────────
+        let ndv = (0.0 - (nx * rd_x + ny * rd_y + nz * rd_z)).max(0.0).min(1.0);
+        let dn2 = 2.0 * (rd_x * nx + rd_y * ny + rd_z * nz);
+        let rl_x = rd_x - dn2 * nx;
+        let rl_y = rd_y - dn2 * ny;
+        let rl_z = rd_z - dn2 * nz;
+        let rl_len = (rl_x * rl_x + rl_y * rl_y + rl_z * rl_z).sqrt().max(tiny);
+        let rr_x = rl_x / rl_len;
+        let rr_y = rl_y / rl_len;
+        let rr_z = rl_z / rl_len;
+        let rcos = rr_x * sun_x + rr_y * sun_y + rr_z * sun_z;
+        let rsu = (rcos + 1.0) * 0.5;
+        let rsv = (rr_y + 1.0) * 0.5;
+        let rfx = (rsu * sky_wf - 0.5).max(0.0).min(sky_wf - 1.0);
+        let rfy = (rsv * sky_hf - 0.5).max(0.0).min(sky_hf - 1.0);
+        let rx0 = rfx.floor();
+        let ry0 = rfy.floor();
+        let rtx = rfx - rx0;
+        let rty = rfy - ry0;
+        let ru0i = rx0 as usize;
+        let ru1i = (rx0 + 1.0).min(sky_wf - 1.0) as usize;
+        let rv0i = ry0 as usize;
+        let rv1i = (ry0 + 1.0).min(sky_hf - 1.0) as usize;
+        let k00 = (rv0i * sky_w + ru0i) * 3usize;
+        let k10 = (rv0i * sky_w + ru1i) * 3usize;
+        let k01 = (rv1i * sky_w + ru0i) * 3usize;
+        let k11 = (rv1i * sky_w + ru1i) * 3usize;
+        let e0r = sky_lut[k00] + (sky_lut[k10] - sky_lut[k00]) * rtx;
+        let e1r = sky_lut[k01] + (sky_lut[k11] - sky_lut[k01]) * rtx;
+        let env_r = e0r + (e1r - e0r) * rty;
+        let e0g = sky_lut[k00 + 1usize] + (sky_lut[k10 + 1usize] - sky_lut[k00 + 1usize]) * rtx;
+        let e1g = sky_lut[k01 + 1usize] + (sky_lut[k11 + 1usize] - sky_lut[k01 + 1usize]) * rtx;
+        let env_g = e0g + (e1g - e0g) * rty;
+        let e0b = sky_lut[k00 + 2usize] + (sky_lut[k10 + 2usize] - sky_lut[k00 + 2usize]) * rtx;
+        let e1b = sky_lut[k01 + 2usize] + (sky_lut[k11 + 2usize] - sky_lut[k01 + 2usize]) * rtx;
+        let env_b = e0b + (e1b - e0b) * rty;
+
+        // GGX 直接光高光(host `ggx_specular` 同式;半角向量 H)。
+        let hv_x = sun_x - rd_x;
+        let hv_y = sun_y - rd_y;
+        let hv_z = sun_z - rd_z;
+        let hv_l = (hv_x * hv_x + hv_y * hv_y + hv_z * hv_z).sqrt().max(tiny);
+        let hn_x = hv_x / hv_l;
+        let hn_y = hv_y / hv_l;
+        let hn_z = hv_z / hv_l;
+        let ndh = (nx * hn_x + ny * hn_y + nz * hn_z).max(0.0).min(1.0);
+        let ndl = (nx * sun_x + ny * sun_y + nz * sun_z).max(0.0);
+        let aa = (roughness * roughness).max(0.0001);
+        let a2 = aa * aa;
+        let dden = ndh * ndh * (a2 - 1.0) + 1.0;
+        let dggx = a2 / (pi * (dden * dden).max(1e-8));
+        let kk2 = aa * 0.5;
+        let gv = ndv.max(0.0001) / (ndv * (1.0 - kk2) + kk2).max(tiny);
+        let gl = ndl / (ndl * (1.0 - kk2) + kk2).max(tiny);
+        let spec = dggx * gv * gl / (4.0 * ndv.max(0.0001) * ndl.max(0.0001)).max(tiny) * ndl;
+
+        // ── Fresnel(host `fresnel_schlick` 同式)────────────────────────────
+        let fm = (1.0 - ndv).max(0.0).min(1.0);
+        let fm2 = fm * fm;
+        let fres = f0 + (1.0 - f0) * (fm2 * fm2 * fm);
+        let use_fres = fres * arm_reflect;
+
+        let refl_r = (env_r * reflect_str + sunc_r * spec) * use_fres;
+        let refl_g = (env_g * reflect_str + sunc_g * spec) * use_fres;
+        let refl_b = (env_b * reflect_str + sunc_b * spec) * use_fres;
+
+        // ── 泡沫(波峰 + 岸线)────────────────────────────────────────────
+        // 波峰:归一化波高超阈值;岸线:水深小于 shore_foam_depth。
+        let crest = ((wave_height - foam_thresh) / (1.0 - foam_thresh).max(0.05))
+            .max(0.0)
+            .min(1.0);
+        let shore_t = (1.0 - water_depth / shore_foam_d.max(0.01)).max(0.0).min(1.0);
+        let shore_f = shore_t * shore_t * (3.0 - 2.0 * shore_t);
+        let foam = (crest + shore_f).min(1.0) * foam_int * arm_foam;
+        // 泡沫为亮白漫射体(接天顶环境光 + 太阳)。
+        let foam_r = amb_t_r + sunc_r * 0.25;
+        let foam_g = amb_t_g + sunc_g * 0.25;
+        let foam_b = amb_t_b + sunc_b * 0.25;
+
+        // ── 合成 ──────────────────────────────────────────────────────────
+        // 透射项按出射菲涅尔 (1 − F) 衰减,加反射项,再按泡沫覆盖度混合。
+        let wat_r = under_r * (1.0 - use_fres) + refl_r;
+        let wat_g = under_g * (1.0 - use_fres) + refl_g;
+        let wat_b = under_b * (1.0 - use_fres) + refl_b;
+        let fin_r = wat_r + (foam_r - wat_r) * foam;
+        let fin_g = wat_g + (foam_g - wat_g) * foam;
+        let fin_b = wat_b + (foam_b - wat_b) * foam;
+
+        // 非水面像素直通场景色。
+        let src_r = scene_color[o3];
+        let src_g = scene_color[o3 + 1usize];
+        let src_b = scene_color[o3 + 2usize];
+        let out_r = src_r + (fin_r - src_r) * has_water;
+        let out_g = src_g + (fin_g - src_g) * has_water;
+        let out_b = src_b + (fin_b - src_b) * has_water;
+
+        // 输出钳制:上界 1e4 挡住 Inf(HDR 合理量级远低于此,ACES 曲线在此已饱和),
+        // 下界 0 挡住负值。**注**:这不是 NaN 兜底——SPIR-V `FMin`/`FMax` 遇 NaN
+        // 行为未定义,故本 kernel 的纪律是**从源头消灭 NaN**(inf·0 已在
+        // `f_t_safe` / `fp_depth` 两处按物理上界钳死),此处只作量级兜底。
+        out_color[o3] = out_r.max(0.0).min(10000.0);
+        out_color[o3 + 1usize] = out_g.max(0.0).min(10000.0);
+        out_color[o3 + 2usize] = out_b.max(0.0).min(10000.0);
+    }
+}

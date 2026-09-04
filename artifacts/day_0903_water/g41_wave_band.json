@@ -1,0 +1,9 @@
+{
+  "schema": "rurix.g41.wave_band.v1",
+  "freeze_rule": "max_abs_diff = g41_water_wave.rx(注入 NoContraction)与 host WaveSim 同参数同注入次序推进 90 帧后逐格高度场最大绝对差 measured 值;位级相等不可达(高斯波源含 exp,Vulkan OpExtInst Exp 与 host libm 非同源),故取 measured 带。禁手写。",
+  "frames": 90,
+  "dim": 256,
+  "max_abs_diff": 1.2218952e-6,
+  "host_wave_digest": "sha256:8ed2c4f7b8b6535c8db20d9795b0096863800918164e0f7a1c61c3e3629dd882",
+  "host": {"os": "windows", "arch": "x86_64"}
+}

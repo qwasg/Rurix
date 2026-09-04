@@ -1,0 +1,60 @@
+// G41 场景色模糊链 device kernel(2× box 降采样;门 `g41.water.surface`)。
+//
+// HPWater 用 `CalculateHPWaterMipLevel(depth, scale, scatterDensity)` 选一个
+// mipmap 等级来模拟"散射越强、水越深 ⇒ 透过水面看到的景物越糊"的前向散射模糊。
+// 本执行面的纹理是**单 mip 2D**(`render_exec::TextureDesc` 无 `mip_levels`,
+// 且 compute kernel 不能硬件采样),故把 mip 链换成**显式 2× box 降采样链**:
+// 本 kernel 每次派发产一级,`g41_water_surface.rx` 再按
+// `world::water_surface::blur_level` 算出的浮点级号在相邻两级间线性混合。
+//
+// 采样为 2×2 box(等价 mip 生成的 box 滤波),边界钳制。
+//
+// ## 确定性协议
+//
+// 逐像素独立顺序求值,禁 atomic;只读输入、直写输出;全 f32;无 RNG;无早退。
+//
+// ## 参数面(bparams: f32 SSBO;4 f32)
+//   [0]=src_w [1]=src_h [2]=dst_w [3]=dst_h
+//   in_color / out_color: 3 f32/px scene-linear
+#[numthreads(8, 8, 1)]
+kernel fn g41_water_blur(
+    t: ThreadCtx<2>,
+    bparams: View<global, f32>,
+    in_color: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+) {
+    let dx = t.global_id() as usize;
+    let dy = t.global_id_y() as usize;
+    let sw = bparams[0] as usize;
+    let swf = bparams[0];
+    let shf = bparams[1];
+    let dw = bparams[2] as usize;
+    let dh = bparams[3] as usize;
+    if dx < dw && dy < dh {
+        // 目标像素中心映回源:2× 降采样 ⇒ 取 (2x, 2y) 起的 2×2 块。
+        let sx0f = (dx as f32) * 2.0;
+        let sy0f = (dy as f32) * 2.0;
+        let sx0 = sx0f.min(swf - 1.0) as usize;
+        let sy0 = sy0f.min(shf - 1.0) as usize;
+        let sx1 = (sx0f + 1.0).min(swf - 1.0) as usize;
+        let sy1 = (sy0f + 1.0).min(shf - 1.0) as usize;
+
+        let i00 = (sy0 * sw + sx0) * 3usize;
+        let i10 = (sy0 * sw + sx1) * 3usize;
+        let i01 = (sy1 * sw + sx0) * 3usize;
+        let i11 = (sy1 * sw + sx1) * 3usize;
+
+        let o = (dy * dw + dx) * 3usize;
+        out_color[o] = (in_color[i00] + in_color[i10] + in_color[i01] + in_color[i11]) * 0.25;
+        out_color[o + 1usize] = (in_color[i00 + 1usize]
+            + in_color[i10 + 1usize]
+            + in_color[i01 + 1usize]
+            + in_color[i11 + 1usize])
+            * 0.25;
+        out_color[o + 2usize] = (in_color[i00 + 2usize]
+            + in_color[i10 + 2usize]
+            + in_color[i01 + 2usize]
+            + in_color[i11 + 2usize])
+            * 0.25;
+    }
+}

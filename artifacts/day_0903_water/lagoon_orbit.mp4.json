@@ -1,0 +1,17 @@
+{
+  "schema": "rurix.g41.water_clip.v1",
+  "src_base": "H:/rurix/artifacts/day_0903_water/clip_orbit.raw",
+  "raw_frames_total": 360,
+  "frames_kept": 300,
+  "warmup_skip": 60,
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "duration_s": 10.0,
+  "crf": "21",
+  "out": "H:/rurix/artifacts/day_0903_water/lagoon_orbit.mp4",
+  "out_bytes": 2611356,
+  "out_sha256": "sha256:34f09c083ea66fabb0e3087b141afb87ca62e0510bb02cf19cf4d2f018051ef3",
+  "ffmpeg": "C:/Users/苍/AppData/Local/Programs/Python/Python312/Lib/site-packages/imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v7.1.exe",
+  "note": "帧号含 warmup;raw 帧、PNG 帧目录与 mp4 不入库(.gitignore),本 JSON 为登记件"
+}

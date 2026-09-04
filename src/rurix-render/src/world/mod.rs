@@ -25,6 +25,10 @@
 //!   两个前端」的云侧兑现:Schneider 密度模型 + 锥形光步 + 双瓣 HG + Hillaire
 //!   2020 三倍频多重散射 + phi_fwd 各向同性漫射场;[`clouds::CloudFrontend`]
 //!   与 [`atmosphere::FogFrontend`] 同签名写同一 [`atmosphere::FroxelVolume`])。
+//! - [`water_surface`] = G41 水面渲染前端(复现 HPWater 技术方案:浅水波方程
+//!   device 化 + 水体 GBuffer + 指数步进屏幕空间折射 + Fresnel/GGX + Beer-Lambert
+//!   体积吸收散射 + 三波长色散 + 解析焦散)。与 [`water`] 分工:[`water`] 是
+//!   M113/RXS-0366 **语义面**(冻结带锚定,0-byte 不动),本模块是 G41 **渲染面**。
 
 pub mod atmosphere;
 pub mod clouds;
@@ -34,3 +38,4 @@ pub mod partition;
 pub mod sky;
 pub mod terrain;
 pub mod water;
+pub mod water_surface;
