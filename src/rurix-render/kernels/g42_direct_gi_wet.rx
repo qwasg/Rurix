@@ -1,0 +1,442 @@
+//@ spec: RXS-0405 L3 device 面（G42 湿街展示车道 scene pass）
+// G42 湿街展示 kernel —— `kernels/g14_3_direct_gi.rx` 的**加性 fork**
+// （门 `g42.wet.street`；战役 `artifacts/day_0904_wet_street/`）。
+//
+// ## 与冻结件的关系（0-byte 纪律）
+// 事实源 `g14_3_direct_gi.rx` **逐字不动**：本件为独立 SPV，仅当
+// `g35_particle_lane --wet on` 时经 `--spv-scene` 换载（G39 `--lamp-restir`
+// 换载 `g31_realism_restir.spv` 同律）。`--wet off` / 缺省仍装冻结件
+// ⇒ presented digest 位级等于 day_0902_rain_night 终版锚。
+// 签名 9 参数与冻结件**逐字相同**（tlas + t + tris/mats/quads/points/params
+// + out_color/out_depth）⇒ host 绑定面 0-byte，`g14_3_lane_body.rs` 不触碰。
+//
+// ## 超集性质（neutrality；门的最强 0-语义漂移证据）
+// `wet_dark = 1.0` ∧ `puddle_amount = 0.0` ∧ `wet_spec = 0.0` 时：
+//   dark_f = 1.0 + (1.0−1.0)·(1−wet) = **1.0 恰**（albedo·1.0·1.0 IEEE 精确）
+//   pud    = sstep((nv − 1.0)·PUD_SOFT)·wet，nv ∈ [0,1) ⇒ 参量恒 < 0 ⇒ **0.0 恰**
+//   spec、refl 各乘 wet_spec = **0.0 恰**（+0.0 对非负色值恒等）
+// ⇒ 本 fork 输出与冻结件**逐位相同**。即：fork 是冻结件的纯超集。
+//
+// ## 参数面（[0..49) 与冻结件逐字同源；[49..56) = 湿街段）
+//   [0..42)  = 冻结件字面（pixel_count/w/h/jitter/eps/tmax/quad/point/
+//              inv_vp/vp/inv_pi）
+//   [42..49) = 冻结件保留段。**本 kernel 不读**——该段在兄弟 kernel
+//              （g18_smooth_nrm 的 sky/smooth_nrm/ambient/ggx/lamp_contrib）
+//              有既定语义，g35 车道 `pack_frame_params` 基线路恒 0；本件
+//              避开该段以杜绝语义撞位。
+//   [49] = wet_on（0 = 关；本 kernel 被换载时恒 1，留门以备 red 臂）
+//   [50] = wet_dark        反照率乘子，闭集 (0.2, 1.0]
+//   [51] = wet_rough       湿面 roughness，闭集 (0.02, 0.6]
+//   [52] = wet_spec        高光/镜面总强度，闭集 [0.0, 4.0]
+//   [53] = puddle_amount   积水覆盖比，闭集 [0.0, 1.0]（0 = 无积水）
+//   [54] = ground_y        地面世界 Y 中位（BistroExterior 实测 0.371）
+//   [55] = ground_half     地面带半宽（> 0；实测 0.156，由 y_p10/y_p90 推）
+// host 金标准 = `src/rurix-render/src/world/wet_ground.rs`，公式面逐字同源。
+// g35 车道 `pack_frame_params` 对 [49..56) 恒写 0（v[50]=tex_kpix 显式 0.0，
+// 其余仅 smooth_nrm/gi2 车道写），bin 侧覆写前逐槽断言 0.0 fail-closed。
+//
+// ## 湿面语义（五步；全部经 wet 软门相乘，wet = 0 时逐项恰归零）
+// ① 地面带门 band = smoothstep(1 − |hy − ground_y| / ground_half)
+// ② 朝上门   up   = smoothstep((ny − 0.55) / 0.35)
+// ③ 积水掩码 pud  = smoothstep((nv − (1 − puddle_amount)) / 0.18) · wet，
+//    nv = 0.8 m 格距双线性 value noise（格点 hash = fract(sin(·)·4096)）
+// ④ 湿反照率 albedo·lerp(1, wet_dark, wet)·(1 − 0.35·pud)；
+//    roughness = lerp(1, wet_rough, wet)·(1 − 0.6·pud) ⇒ GGX D·V + Schlick F
+//    逐点灯加性高光（F0 = 0.03 湿介质）
+// ⑤ 镜面反射：单条最近命中射线取命中三角 **emission**（路灯/店招/彩灯串
+//    即夜街可反射内容），权 = Fresnel·wet·wet_spec·(0.35 + 0.65·pud)
+//
+// ## rurixc 纪律（已登记缺陷绕行）
+// - **无辅助 fn**（`CallTarget::Fn` 恒拒，vulkan_codegen.rs:2584）：smoothstep /
+//   fract / hash 全部手工内联。
+// - **`&&` 不进 `while` 条件**（破坏 SPIR-V 块支配序）：本件 while 条件全为
+//   单比较。
+// - **不新增「if 包 while」嵌套**：湿街段新增的唯一 while 是反射射线的
+//   `while rf_rq.proceed() {}`，位于**顶层**（与主射线同层），无效样本经
+//   `t_max` 钳 `ray_eps` 立即返回中和（`g31_realism.rx` --rt-reflect 臂
+//   L1951-1957 同形）。GGX 高光段**分支自由**（乘法门，不用 if 包体）。
+//
+// ## 确定性协议（RXS-0357 L2 同律继承，与冻结件逐字同）
+// 逐像素独立顺序求值，禁 atomic；输出直写无跨像素交互；固定输入双跑位级一致。
+// 全 f32；分支判定一律 min/max 算术门（big=1e30 门放大器）+ `has_committed`
+// 短 selection 臂；除法分母一律保底。**诚实边界**：格点 hash 含 `sin`，
+// Vulkan `OpExtInst Sin` 与 host libm 非同源 ⇒ 积水掩码**不主张** host↔device
+// 位级相等（G41 `exp` 同律登记）；device 侧逐跑确定性由门的双跑位级承载。
+#[numthreads(8, 8, 1)]
+kernel fn g42_direct_gi_wet(
+    tlas: AccelStruct,
+    t: ThreadCtx<2>,
+    tris: View<global, f32>,
+    mats: View<global, f32>,
+    quads: View<global, f32>,
+    points: View<global, f32>,
+    params: View<global, f32>,
+    out_color: ViewMut<global, f32>,
+    out_depth: ViewMut<global, f32>,
+) {
+    let px = t.global_id();
+    let py = t.global_id_y();
+    let width = params[1] as usize;
+    let height = params[2] as usize;
+    let jx = params[3];
+    let jy = params[4];
+    let ray_eps = params[5];
+    let ray_tmax = params[6];
+    let quad_count = params[7] as usize;
+    let point_count = params[8] as usize;
+    let inv_pi = params[41];
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let eps2 = ray_eps * ray_eps;
+    // ── 湿街参数段（[49..56)；host `world::wet_ground::WetParams::pack` 同序）──
+    let wet_on = params[49];
+    let wet_dark = params[50];
+    let wet_rough = params[51];
+    let wet_spec = params[52];
+    let puddle_amount = params[53];
+    let ground_y = params[54];
+    let ground_half = params[55];
+    if px < width && py < height {
+        let i = py * width + px;
+        // ── ① jitter 主射线（冻结件逐字同式）──
+        let sx = (px as f32) + 0.5 + jx;
+        let sy = (py as f32) + 0.5 + jy;
+        let ndx = 2.0 * (sx / (width as f32)) - 1.0;
+        let ndy = 1.0 - 2.0 * (sy / (params[2] as f32));
+        let n4x = (params[9] * ndx + params[10] * ndy) + params[12];
+        let n4y = (params[13] * ndx + params[14] * ndy) + params[16];
+        let n4z = (params[17] * ndx + params[18] * ndy) + params[20];
+        let n4w = (params[21] * ndx + params[22] * ndy) + params[24];
+        let f4x = ((params[9] * ndx + params[10] * ndy) + params[11]) + params[12];
+        let f4y = ((params[13] * ndx + params[14] * ndy) + params[15]) + params[16];
+        let f4z = ((params[17] * ndx + params[18] * ndy) + params[19]) + params[20];
+        let f4w = ((params[21] * ndx + params[22] * ndy) + params[23]) + params[24];
+        let near_x = n4x / n4w;
+        let near_y = n4y / n4w;
+        let near_z = n4z / n4w;
+        let d0x = f4x / f4w - near_x;
+        let d0y = f4y / f4w - near_y;
+        let d0z = f4z / f4w - near_z;
+        let dl = (d0x * d0x + d0y * d0y + d0z * d0z).sqrt();
+        let gate_dl = (dl * big).min(1.0).max(0.0);
+        let dl_safe = dl + (1.0 - gate_dl);
+        let dx = gate_dl * d0x / dl_safe;
+        let dy = gate_dl * d0y / dl_safe;
+        let dz = gate_dl * d0z / dl_safe;
+        // ── ② 主 ray query（冻结件逐字同式）──
+        let mut rq = ray_query_initialize(tlas, (near_x, near_y, near_z), 0.0, (dx, dy, dz), ray_tmax);
+        while rq.proceed() {
+        }
+        let mut hit_f = 1.0;
+        let mut th = 0.0;
+        let mut prim = 0u32;
+        if rq.has_committed() {
+            th = rq.committed_t();
+            prim = rq.committed_primitive_index();
+            hit_f = 1.0;
+        } else {
+            hit_f = 0.0;
+            th = 0.0;
+            prim = 0u32;
+        }
+        let tb = (prim as usize) * 9;
+        let ax = tris[tb];
+        let ay = tris[tb + 1];
+        let az = tris[tb + 2];
+        let e1x = tris[tb + 3] - ax;
+        let e1y = tris[tb + 4] - ay;
+        let e1z = tris[tb + 5] - az;
+        let e2x = tris[tb + 6] - ax;
+        let e2y = tris[tb + 7] - ay;
+        let e2z = tris[tb + 8] - az;
+        let ngx = e1y * e2z - e1z * e2y;
+        let ngy = e1z * e2x - e1x * e2z;
+        let ngz = e1x * e2y - e1y * e2x;
+        let nl = (ngx * ngx + ngy * ngy + ngz * ngz).sqrt();
+        let gate_nl = (nl * big).min(1.0).max(0.0);
+        let nl_safe = nl + (1.0 - gate_nl);
+        let inv_nl = 1.0 / nl_safe;
+        let hgx = gate_nl * (ngx * inv_nl);
+        let hgy = gate_nl * (ngy * inv_nl);
+        let hgz = gate_nl * (ngz * inv_nl);
+        let fac0 = hgx * dx + hgy * dy + hgz * dz;
+        let flip = 1.0 - 2.0 * (fac0 * big).min(1.0).max(0.0);
+        let nx = flip * hgx;
+        let ny = flip * hgy;
+        let nz = flip * hgz;
+        let hx = near_x + dx * th;
+        let hy = near_y + dy * th;
+        let hz = near_z + dz * th;
+        let mb = (prim as usize) * 8;
+        let al_r0 = mats[mb];
+        let al_g0 = mats[mb + 1];
+        let al_b0 = mats[mb + 2];
+        // ── 湿街 ①② 地面带门 × 朝上门（smoothstep 手工内联；无硬切）──
+        let dyb = (hy - ground_y).max(ground_y - hy) / ground_half;
+        let bt = (1.0 - dyb).min(1.0).max(0.0);
+        let band = bt * bt * (3.0 - 2.0 * bt);
+        let ut = ((ny - 0.55) * 2.857142857142857).min(1.0).max(0.0);
+        let up = ut * ut * (3.0 - 2.0 * ut);
+        let wet = wet_on * band * up * hit_f;
+        // ── 湿街 ③ 积水掩码（0.8 m 格距双线性 value noise）──
+        let pu = hx * 1.25;
+        let pv = hz * 1.25;
+        let iu = pu.floor();
+        let iv = pv.floor();
+        let fu = pu - iu;
+        let fv = pv - iv;
+        let su = fu * fu * (3.0 - 2.0 * fu);
+        let sv = fv * fv * (3.0 - 2.0 * fv);
+        let s00 = (iu * 0.3183 + iv * 0.7213).sin() * 4096.0;
+        let s10 = ((iu + 1.0) * 0.3183 + iv * 0.7213).sin() * 4096.0;
+        let s01 = (iu * 0.3183 + (iv + 1.0) * 0.7213).sin() * 4096.0;
+        let s11 = ((iu + 1.0) * 0.3183 + (iv + 1.0) * 0.7213).sin() * 4096.0;
+        let n00 = s00 - s00.floor();
+        let n10 = s10 - s10.floor();
+        let n01 = s01 - s01.floor();
+        let n11 = s11 - s11.floor();
+        let na0 = n00 + (n10 - n00) * su;
+        let na1 = n01 + (n11 - n01) * su;
+        let nv = na0 + (na1 - na0) * sv;
+        let pt0 = ((nv - (1.0 - puddle_amount)) * 5.555555555555555).min(1.0).max(0.0);
+        let pud = pt0 * pt0 * (3.0 - 2.0 * pt0) * wet;
+        // ── 湿街 ④ 湿反照率 + roughness（wet=0 时乘子恰 1.0 ⇒ 逐位回冻结件）──
+        let dark_f = wet_dark + (1.0 - wet_dark) * (1.0 - wet);
+        let pud_dark = 1.0 - 0.35 * pud;
+        let al_r = al_r0 * dark_f * pud_dark;
+        let al_g = al_g0 * dark_f * pud_dark;
+        let al_b = al_b0 * dark_f * pud_dark;
+        let rough0 = wet_rough + (1.0 - wet_rough) * (1.0 - wet);
+        let rough = rough0 * (1.0 - 0.6 * pud);
+        let alpha = rough * rough;
+        let alpha2 = alpha * alpha;
+        let f0 = 0.03;
+        let cos_v = (0.0 - (dx * nx + dy * ny + dz * nz)).max(0.0);
+        // ── ③ 直接光累加（lo 初值 = emission，冻结件逐字同）──
+        let mut dir_r = 0.0;
+        let mut dir_g = 0.0;
+        let mut dir_b = 0.0;
+        let mut spec_r = 0.0;
+        let mut spec_g = 0.0;
+        let mut spec_b = 0.0;
+        // ── quad 面光 4×4 分层确定性采样（冻结件逐字同式；湿高光不进面光臂）──
+        let mut qi = 0usize;
+        while qi < quad_count {
+            let qb = qi * 16;
+            let qp_x = quads[qb];
+            let qp_y = quads[qb + 1];
+            let qp_z = quads[qb + 2];
+            let qe1_x = quads[qb + 3];
+            let qe1_y = quads[qb + 4];
+            let qe1_z = quads[qb + 5];
+            let qe2_x = quads[qb + 6];
+            let qe2_y = quads[qb + 7];
+            let qe2_z = quads[qb + 8];
+            let qle_r = quads[qb + 9];
+            let qle_g = quads[qb + 10];
+            let qle_b = quads[qb + 11];
+            let sample_area = quads[qb + 12] * 0.0625;
+            let qn_x = quads[qb + 13];
+            let qn_y = quads[qb + 14];
+            let qn_z = quads[qb + 15];
+            let mut acc_r = 0.0;
+            let mut acc_g = 0.0;
+            let mut acc_b = 0.0;
+            let mut syq = 0usize;
+            while syq < 4 {
+                let mut sxq = 0usize;
+                while sxq < 4 {
+                    let u = (sxq as f32 + 0.5) * 0.25;
+                    let v = (syq as f32 + 0.5) * 0.25;
+                    let lp_x = qp_x + u * qe1_x + v * qe2_x;
+                    let lp_y = qp_y + u * qe1_y + v * qe2_y;
+                    let lp_z = qp_z + u * qe1_z + v * qe2_z;
+                    let lv_x = lp_x - hx;
+                    let lv_y = lp_y - hy;
+                    let lv_z = lp_z - hz;
+                    let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+                    let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+                    let d2s = d2.max(tiny * tiny);
+                    let d = d2s.sqrt();
+                    let wix = lv_x / d;
+                    let wiy = lv_y / d;
+                    let wiz = lv_z / d;
+                    let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+                    let gate_cs = (cos_s * big).min(1.0).max(0.0);
+                    let cos_l = 0.0 - (qn_x * wix + qn_y * wiy + qn_z * wiz);
+                    let gate_cl = (cos_l * big).min(1.0).max(0.0);
+                    let t_sh = d - 2.0 * ray_eps;
+                    let gate_far = (t_sh * big).min(1.0).max(0.0);
+                    let t_fire = t_sh.max(ray_eps);
+                    let keep_pre = hit_f * gate_d * gate_cs * gate_cl;
+                    let mut blk = 0.0;
+                    if keep_pre > 0.0 {
+                        let mut sq = ray_query_initialize_first_hit(
+                            tlas,
+                            (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                            0.0,
+                            (wix, wiy, wiz),
+                            t_fire,
+                        );
+                        while sq.proceed() {
+                        }
+                        if sq.has_committed() {
+                            blk = 1.0;
+                        } else {
+                            blk = 0.0;
+                        }
+                    }
+                    let vis = 1.0 - gate_far * blk;
+                    let g = (cos_s * cos_l / d2s) * sample_area;
+                    let keep = keep_pre * vis;
+                    acc_r = acc_r + qle_r * g * keep;
+                    acc_g = acc_g + qle_g * g * keep;
+                    acc_b = acc_b + qle_b * g * keep;
+                    sxq = sxq + 1;
+                }
+                syq = syq + 1;
+            }
+            dir_r = dir_r + acc_r;
+            dir_g = dir_g + acc_g;
+            dir_b = dir_b + acc_b;
+            qi = qi + 1;
+        }
+        // ── point 灯 delta（冻结件逐字同式 + 湿面 GGX 高光加性段）──
+        let mut pi_ = 0usize;
+        while pi_ < point_count {
+            let pb = pi_ * 8;
+            let lv_x = points[pb] - hx;
+            let lv_y = points[pb + 1] - hy;
+            let lv_z = points[pb + 2] - hz;
+            let li_r = points[pb + 3];
+            let li_g = points[pb + 4];
+            let li_b = points[pb + 5];
+            let d2 = lv_x * lv_x + lv_y * lv_y + lv_z * lv_z;
+            let gate_d = ((d2 - eps2) * big).min(1.0).max(0.0);
+            let d2s = d2.max(tiny * tiny);
+            let d = d2s.sqrt();
+            let wix = lv_x / d;
+            let wiy = lv_y / d;
+            let wiz = lv_z / d;
+            let cos_s = (nx * wix + ny * wiy + nz * wiz).max(0.0);
+            let gate_cs = (cos_s * big).min(1.0).max(0.0);
+            let t_sh = d - 2.0 * ray_eps;
+            let gate_far = (t_sh * big).min(1.0).max(0.0);
+            let t_fire = t_sh.max(ray_eps);
+            let keep_pre = hit_f * gate_d * gate_cs;
+            let mut blk = 0.0;
+            if keep_pre > 0.0 {
+                let mut sq = ray_query_initialize_first_hit(
+                    tlas,
+                    (hx + wix * ray_eps, hy + wiy * ray_eps, hz + wiz * ray_eps),
+                    0.0,
+                    (wix, wiy, wiz),
+                    t_fire,
+                );
+                while sq.proceed() {
+                }
+                if sq.has_committed() {
+                    blk = 1.0;
+                } else {
+                    blk = 0.0;
+                }
+            }
+            let vis = 1.0 - gate_far * blk;
+            let g = cos_s / d2s;
+            let keep = keep_pre * vis;
+            dir_r = dir_r + li_r * g * keep;
+            dir_g = dir_g + li_g * g * keep;
+            dir_b = dir_b + li_b * g * keep;
+            // 湿面 D6 GGX 高光（`g31_realism.rx` L920-934 逐字；**分支自由**——
+            // 恒算恒乘 wet·wet_spec，wet=0 或 spec=0 时贡献恰 0，不用 if 包体）。
+            let hvx = wix - dx;
+            let hvy = wiy - dy;
+            let hvz = wiz - dz;
+            let hl = (hvx * hvx + hvy * hvy + hvz * hvz).sqrt();
+            let gate_hl = (hl * big).min(1.0).max(0.0);
+            let hl_safe = hl + (1.0 - gate_hl);
+            let inv_hl = 1.0 / hl_safe;
+            let hnx = gate_hl * (hvx * inv_hl);
+            let hny = gate_hl * (hvy * inv_hl);
+            let hnz = gate_hl * (hvz * inv_hl);
+            let cos_h = (nx * hnx + ny * hny + nz * hnz).max(0.0);
+            let dd = cos_h * cos_h * (alpha2 - 1.0) + 1.0;
+            let d_ggx = alpha2 * inv_pi / (dd * dd).max(tiny);
+            let k_g = alpha * 0.5;
+            let g1_s = cos_s / (cos_s * (1.0 - k_g) + k_g);
+            let g1_v = cos_v / (cos_v * (1.0 - k_g) + k_g);
+            let g_sm = g1_s * g1_v;
+            let cos_wh = (0.0 - (dx * hnx + dy * hny + dz * hnz)).max(0.0);
+            let om = 1.0 - cos_wh;
+            let om2 = om * om;
+            let sch5 = om2 * om2 * om;
+            let den = 4.0 * cos_s * cos_v + 0.001;
+            let dgf = d_ggx * g_sm / den;
+            let fs = f0 + (1.0 - f0) * sch5;
+            let sw = g * keep * dgf * fs * wet * wet_spec;
+            spec_r = spec_r + li_r * sw;
+            spec_g = spec_g + li_g * sw;
+            spec_b = spec_b + li_b * sw;
+            pi_ = pi_ + 1;
+        }
+        // ── 湿街 ⑤ 镜面反射（单条最近命中射线；顶层 while，分支自由）──
+        // 无效样本（背面 / 干面 / spec=0 / miss）经 t_max 钳 ray_eps 立即返回
+        // 中和（`g31_realism.rx` --rt-reflect L1951-1957 同形）。
+        let rf_dn = dx * nx + dy * ny + dz * nz;
+        let rf_r0x = dx - 2.0 * rf_dn * nx;
+        let rf_r0y = dy - 2.0 * rf_dn * ny;
+        let rf_r0z = dz - 2.0 * rf_dn * nz;
+        let rf_rl = (rf_r0x * rf_r0x + rf_r0y * rf_r0y + rf_r0z * rf_r0z).sqrt().max(tiny);
+        let rf_rx = rf_r0x / rf_rl;
+        let rf_ry = rf_r0y / rf_rl;
+        let rf_rz = rf_r0z / rf_rl;
+        let rf_rn = rf_rx * nx + rf_ry * ny + rf_rz * nz;
+        let rf_grn = ((rf_rn - 0.0001) * big).min(1.0).max(0.0);
+        let rf_gw = ((wet - 0.02) * big).min(1.0).max(0.0);
+        let rf_gs = ((wet_spec - 0.000001) * big).min(1.0).max(0.0);
+        let rf_gate = rf_grn * rf_gw * rf_gs * hit_f;
+        let rf_tmax = rf_gate * ray_tmax + (1.0 - rf_gate) * ray_eps;
+        let mut rf_rq = ray_query_initialize(
+            tlas,
+            (hx + rf_rx * ray_eps, hy + rf_ry * ray_eps, hz + rf_rz * ray_eps),
+            0.0,
+            (rf_rx, rf_ry, rf_rz),
+            rf_tmax,
+        );
+        while rf_rq.proceed() {
+        }
+        let mut rf_hit = 0.0;
+        let mut rf_prim = 0u32;
+        if rf_rq.has_committed() {
+            rf_prim = rf_rq.committed_primitive_index();
+            rf_hit = 1.0;
+        } else {
+            rf_hit = 0.0;
+            rf_prim = 0u32;
+        }
+        let rf_mb = (rf_prim as usize) * 8;
+        // Fresnel Schlick（cos_v = max(−d·n, 0)，与 GGX 臂同源）。
+        let rf_om = 1.0 - cos_v;
+        let rf_om2 = rf_om * rf_om;
+        let rf_sch = rf_om2 * rf_om2 * rf_om;
+        let rf_fres = f0 + (1.0 - f0) * rf_sch;
+        // 权 = Fresnel · wet · wet_spec · (0.35 + 0.65·pud) · 命中门。
+        let rf_w = rf_gate * rf_hit * rf_fres * wet * wet_spec * (0.35 + 0.65 * pud);
+        let refl_r = mats[rf_mb + 3] * rf_w;
+        let refl_g = mats[rf_mb + 4] * rf_w;
+        let refl_b = mats[rf_mb + 5] * rf_w;
+        // ── ④ 深度（冻结件逐字同式：未抖 vp，|w|≤1e-8 → 1.0）──
+        let cz = ((params[25] * hx + params[26] * hy) + params[27] * hz) + params[28];
+        let cw = ((params[29] * hx + params[30] * hy) + params[31] * hz) + params[32];
+        let cw_abs = cw.max(0.0 - cw);
+        let gate_w = ((cw_abs - 0.00000001) * big).min(1.0).max(0.0);
+        let cw_safe = cw + (1.0 - gate_w);
+        let z_hit = gate_w * (cz / cw_safe) + (1.0 - gate_w);
+        // ── 输出（冻结件同序左结合 + 湿高光/镜面两加性项；neutrality 下两项
+        //    恰 +0.0，对非负色值恒等 ⇒ 与冻结件逐位相同）──
+        out_color[i * 3] = hit_f * (mats[mb + 3] + al_r * inv_pi * dir_r + spec_r + refl_r);
+        out_color[i * 3 + 1] = hit_f * (mats[mb + 4] + al_g * inv_pi * dir_g + spec_g + refl_g);
+        out_color[i * 3 + 2] = hit_f * (mats[mb + 5] + al_b * inv_pi * dir_b + spec_b + refl_b);
+        out_depth[i] = hit_f * z_hit + (1.0 - hit_f);
+    }
+}
