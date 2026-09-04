@@ -1,0 +1,28 @@
+{
+ "schema": "rurix.day0901.g40.b1.v1",
+ "fails": [],
+ "notes": [],
+ "frametime": {
+  "dev_select_ms": 4.992,
+  "dev_verify_ms": 3.183,
+  "dev_promote_ms": 0.0,
+  "dev_dispatch_gpu_ms": 0.113,
+  "dev_cut_ms": 8.179,
+  "host_select_ms": 3.397,
+  "host_verify_ms": 3.917,
+  "host_cut_ms": 7.874,
+  "ml1_dev_select_ms": 3.24,
+  "ml1_dev_promote_ms": 0.701,
+  "ml1_dev_cut_ms": 7.994,
+  "ml1_dev_exec_ms": 7.949,
+  "ml1_dev_frame_wall_ms": 16.095,
+  "ml0_dev_frame_wall_ms": 29.088,
+  "ml0_host_frame_wall_ms": 28.52,
+  "design_4_2_expectation": "ml1×device ~15-19ms(登记不判红,不冒充进预算)"
+ },
+ "cross_anchors": {
+  "g38_t3incr": true,
+  "g39_t5dev": true
+ },
+ "verdict": "PASS"
+}

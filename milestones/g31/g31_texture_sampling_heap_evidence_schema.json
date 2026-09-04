@@ -372,7 +372,30 @@
             "gi2_scale": { "type": "number" },
             "gi2_clamp": { "type": "number" },
             "lamp_restir": { "type": "boolean" },
-            "lamp_restir_mcap": { "type": "integer" }
+            "lamp_restir_mcap": { "type": "integer" },
+            "lamp_restir_clamp": { "type": "number" },
+            "lamp_restir_depth_rej": { "type": "number" },
+            "lamp_restir_nrm_rej": { "type": "number" },
+            "lamp_restir_verify": { "type": "integer" }
+          }
+        },
+        "lamp_restir_verify_stats": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["frames", "pixels", "hit_pixels", "merged_pixels", "y_mismatch", "y_attributed", "y_unattributed", "margin_abs_p100", "ulp_bound", "m_mismatch", "wsum_absdiff_p100", "w_absdiff_p100"],
+          "properties": {
+            "frames": { "type": "integer", "minimum": 0 },
+            "pixels": { "type": "integer", "minimum": 0 },
+            "hit_pixels": { "type": "integer", "minimum": 0 },
+            "merged_pixels": { "type": "integer", "minimum": 0 },
+            "y_mismatch": { "type": "integer", "minimum": 0 },
+            "y_attributed": { "type": "integer", "minimum": 0 },
+            "y_unattributed": { "type": "integer", "const": 0 },
+            "margin_abs_p100": { "type": "number", "minimum": 0 },
+            "ulp_bound": { "type": "number", "exclusiveMinimum": 0 },
+            "m_mismatch": { "type": "integer", "minimum": 0 },
+            "wsum_absdiff_p100": { "type": "number", "minimum": 0 },
+            "w_absdiff_p100": { "type": "number", "minimum": 0 }
           }
         },
         "spv_texture": {

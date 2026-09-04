@@ -29,10 +29,13 @@
 //   （相机,cut,竞技场内容,AS 状态）均为帧号纯函数 ⇒ digest 序列同设备可
 //   复现（跨设备不作 golden——RT 遍历并列命中 tie-break 依设备,visbuffer
 //   digest 同口径登记）。
-// - 边界（诚实登记）：cut 仍为 host 金标准（device cut kernel 链归 #77 生产
-//   接线自身;本臂判「逐帧 AS 更新」通路）;单槽 inflight（FIF 流水面拒
-//   tlas_update/blas_refit——A2/B5 既有约束,FIF×每槽 AS 归 #90 RFC）;
-//   presented 面 0-byte（窗口合入 = 循环后证据臂,出帧翻转归 #77 全量）。
+// - 边界（诚实登记）：缺省 cut = host 金标准;G40 T2(#77 P2)起
+//   `--cut-source device` = 决策码为源生产 dispatch(表驻留 cull 会话 +
+//   决策码回读,host 影子核 verify/提升/施加链照旧 host——等价谱系 =
+//   G39 B5 P1 判定码逐项全等门;P3 直写竞技场不预支);单槽 inflight
+//   （FIF 流水面拒 tlas_update/blas_refit——A2/B5 既有约束,FIF×每槽 AS
+//   归 #90 RFC）; presented 面 0-byte（窗口合入 = 循环后证据臂,出帧翻转
+//   归 #77 全量）。
 
 /// --cluster-per-frame-cut 臂选项（off = 既有面 0-byte）。
 #[allow(dead_code)]
@@ -89,14 +92,21 @@ struct FrameCutArmExtOpt {
     /// 首个 level≥N 祖先」提升映射(生产 `verify_cut_coverage` 提升后复核
     /// fail-closed)。0 = 现状(既有面 0-byte)。
     min_level: u32,
-    // ── G39 T5(#77 P1):probe-only device 决策码对拍臂 ──
-    /// false = 既有 host 路径字面 0-byte(缺省);true = host 决策不动,device
-    /// 平行复算判定码 → 回读逐项对拍(等价证据臂,fail-closed)。
+    // ── G39 T5(#77 P1)→ G40 T2(#77 P2)语义升级:device 决策码为源 ──
+    /// false = 既有 host 路径字面 0-byte(缺省);true = **P2 生产 dispatch**:
+    /// 表驻留 cull 会话(常驻,每帧仅 params 256B 上传)→ 决策码回读(n×4B)
+    /// → host 由 d==4 构造 cut 集 → `verify_cut_coverage` host 影子核直跑
+    /// 回读集(fail-closed 逐字保持)→ min-level 提升照旧 host → 既有差集/
+    /// 上传/refit 施加链 0 改。开窗条件 = G39 B5 P1 等价门 C1-C5 全绿(在案);
+    /// P1 逐帧期望码对拍随决策权移交退役(`frame_cut_device_cut_compare`
+    /// 保留为谱系参考)。P3(直写竞技场)不预支。
     cut_source_device: bool,
     /// rurixc 现编 `g31_cluster_cull.spv` 路径(`cut_source_device` 时必填;
     /// bin 侧装载后 NoContraction 注入,不落盘——SPV 文件保持 rurixc 原产字节)。
     cull_spv: String,
-    /// red-arm:device 消费的 lod 表构造性篡改 ⇒ 对拍必红(C3 机核)。
+    /// red-arm:device 消费的 lod 表构造性篡改 ⇒ 决策码翻转 ⇒ host 影子核
+    /// 覆盖性必破必红(P2 形态 = 施加链真实消费 device 决策的构造性证明;
+    /// 受害裁决仍凭帧 0 host 参考码,诊断臂)。
     red_arm_tamper: bool,
 }
 
@@ -172,13 +182,36 @@ struct FrameCutFrameStat {
     bridge_copy_gpu_ms: Option<f64>,
     /// 桥接 UPDATE build 段 GPU 毫秒(含 consume barrier;fail-soft None)。
     bridge_build_gpu_ms: Option<f64>,
-    // ── G39 T5 加性字段(--cut-source device 对拍臂;host 判读口径不动)──
-    /// device 对拍 dispatch 墙钟 ms(`vk::run_compute` 全程;证据税单列
-    /// measured,**不并入 cut_ms/exec_ms 判读口径**;None = cut_source host)。
-    device_cut_probe_ms: Option<f64>,
+    // ── G40 T2(#77 P2)加性字段:cut_ms 分项(host/device 双臂恒出;
+    //    DESIGN §4-2「select/verify/提升三段无分项计时 evidence,P1 应加分项
+    //    登记供 P2 精算」兑现)──
+    /// 决策段:host 臂 = `select_lod_cut_grouped` 逐块累计;device 臂 =
+    /// params 上传 + dispatch + 决策码回读 + 布尔集构造全程墙钟。
+    select_ms: f64,
+    /// `verify_cut_coverage` 累计(提升前 + 提升后两处;host 影子核口径)。
+    verify_ms: f64,
+    /// min-level 提升映射段(ml=0 恒 0——提升整段跳过)。
+    promote_ms: f64,
+    // ── G39 T5 P1 → G40 T2 P2 字段迁移:P1 的 device_cut_probe_ms
+    //    (run_compute 全程,mean 82.7ms 上界参考)随 run_compute 逐帧路
+    //    退役;P2 以 select_ms(device 臂)+ 下方 dispatch GPU 分项承载,
+    //    命名区分不混口径。──
+    /// device 臂 cull dispatch 纯 GPU 毫秒(cull 会话 telemetry pass 0;
+    /// 证据税→生产税转正后的分项 measured;None = cut_source host)。
+    device_cut_dispatch_gpu_ms: Option<f64>,
     /// device 判定码字节 sha256(跨跑/跨窗审计面;None = cut_source host)。
     device_cut_decisions_sha256: Option<String>,
     digest: String,
+}
+
+/// G40 T2:cut 决策段分项计时槽(select/verify/promote;`frame_cut_select_ext`
+/// 与 device 决策消费链共用;字段语义见 [`FrameCutFrameStat`] 同名字段)。
+#[derive(Default, Clone, Copy)]
+#[allow(dead_code)]
+struct FrameCutSelectTiming {
+    select_ms: f64,
+    verify_ms: f64,
+    promote_ms: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -462,8 +495,18 @@ fn frame_cut_select(
     threshold_px: f32,
     frame: u32,
 ) -> (Vec<Vec<bool>>, u32, u64) {
-    let (sets, cut_clusters, cut_tris, _, _) =
-        frame_cut_select_ext(tag, blocks, spec, in_w, in_h, threshold_px, frame, 0, &[]);
+    let (sets, cut_clusters, cut_tris, _, _) = frame_cut_select_ext(
+        tag,
+        blocks,
+        spec,
+        in_w,
+        in_h,
+        threshold_px,
+        frame,
+        0,
+        &[],
+        &mut FrameCutSelectTiming::default(),
+    );
     (sets, cut_clusters, cut_tris)
 }
 
@@ -488,6 +531,9 @@ fn frame_cut_select_ext(
     frame: u32,
     min_level: u32,
     min_parents_all: &[Vec<Option<u32>>],
+    // G40 T2:分项计时槽(加性尾参;select/verify/promote 累计——既有语句
+    // 字面 0 改,计时为环绕追加;调用点闭集 3 处机械补)。
+    timing: &mut FrameCutSelectTiming,
 ) -> (Vec<Vec<bool>>, u32, u64, u64, Vec<Vec<bool>>) {
     use rurix_render::geometry::gpu_scene::IDENTITY_3X4;
     use rurix_render::geometry::visible_cluster_set::{
@@ -502,6 +548,7 @@ fn frame_cut_select_ext(
     for (bi, b) in blocks.iter().enumerate() {
         let view = MeshDagView::new(&b.records, &b.nodes, &b.children)
             .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} 块 {bi} DAG 拓扑: {e}")));
+        let t_sel = std::time::Instant::now();
         let cut = select_lod_cut_grouped(
             &view,
             &b.cluster_self_lod,
@@ -509,8 +556,11 @@ fn frame_cut_select_ext(
             &IDENTITY_3X4,
             &cam,
         );
+        timing.select_ms += t_sel.elapsed().as_secs_f64() * 1e3;
+        let t_ver = std::time::Instant::now();
         verify_cut_coverage(&view, &cut)
             .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} 块 {bi} cut 覆盖性: {e}")));
+        timing.verify_ms += t_ver.elapsed().as_secs_f64() * 1e3;
         for &c in &cut {
             cut_tris += u64::from(b.records[c as usize].triangle_count);
         }
@@ -525,13 +575,17 @@ fn frame_cut_select_ext(
         let cut = if min_level == 0 {
             cut
         } else {
+            let t_pro = std::time::Instant::now();
             let promoted =
                 frame_cut_promote_min_level(b, &min_parents_all[bi], &cut, min_level);
+            timing.promote_ms += t_pro.elapsed().as_secs_f64() * 1e3;
+            let t_ver2 = std::time::Instant::now();
             verify_cut_coverage(&view, &promoted).unwrap_or_else(|e| {
                 fail(&format!(
                     "{tag}: 帧 {frame} 块 {bi} min-level 提升后覆盖性: {e}(fail-closed)"
                 ))
             });
+            timing.verify_ms += t_ver2.elapsed().as_secs_f64() * 1e3;
             promoted
         };
         let mut set = vec![false; b.records.len()];
@@ -655,6 +709,109 @@ fn frame_cut_device_expected(pre_sets: &[Vec<bool>]) -> Vec<u32> {
     out
 }
 
+/// G40 T2(#77 P2):device 判定码 → 逐块提升前布尔集(canonical 全局序
+/// 逆展平;闭集断言 d∈{2,4} fail-closed——0=平面非零/1=cutoff 未关/3=关 4
+/// 未短路,中和面破坏打印首破全局簇号)。host 纯函数,selftest ⑧ 直测。
+#[allow(dead_code)]
+fn frame_cut_sets_from_decisions(
+    tag: &str,
+    blocks: &[ClusterPackBlock],
+    decisions: &[u32],
+    frame: u32,
+) -> Vec<Vec<bool>> {
+    let n: usize = blocks.iter().map(|b| b.records.len()).sum();
+    assert_eq!(decisions.len(), n, "决策码长度与簇包错位(调用面破坏)");
+    let mut sets = Vec::with_capacity(blocks.len());
+    let mut g = 0usize;
+    for b in blocks {
+        let mut set = vec![false; b.records.len()];
+        for s in set.iter_mut() {
+            match decisions[g] {
+                4 => *s = true,
+                2 => {}
+                d => fail(&format!(
+                    "{tag}: 帧 {frame} device 判定码 {d} ∉ {{2,4}} 全局簇 {g}(中和面破坏:0=平面非零/1=cutoff 未关/3=关 4 未短路;fail-closed)"
+                )),
+            }
+            g += 1;
+        }
+        sets.push(set);
+    }
+    sets
+}
+
+/// G40 T2(#77 P2):device 决策码为源的 select 后链(与
+/// [`frame_cut_select_ext`] 的 select 后处理**字面同形**,仅决策源换 device):
+/// 逐块 `verify_cut_coverage`(host 影子核直跑回读集,fail-closed 语义逐字
+/// 保持,DESIGN §2.7 P2 行字面)→ min-level 提升(照旧 host)→ 提升后再
+/// verify → (提升后布尔集, 提升后簇数, 提升前 cut_tris〔LOD 判据面,单调门
+/// 消费〕, 提升后 cut_tris)。red-arm 篡改 ⇒ 决策翻转 ⇒ 覆盖性必破 ⇒
+/// 本链 fail-closed 红(施加链真实消费 device 决策的构造性证明——P1 期望码
+/// 对拍形态的 P2 承接,报文形态变化如实登记)。
+#[allow(dead_code)]
+fn frame_cut_select_from_decisions(
+    tag: &str,
+    blocks: &[ClusterPackBlock],
+    decisions: &[u32],
+    frame: u32,
+    min_level: u32,
+    min_parents_all: &[Vec<Option<u32>>],
+    timing: &mut FrameCutSelectTiming,
+) -> (Vec<Vec<bool>>, u32, u64, u64) {
+    use rurix_render::geometry::visible_cluster_set::{MeshDagView, verify_cut_coverage};
+    let pre_sets = frame_cut_sets_from_decisions(tag, blocks, decisions, frame);
+    let mut sets = Vec::with_capacity(blocks.len());
+    let mut cut_clusters = 0u32;
+    let mut cut_tris = 0u64;
+    let mut cut_tris_promoted = 0u64;
+    for (bi, b) in blocks.iter().enumerate() {
+        let view = MeshDagView::new(&b.records, &b.nodes, &b.children)
+            .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} 块 {bi} DAG 拓扑: {e}")));
+        let cut: Vec<u32> = pre_sets[bi]
+            .iter()
+            .enumerate()
+            .filter_map(|(ci, &c)| c.then_some(ci as u32))
+            .collect();
+        let t_ver = std::time::Instant::now();
+        verify_cut_coverage(&view, &cut).unwrap_or_else(|e| {
+            fail(&format!(
+                "{tag}: 帧 {frame} 块 {bi} device cut 覆盖性: {e}(host 影子核 fail-closed;red-arm/等价破坏归因面)"
+            ))
+        });
+        timing.verify_ms += t_ver.elapsed().as_secs_f64() * 1e3;
+        for &c in &cut {
+            cut_tris += u64::from(b.records[c as usize].triangle_count);
+        }
+        let cut = if min_level == 0 {
+            cut
+        } else {
+            let t_pro = std::time::Instant::now();
+            let promoted =
+                frame_cut_promote_min_level(b, &min_parents_all[bi], &cut, min_level);
+            timing.promote_ms += t_pro.elapsed().as_secs_f64() * 1e3;
+            let t_ver2 = std::time::Instant::now();
+            verify_cut_coverage(&view, &promoted).unwrap_or_else(|e| {
+                fail(&format!(
+                    "{tag}: 帧 {frame} 块 {bi} device cut min-level 提升后覆盖性: {e}(fail-closed)"
+                ))
+            });
+            timing.verify_ms += t_ver2.elapsed().as_secs_f64() * 1e3;
+            promoted
+        };
+        let mut set = vec![false; b.records.len()];
+        for &c in &cut {
+            set[c as usize] = true;
+            cut_tris_promoted += u64::from(b.records[c as usize].triangle_count);
+        }
+        cut_clusters += cut.len() as u32;
+        sets.push(set);
+    }
+    if min_level == 0 {
+        cut_tris_promoted = cut_tris;
+    }
+    (sets, cut_clusters, cut_tris, cut_tris_promoted)
+}
+
 /// SPIR-V NoContraction 注入(`g31_cluster_cull_device.rs`
 /// `spv_inject_no_contraction` L87-119 字面同式副本——继 cluster_cull_device/
 /// cluster_stream 后第三副本,如实登记,单源折叠留窗 DESIGN §5-3;挡 FMA
@@ -763,12 +920,15 @@ struct FrameCutDeviceCtx {
 
 /// 会话建立段一次性构造:SPV 读取 + NoContraction 注入(不落盘,spirv-val
 /// 由验收环在 rurixc 原产工件上覆盖)+ 表构造 + red-arm 篡改。
+/// (G40 T2 P2:`expected0` 降 Option——P2 决策源 = device,host 期望码退出
+/// 逐帧对拍;仅 red-arm 受害裁决仍需帧 0 host 参考码〔诊断臂,不动生产
+/// 决策源〕,red_arm_tamper 而 None = 调用面破坏 fail-closed。)
 #[allow(dead_code)]
 fn frame_cut_device_ctx(
     tag: &str,
     ext: &FrameCutArmExtOpt,
     blocks: &[ClusterPackBlock],
-    expected0: &[u32],
+    expected0: Option<&[u32]>,
     verbose: bool,
 ) -> FrameCutDeviceCtx {
     let bytes = std::fs::read(&ext.cull_spv)
@@ -782,18 +942,26 @@ fn frame_cut_device_ctx(
         .collect();
     let spv = fc_spv_inject_no_contraction(&words);
     let (cluster_f32, mut lod_f32) = frame_cut_device_tables(blocks);
-    let n = expected0.len();
+    let n: usize = blocks.iter().map(|b| b.records.len()).sum();
     assert_eq!(
         cluster_f32.len(),
         n * 10,
-        "device 表长度与期望码错位(块切片一致性破坏)"
+        "device 表长度与簇包错位(块切片一致性破坏)"
     );
+    if let Some(e0) = expected0 {
+        assert_eq!(e0.len(), n, "期望码长度与簇包错位(调用面破坏)");
+    }
     if ext.red_arm_tamper {
-        frame_cut_red_arm_tamper(&cluster_f32, &mut lod_f32, expected0, tag);
+        let e0 = expected0.unwrap_or_else(|| {
+            fail(&format!(
+                "{tag}: red-arm 需帧 0 host 参考码定受害簇(调用面破坏,fail-closed)"
+            ))
+        });
+        frame_cut_red_arm_tamper(&cluster_f32, &mut lod_f32, e0, tag);
     }
     if verbose {
         eprintln!(
-            "{tag}: device cut 对拍臂就绪 n={n} 表字节={}(cluster {} + lod {});对拍口径 = 提升前 select 原输出;host 决策权/施加链 0 移交",
+            "{tag}: device cut 表就绪 n={n} 表字节={}(cluster {} + lod {});P2 形态 = 决策码为源(表驻留 cull 会话,每帧仅 params 256B 上传;host 影子核 verify + 提升/施加链照旧 host)",
             n * 72,
             n * 40,
             n * 32,
@@ -807,6 +975,10 @@ fn frame_cut_device_ctx(
     }
 }
 
+/// 【G40 T2 P2 退役登记】P1 对拍臂本体(`vk::run_compute` 逐帧独立 device,
+/// 82.7ms/帧上界参考)——P2 决策码为源后不再逐帧消费,保留为 P1 谱系参考
+/// (G39 B5 等价门 evidence 锚在本函数口径;10 buffer 布局被 P2 cull 会话
+/// 逐字继承)。
 /// device 判定码对拍(等价门本体,fail-closed 闭集):10 buffer 布局 =
 /// cluster_cull harness 字面(params/cluster_f32/lod_f32/input_ids 恒等
 /// 0..n/hzb_data [0.0] 兜底/hzb_meta [0,1,1]/counters 12B 零/decisions n×4/
@@ -1239,32 +1411,208 @@ fn frame_cut_run_session(
     let n_rays = (opt.res_w * opt.res_h) as usize;
     let arena_bytes_len = arena.total_tris as u64 * 36;
 
-    // 帧 0 cut 先行（初始竞技场 = 帧 0 已施加;帧 0 refit 桥 = 内容恒等,节拍均匀）。
-    let s0 = &samples[0];
-    let t0 = std::time::Instant::now();
-    let (cut0, cut0_clusters, cut0_tris, cut0_tris_promoted, cut0_pre) = frame_cut_select_ext(
-        tag,
-        blocks,
-        &s0.spec,
-        s0.in_w,
-        s0.in_h,
-        threshold_px,
-        s0.frame,
-        ext.min_level,
-        min_parents_all,
-    );
-    let cut0_ms = t0.elapsed().as_secs_f64() * 1e3;
-    // G39 T5:device 对拍臂会话级构造(表/SPV 帧无关;red-arm 篡改施加于
-    // device 消费面,host 期望码/决策权不动;缺省 host = None 字面 0-byte)。
+    // ── G40 T2(#77 P2):device 决策码为源——表驻留 cull 会话(常驻,
+    //    每帧仅 params 256B 上传 + 决策码 n×4B 回读;DESIGN §2.7 P2 行字面)。
+    //    red-arm 受害裁决需帧 0 host 参考码(诊断臂;生产决策源不回移)。──
     let device_ctx: Option<FrameCutDeviceCtx> = ext.cut_source_device.then(|| {
-        frame_cut_device_ctx(
-            tag,
-            ext,
-            blocks,
-            &frame_cut_device_expected(&cut0_pre),
-            collect,
-        )
+        let e0: Option<Vec<u32>> = ext.red_arm_tamper.then(|| {
+            let s0 = &samples[0];
+            let (_, _, _, _, pre) = frame_cut_select_ext(
+                tag,
+                blocks,
+                &s0.spec,
+                s0.in_w,
+                s0.in_h,
+                threshold_px,
+                s0.frame,
+                ext.min_level,
+                min_parents_all,
+                &mut FrameCutSelectTiming::default(),
+            );
+            frame_cut_device_expected(&pre)
+        });
+        frame_cut_device_ctx(tag, ext, blocks, e0.as_deref(), collect)
     });
+    // cull 会话资源面(kernel 10 buffer 布局 = P1 run_compute 字面继承;
+    // 表三件 + hzb 兜底 + counters 初值零 = device_local 驻留 staging 上传,
+    // params = 逐帧上传目标 host-visible,decisions = device_local 帧尾
+    // staging 回读)。counters 不逐帧清零登记:决策码逐输入项无条件写
+    // (kernel 头注「固定槽位,顺序无关对拍面」),原子计数仅门 vis/occ 列表
+    // 追加写(本臂零消费),溢出丢弃语义(cap=n)不回染 decisions。
+    let cull_cluster_bytes: Vec<u8> = device_ctx
+        .as_ref()
+        .map(|c| bytes_f32(&c.cluster_f32))
+        .unwrap_or_default();
+    let cull_lod_bytes: Vec<u8> = device_ctx
+        .as_ref()
+        .map(|c| bytes_f32(&c.lod_f32))
+        .unwrap_or_default();
+    let cull_ids_bytes: Vec<u8> = device_ctx
+        .as_ref()
+        .map(|c| (0..c.n as u32).flat_map(|i| i.to_le_bytes()).collect())
+        .unwrap_or_default();
+    let cull_spv_bytes: Vec<u8> = device_ctx
+        .as_ref()
+        .map(|c| c.spv.iter().flat_map(|w| w.to_le_bytes()).collect())
+        .unwrap_or_default();
+    let cull_hzb_data: Vec<u8> = bytes_f32(&[0.0]);
+    let cull_hzb_meta: Vec<u8> = [0u32, 1, 1].iter().flat_map(|x| x.to_le_bytes()).collect();
+    let cull_zero12 = vec![0u8; 12];
+    let cull_n = device_ctx.as_ref().map_or(1, |c| c.n.max(1));
+    fn cull_buf<'x>(size: u64, data: Option<&'x [u8]>, device_local: bool) -> ResourceDesc<'x> {
+        ResourceDesc::Buffer(BufferDesc {
+            size,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data,
+            device_local,
+        })
+    }
+    let cull_resources: Vec<ResourceDesc> = if device_ctx.is_some() {
+        vec![
+            cull_buf(256, None, false),                                   // 0 params(逐帧上传)
+            cull_buf(cull_cluster_bytes.len() as u64, Some(&cull_cluster_bytes), true), // 1 簇表驻留
+            cull_buf(cull_lod_bytes.len() as u64, Some(&cull_lod_bytes), true), // 2 lod 表驻留
+            cull_buf(cull_ids_bytes.len() as u64, Some(&cull_ids_bytes), true), // 3 input_ids 恒等
+            cull_buf(4, Some(&cull_hzb_data), true),                      // 4 hzb_data 兜底(短路不读)
+            cull_buf(12, Some(&cull_hzb_meta), true),                     // 5 hzb_meta
+            cull_buf(12, Some(&cull_zero12), true),                       // 6 counters(初值零,不逐帧清)
+            cull_buf(cull_n as u64 * 4, None, true),                      // 7 decisions(帧尾 staging 回读)
+            cull_buf(cull_n as u64 * 4, None, true),                      // 8 vis_ids(零消费)
+            cull_buf(cull_n as u64 * 4, None, true),                      // 9 occ_ids(零消费)
+        ]
+    } else {
+        Vec::new()
+    };
+    let cull_passes: Vec<Pass<'_>> = if device_ctx.is_some() {
+        vec![Pass::Compute(ComputePass {
+            name: "fc_cull",
+            spirv: &cull_spv_bytes,
+            entry: None, // 自 OpEntryPoint 解析(rurixc 原产入口)
+            dispatch: DispatchSpec::Direct([cull_n as u32, 1, 1]),
+            bindings: Bindings {
+                storage_buffers: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+                ..Bindings::default()
+            },
+        })]
+    } else {
+        Vec::new()
+    };
+    let cull_plan: Vec<(u32, TargetState)> =
+        (0u32..10).map(|r| (r, TargetState::StorageReadWrite)).collect();
+    let cull_barriers: [&[(u32, TargetState)]; 1] = [&cull_plan];
+    let cull_readbacks = [Readback::Buffer {
+        res: 7,
+        offset: 0,
+        size: cull_n as u64 * 4,
+    }];
+    let mut cull_session: Option<DeviceFrameSession<'_>> = device_ctx.as_ref().map(|c| {
+        let t_cs = std::time::Instant::now();
+        let s = DeviceFrameSession::new(
+            &cull_resources,
+            &cull_passes,
+            &cull_barriers,
+            &cull_readbacks,
+            2,
+        )
+        .unwrap_or_else(|e| fail(&format!("{tag}: cull 会话创建: {e}")));
+        if collect {
+            eprintln!(
+                "{tag}: cull 会话就绪 n={} 驻留表字节={} create_ms={:.0}(P2 表驻留;每帧 params 256B 上传 + 决策码 {}B 回读)",
+                c.n,
+                cull_cluster_bytes.len() + cull_lod_bytes.len() + cull_ids_bytes.len(),
+                t_cs.elapsed().as_secs_f64() * 1e3,
+                c.n * 4,
+            );
+        }
+        s
+    });
+    // 逐帧 device 决策半程:params 上传 → dispatch → 决策码回读(闭集/覆盖性
+    // 消费在 select_from_decisions);返回 (决策码, 全程墙钟, dispatch GPU ms,
+    // 决策码 sha256)。
+    let cull_frame = |cs: &mut DeviceFrameSession<'_>,
+                          spec: &CameraSpec,
+                          in_w: u32,
+                          in_h: u32,
+                          frame: u32|
+     -> (Vec<u32>, f64, Option<f64>, String) {
+        let n = device_ctx.as_ref().map_or(1, |c| c.n);
+        let t0 = std::time::Instant::now();
+        let params = frame_cut_device_params(spec, in_w, in_h, threshold_px, n);
+        let update = FrameUpdate {
+            tlas_update: None,
+            buffer_uploads: vec![(StableResourceId(1), 0, bytes_f32(&params[..]))],
+            binding_overrides: vec![],
+            push_constant_overrides: vec![],
+            readback_subset: Some(vec![0]),
+            blas_refit: None,
+        };
+        let prov = cs
+            .next_provenance_with_update(&update)
+            .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} cull provenance: {e}")));
+        let out = cs
+            .execute_with_frame_update(&prov, &update)
+            .unwrap_or_else(|e| fail(&format!("{tag}: 帧 {frame} cull 提交: {e}")));
+        if out.telemetry.validation_error_count != 0 {
+            fail(&format!(
+                "{tag}: 帧 {frame} cull validation ERROR {} 次(fail-closed)",
+                out.telemetry.validation_error_count
+            ));
+        }
+        let rb = &out.readbacks[0];
+        let sha = sha256_hex(rb);
+        let decisions: Vec<u32> = rb
+            .chunks_exact(4)
+            .take(n)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        let gpu_ms = out.telemetry.passes.first().map(|p| p.gpu_ns / 1e6);
+        (decisions, t0.elapsed().as_secs_f64() * 1e3, gpu_ms, sha)
+    };
+
+    // 帧 0 cut 先行（初始竞技场 = 帧 0 已施加;帧 0 refit 桥 = 内容恒等,节拍均匀）。
+    // G40 T2:决策源分叉——device 臂 = cull 会话决策码 + host 影子核 verify/
+    // 提升链;host 臂 = 既有 select_ext 字面。
+    let s0 = &samples[0];
+    let mut cut0_timing = FrameCutSelectTiming::default();
+    let mut cut0_dev: (Option<f64>, Option<String>) = (None, None);
+    let t0 = std::time::Instant::now();
+    let (cut0, cut0_clusters, cut0_tris, cut0_tris_promoted) =
+        if let Some(cs) = cull_session.as_mut() {
+            let (dec, wall, gpu, sha) = cull_frame(cs, &s0.spec, s0.in_w, s0.in_h, s0.frame);
+            let t_sets = std::time::Instant::now();
+            let r = frame_cut_select_from_decisions(
+                tag,
+                blocks,
+                &dec,
+                s0.frame,
+                ext.min_level,
+                min_parents_all,
+                &mut cut0_timing,
+            );
+            cut0_timing.select_ms += wall + t_sets.elapsed().as_secs_f64() * 1e3
+                - cut0_timing.verify_ms
+                - cut0_timing.promote_ms;
+            cut0_dev = (gpu, Some(sha));
+            r
+        } else {
+            let (sets, c, t, tp, _) = frame_cut_select_ext(
+                tag,
+                blocks,
+                &s0.spec,
+                s0.in_w,
+                s0.in_h,
+                threshold_px,
+                s0.frame,
+                ext.min_level,
+                min_parents_all,
+                &mut cut0_timing,
+            );
+            (sets, c, t, tp)
+        };
+    let cut0_ms = t0.elapsed().as_secs_f64() * 1e3;
     // 创建期 BLAS = 全簇真几何超集（根 AABB 覆盖一切后续 refit 内容;TLAS 实例
     // AABB 不逐帧更新的 B5 蒙皮同律下假漏命中结构性排除）;帧 0 以单条全量
     // 上传把竞技场收到 cut0（逐槽增量自帧 1 起）。
@@ -1384,18 +1732,42 @@ fn frame_cut_run_session(
     let mut digests: Vec<String> = Vec::with_capacity(samples.len());
     let mut stats: Vec<FrameCutFrameStat> = Vec::new();
     for (k, s) in samples.iter().enumerate() {
-        // ── ① host cut（帧 0 复用先行结果;逐帧覆盖性机核已在 select 内）──
+        // ── ① cut 决策(帧 0 复用先行结果;G40 T2 P2 决策源分叉:device 臂 =
+        //    cull 会话决策码 → host 影子核 verify/提升〔select_from_decisions〕;
+        //    host 臂 = 既有 select_ext 字面。覆盖性机核两路皆 fail-closed。
+        //    双跑两遍 session 各自建 cull 会话重放 ⇒ device 决策跨跑一致性经
+        //    「两跑 digest 位级」传递性成立〔B5 P1 期望码全等谱系已证同源〕)──
         let t_cut = std::time::Instant::now();
-        let (cut, cut_clusters, cut_tris, cut_tris_promoted, cut_pre) = if k == 0 {
+        let mut cut_timing = FrameCutSelectTiming::default();
+        let mut cut_dev: (Option<f64>, Option<String>) = (None, None);
+        let (cut, cut_clusters, cut_tris, cut_tris_promoted) = if k == 0 {
+            cut_timing = cut0_timing;
+            cut_dev = cut0_dev.clone();
             (
                 cut0.clone(),
                 cut0_clusters,
                 cut0_tris,
                 cut0_tris_promoted,
-                cut0_pre.clone(),
             )
+        } else if let Some(cs) = cull_session.as_mut() {
+            let (dec, wall, gpu, sha) = cull_frame(cs, &s.spec, s.in_w, s.in_h, s.frame);
+            let t_sets = std::time::Instant::now();
+            let r = frame_cut_select_from_decisions(
+                tag,
+                blocks,
+                &dec,
+                s.frame,
+                ext.min_level,
+                min_parents_all,
+                &mut cut_timing,
+            );
+            cut_timing.select_ms += wall + t_sets.elapsed().as_secs_f64() * 1e3
+                - cut_timing.verify_ms
+                - cut_timing.promote_ms;
+            cut_dev = (gpu, Some(sha));
+            r
         } else {
-            frame_cut_select_ext(
+            let (sets, c, t, tp, _) = frame_cut_select_ext(
                 tag,
                 blocks,
                 &s.spec,
@@ -1405,28 +1777,16 @@ fn frame_cut_run_session(
                 s.frame,
                 ext.min_level,
                 min_parents_all,
-            )
+                &mut cut_timing,
+            );
+            (sets, c, t, tp)
         };
         let cut_ms = if k == 0 {
             cut0_ms
         } else {
             t_cut.elapsed().as_secs_f64() * 1e3
         };
-
-        // ── ①bis G39 T5:device 决策码对拍(判据面加性;--cut-source device
-        //    时逐帧 params + 期望码〔提升前口径〕→ dispatch → 回读逐项全等
-        //    fail-closed;host cut 决策权/施加链零移交,下方 ②③④ 字面不动。
-        //    双跑两遍 session 各自对拍 ⇒ device 跨跑一致性经传递性成立)──
-        let (device_cut_probe_ms, device_cut_decisions_sha256) = match &device_ctx {
-            Some(ctx) => {
-                let params =
-                    frame_cut_device_params(&s.spec, s.in_w, s.in_h, threshold_px, ctx.n);
-                let expected = frame_cut_device_expected(&cut_pre);
-                let (ms, sha) = frame_cut_device_cut_compare(ctx, &params, &expected, tag, s.frame);
-                (Some(ms), Some(sha))
-            }
-            None => (None, None),
-        };
+        let (device_cut_dispatch_gpu_ms, device_cut_decisions_sha256) = cut_dev;
 
         // ── ② 槽位增量（--cut-every 节拍;refit 帧才施加)。G38 T3:同一差集
         //    循环顺带收集桥接脏区段(槽升序天然,相邻槽合并;帧 0 全量 =
@@ -1611,7 +1971,10 @@ fn frame_cut_run_session(
                 copy_bytes,
                 bridge_copy_gpu_ms: out.telemetry.blas_bridge_copy_gpu_ms,
                 bridge_build_gpu_ms: out.telemetry.blas_bridge_build_gpu_ms,
-                device_cut_probe_ms,
+                select_ms: cut_timing.select_ms,
+                verify_ms: cut_timing.verify_ms,
+                promote_ms: cut_timing.promote_ms,
+                device_cut_dispatch_gpu_ms,
                 device_cut_decisions_sha256,
                 digest,
             });
@@ -1796,9 +2159,12 @@ fn frame_cut_finish(
 /// min_level,逐帧 cut_tris_promoted/copy_regions/copy_bytes/
 /// bridge_copy_gpu_ms/bridge_build_gpu_ms〔None → null,fail-soft 如实〕;
 /// 既有消费方无 schema 断言〔w4_verify.py 判据 = 进程 rc + 臂 OK〕)。
-/// (G39 T5 加性:顶层 cut_source 恒出 + device 臂 device_cut_table_bytes;
-/// 逐帧 device_cut_probe_ms〔证据税单列 measured,不进 cut_ms/exec_ms 判读〕
-/// + device_cut_decisions_sha256〔host 臂 null〕。)
+/// (G39 T5 加性:顶层 cut_source 恒出 + device 臂 device_cut_table_bytes
+/// + 逐帧 device_cut_decisions_sha256〔host 臂 null〕。)
+/// (G40 T2 P2 加性:逐帧 select_ms/verify_ms/promote_ms 分项恒出〔DESIGN
+/// §4-2 分项登记义务〕+ device_cut_dispatch_gpu_ms〔host 臂 null〕;P1 的
+/// device_cut_probe_ms 随 run_compute 逐帧路退役,字段不再发射——G39 B5
+/// 在案 evidence 不回写,谱系各自完整。)
 #[allow(dead_code)]
 fn frame_cut_finish_ext(
     tag: &str,
@@ -1860,9 +2226,16 @@ fn frame_cut_finish_ext(
     } else {
         String::new()
     };
+    // G40 T2 P2:determinism_note 分叉——host 臂字面逐字保持;device 臂如实
+    // 陈述决策码为源形态(host 影子核 verify + 提升/施加链照旧 host)。
+    let det_note = if ext.cut_source_device {
+        "固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = device 决策码为源(#77 P2:表驻留 cull 会话,每帧 params 256B 上传 + 决策码回读,host 由 d==4 构造 cut 集;verify_cut_coverage host 影子核 fail-closed 逐字保持,min-level 提升/差集/上传/refit 施加链照旧 host 0 改;等价谱系 = G39 B5 P1 判定码逐项全等门);单槽 inflight(FIF 拒 refit,#89/#90 分界)"
+    } else {
+        "固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = host 金标准(device cut kernel 归 #77);单槽 inflight(FIF 拒 refit,#89/#90 分界)"
+    };
     let mut sj = String::with_capacity(4096 + stats.len() * 320);
     sj.push_str(&format!(
-        "{{\"schema\":\"rurix.g31.frame_cut_probe.v1\",\"threshold_px\":{},\"res\":\"{}x{}\",\"frames\":{},\"step_m\":{},\"cut_every\":{},\"blocks\":{},\"blocks_limit\":{},\"total_clusters\":{},\"passthrough_tris\":{},\"refit_copy_mode\":\"{}\",\"min_level\":{},\"cut_source\":\"{}\",{}\"determinism_note\":\"固定轨迹+固定重建节拍+canonical 竞技场 ⇒ digest 序列同设备双跑位级(本跑已核);跨设备不作 golden(RT 遍历 tie-break 依设备)。cut = host 金标准(device cut kernel 归 #77);单槽 inflight(FIF 拒 refit,#89/#90 分界)\",\"frames_data\":[",
+        "{{\"schema\":\"rurix.g31.frame_cut_probe.v1\",\"threshold_px\":{},\"res\":\"{}x{}\",\"frames\":{},\"step_m\":{},\"cut_every\":{},\"blocks\":{},\"blocks_limit\":{},\"total_clusters\":{},\"passthrough_tris\":{},\"refit_copy_mode\":\"{}\",\"min_level\":{},\"cut_source\":\"{}\",{}\"determinism_note\":\"{det_note}\",\"frames_data\":[",
         threshold_px,
         opt.res_w,
         opt.res_h,
@@ -1887,7 +2260,7 @@ fn frame_cut_finish_ext(
             sj.push(',');
         }
         sj.push_str(&format!(
-            "{{\"frame\":{},\"cut_clusters\":{},\"cut_tris\":{},\"refit\":{},\"changed_slots\":{},\"upload_bytes\":{},\"hits\":{},\"cut_ms\":{:.3},\"delta_ms\":{:.3},\"exec_ms\":{:.3},\"gpu_clear_ms\":{:.3},\"gpu_rq_ms\":{:.3},\"fence_ms\":{:.3},\"cut_tris_promoted\":{},\"copy_regions\":{},\"copy_bytes\":{},\"bridge_copy_gpu_ms\":{},\"bridge_build_gpu_ms\":{},\"device_cut_probe_ms\":{},\"device_cut_decisions_sha256\":{},\"digest\":{}}}",
+            "{{\"frame\":{},\"cut_clusters\":{},\"cut_tris\":{},\"refit\":{},\"changed_slots\":{},\"upload_bytes\":{},\"hits\":{},\"cut_ms\":{:.3},\"delta_ms\":{:.3},\"exec_ms\":{:.3},\"gpu_clear_ms\":{:.3},\"gpu_rq_ms\":{:.3},\"fence_ms\":{:.3},\"cut_tris_promoted\":{},\"copy_regions\":{},\"copy_bytes\":{},\"bridge_copy_gpu_ms\":{},\"bridge_build_gpu_ms\":{},\"select_ms\":{:.3},\"verify_ms\":{:.3},\"promote_ms\":{:.3},\"device_cut_dispatch_gpu_ms\":{},\"device_cut_decisions_sha256\":{},\"digest\":{}}}",
             s.frame,
             s.cut_clusters,
             s.cut_tris,
@@ -1906,7 +2279,10 @@ fn frame_cut_finish_ext(
             s.copy_bytes,
             jopt(s.bridge_copy_gpu_ms),
             jopt(s.bridge_build_gpu_ms),
-            jopt(s.device_cut_probe_ms),
+            s.select_ms,
+            s.verify_ms,
+            s.promote_ms,
+            jopt(s.device_cut_dispatch_gpu_ms),
             s.device_cut_decisions_sha256
                 .as_deref()
                 .map_or_else(|| "null".to_owned(), jstr),
@@ -2371,8 +2747,58 @@ fn frame_cut_selftest(tag: &str) {
             ));
         }
     }
+    // ⑧ G40 T2(#77 P2):device 决策码消费链 host 纯函数面——决策码 →
+    //    逐块布尔集(逆展平)→ verify/提升/计数与 host select 后链同判
+    //    (决策语义等价的结构性自证:同一决策码经两条链产同一 cut 集;
+    //    GPU 决策腿归 B1 验收环)。
+    {
+        // 远帧 cut={根 6} / 近帧 cut={叶 0..3}(⑦ 段期望码直接消费)。
+        for (name, exp_codes, exp_cut) in [
+            ("far", vec![2u32, 2, 2, 2, 2, 2, 4], &cuts[0]),
+            ("near", vec![4, 4, 4, 4, 2, 2, 2], cuts.last().unwrap()),
+        ] {
+            let sets = frame_cut_sets_from_decisions(tag, blocks, &exp_codes, 0);
+            if sets != *exp_cut {
+                fail(&format!("{tag}: selftest ⑧ 决策码逆展平({name})漂移"));
+            }
+            let mut tmg = FrameCutSelectTiming::default();
+            let (s2, ncl, ntri, ntri_p) =
+                frame_cut_select_from_decisions(tag, blocks, &exp_codes, 0, 0, &[], &mut tmg);
+            if s2 != *exp_cut || ntri != ntri_p {
+                fail(&format!("{tag}: selftest ⑧ 决策消费链({name})ml0 漂移"));
+            }
+            let want_cl = exp_cut[0].iter().filter(|&&c| c).count() as u32;
+            if ncl != want_cl {
+                fail(&format!(
+                    "{tag}: selftest ⑧ 簇计数({name})漂移 {ncl} ≠ {want_cl}"
+                ));
+            }
+        }
+        // ml=1 提升路:近帧决策(全叶)经消费链提升 ⇒ {组 4,5};提升前
+        // tris = 叶和,提升后 = 组和(⑥ 段提升映射同锚)。
+        let mp2 = frame_cut_min_parents(&block);
+        let mp2_all = vec![mp2];
+        let mut tmg1 = FrameCutSelectTiming::default();
+        let (s_ml1, cl_ml1, tri_pre, tri_post) = frame_cut_select_from_decisions(
+            tag,
+            blocks,
+            &[4, 4, 4, 4, 2, 2, 2],
+            0,
+            1,
+            &mp2_all,
+            &mut tmg1,
+        );
+        let mut want = vec![vec![false; 7]];
+        want[0][4] = true;
+        want[0][5] = true;
+        if s_ml1 != want || cl_ml1 != 2 || tri_pre == tri_post {
+            fail(&format!(
+                "{tag}: selftest ⑧ ml1 决策消费链漂移 cl={cl_ml1} pre={tri_pre} post={tri_post}"
+            ));
+        }
+    }
     eprintln!(
-        "{tag}: selftest OK（布局/owner 二分/单调细化 {} 帧 {}→{} tri/增量写器/零面积折叠/双跑确定性/kernel 结构/min-level 提升+降档布局/脏区段合并/device 对拍臂 host 面〔表+sentinel 映射+f32::MAX 根编码透传+params 三关中和+期望码+NoContraction 注入器+red-arm 裁决〕,全 fail-closed 已过）",
+        "{tag}: selftest OK（布局/owner 二分/单调细化 {} 帧 {}→{} tri/增量写器/零面积折叠/双跑确定性/kernel 结构/min-level 提升+降档布局/脏区段合并/device 对拍臂 host 面〔表+sentinel 映射+f32::MAX 根编码透传+params 三关中和+期望码+NoContraction 注入器+red-arm 裁决〕/P2 决策消费链〔决策码逆展平+ml0/ml1 与 host select 后链同判〕,全 fail-closed 已过）",
         frames,
         seq.first().unwrap(),
         seq.last().unwrap(),

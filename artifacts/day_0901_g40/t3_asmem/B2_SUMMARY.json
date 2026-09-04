@@ -1,0 +1,42 @@
+{
+ "schema": "rurix.day0901.g40.b2.v1",
+ "fails": [],
+ "notes": [],
+ "slot_as_mem": {
+  "dyn_x2": {
+   "per_slot_bytes": [
+    120307200,
+    120307200
+   ],
+   "group_total_bytes": 240614400,
+   "note": "AS 副本组内存账(生产 bistro 规模;session telemetry allocation ledger 按 AS 表项 resource_id=resources_len+ai+1 过滤求和,逐槽含 instance/BLAS 顶点/BLAS storage/TLAS storage/scratch 全部 vkAllocateMemory 真账;首次 collect 采集,ledger 项 session 生命周期稳定;预算门条目 g31.fif_dyn.slot_as_group_mem_bytes 锚 probe 场景不混口径,本段 = receipt notes 登记面不进预算判读)"
+  },
+  "skin_x2": {
+   "per_slot_bytes": [
+    120310656,
+    120310656
+   ],
+   "group_total_bytes": 240621312,
+   "note": "AS 副本组内存账(生产 bistro 规模;session telemetry allocation ledger 按 AS 表项 resource_id=resources_len+ai+1 过滤求和,逐槽含 instance/BLAS 顶点/BLAS storage/TLAS storage/scratch 全部 vkAllocateMemory 真账;首次 collect 采集,ledger 项 session 生命周期稳定;预算门条目 g31.fif_dyn.slot_as_group_mem_bytes 锚 probe 场景不混口径,本段 = receipt notes 登记面不进预算判读)"
+  },
+  "dyn_x3": {
+   "per_slot_bytes": [
+    120307200,
+    120307200,
+    120307200
+   ],
+   "group_total_bytes": 360921600,
+   "note": "AS 副本组内存账(生产 bistro 规模;session telemetry allocation ledger 按 AS 表项 resource_id=resources_len+ai+1 过滤求和,逐槽含 instance/BLAS 顶点/BLAS storage/TLAS storage/scratch 全部 vkAllocateMemory 真账;首次 collect 采集,ledger 项 session 生命周期稳定;预算门条目 g31.fif_dyn.slot_as_group_mem_bytes 锚 probe 场景不混口径,本段 = receipt notes 登记面不进预算判读)"
+  },
+  "skin_x3": {
+   "per_slot_bytes": [
+    120310656,
+    120310656,
+    120310656
+   ],
+   "group_total_bytes": 360931968,
+   "note": "AS 副本组内存账(生产 bistro 规模;session telemetry allocation ledger 按 AS 表项 resource_id=resources_len+ai+1 过滤求和,逐槽含 instance/BLAS 顶点/BLAS storage/TLAS storage/scratch 全部 vkAllocateMemory 真账;首次 collect 采集,ledger 项 session 生命周期稳定;预算门条目 g31.fif_dyn.slot_as_group_mem_bytes 锚 probe 场景不混口径,本段 = receipt notes 登记面不进预算判读)"
+  }
+ },
+ "verdict": "PASS"
+}

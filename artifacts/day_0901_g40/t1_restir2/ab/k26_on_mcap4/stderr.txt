@@ -1,0 +1,47 @@
+[g31_window_present]: 契约链就绪 contract_digest=sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f g10 转引一致性=pass
+[g14_3_pipeline_perf]: lamp-lights 提取 emissive_tris=44024 clusters=26 kept=26 dropped=0（弃簇通量峰 0.000000/弃三角 0）gain=4 k=48 contrib=0
+[g14_3_pipeline_perf]: lamp[0] pos=(0.382,2.504,0.565) flux=(0.30288,0.30313,0.30288) radius=0.392 tris=3584
+[g14_3_pipeline_perf]: lamp[1] pos=(3.347,2.504,1.975) flux=(0.30288,0.30313,0.30288) radius=0.392 tris=3584
+[g14_3_pipeline_perf]: lamp[2] pos=(-0.975,2.504,-2.856) flux=(0.30288,0.30313,0.30288) radius=0.392 tris=3584
+[g14_3_pipeline_perf]: lamp[3] pos=(1.890,2.504,-8.125) flux=(0.30288,0.30313,0.30288) radius=0.392 tris=3584
+[g14_3_pipeline_perf]: lamp[4] pos=(6.163,2.504,3.081) flux=(0.30288,0.30313,0.30288) radius=0.392 tris=3584
+[g14_3_pipeline_perf]: lamp[5] pos=(0.473,2.504,-5.526) flux=(0.30288,0.30313,0.30288) radius=0.392 tris=3584
+[g14_3_pipeline_perf]: lamp[6] pos=(3.401,3.704,-0.980) flux=(0.09885,0.07027,0.02945) radius=0.856 tris=4644
+[g14_3_pipeline_perf]: lamp[7] pos=(6.446,3.705,0.866) flux=(0.09100,0.06469,0.02711) radius=0.867 tris=4522
+[g14_3_pipeline_perf]: lamp[8] pos=(10.372,2.747,-1.054) flux=(0.07423,0.07426,0.07423) radius=0.557 tris=1616
+[g14_3_pipeline_perf]: lamp[9] pos=(6.624,2.747,-4.207) flux=(0.07423,0.07426,0.07423) radius=0.557 tris=1616
+[g14_3_pipeline_perf]: lamp[10] pos=(7.224,2.747,-2.786) flux=(0.07423,0.07426,0.07423) radius=0.557 tris=1616
+[g14_3_pipeline_perf]: lamp[11] pos=(8.798,2.747,-1.920) flux=(0.07423,0.07426,0.07423) radius=0.557 tris=1616
+[g14_3_pipeline_perf]: lamp[12] pos=(4.249,3.232,-4.934) flux=(0.05375,0.05373,0.05375) radius=0.896 tris=1359
+[g14_3_pipeline_perf]: lamp[13] pos=(7.984,3.232,1.001) flux=(0.05375,0.05373,0.05375) radius=0.896 tris=1359
+[g14_3_pipeline_perf]: lamp[14] pos=(5.001,3.232,-0.504) flux=(0.05375,0.05373,0.05375) radius=0.896 tris=1359
+[g14_3_pipeline_perf]: lamp[15] pos=(6.114,3.086,-8.492) flux=(0.05375,0.05373,0.05375) radius=0.896 tris=1359
+[g14_3_pipeline_perf]: lamp[16] pos=(5.816,3.698,1.051) flux=(0.00721,0.00513,0.00215) radius=0.463 tris=66
+[g14_3_pipeline_perf]: lamp[17] pos=(4.249,4.159,-4.934) flux=(0.00191,0.00191,0.00191) radius=0.090 tris=324
+[g14_3_pipeline_perf]: lamp[18] pos=(7.984,4.159,1.001) flux=(0.00191,0.00191,0.00191) radius=0.090 tris=324
+[g14_3_pipeline_perf]: lamp[19] pos=(5.001,4.159,-0.504) flux=(0.00191,0.00191,0.00191) radius=0.090 tris=324
+[g14_3_pipeline_perf]: lamp[20] pos=(6.114,4.014,-8.492) flux=(0.00191,0.00191,0.00191) radius=0.090 tris=324
+[g14_3_pipeline_perf]: lamp[21] pos=(4.250,3.825,-4.934) flux=(0.00164,0.00164,0.00164) radius=0.584 tris=9
+[g14_3_pipeline_perf]: lamp[22] pos=(5.001,3.825,-0.504) flux=(0.00164,0.00164,0.00164) radius=0.584 tris=9
+[g14_3_pipeline_perf]: lamp[23] pos=(7.984,3.825,1.001) flux=(0.00164,0.00164,0.00164) radius=0.584 tris=9
+[g14_3_pipeline_perf]: lamp[24] pos=(6.114,3.680,-8.492) flux=(0.00164,0.00164,0.00164) radius=0.584 tris=9
+[g14_3_pipeline_perf]: lamp[25] pos=(6.370,3.698,1.691) flux=(0.00065,0.00046,0.00019) radius=0.096 tris=56
+[g31_window_present]: Phase F emissive 接线 slots=70..73 em_tris=44024 appended_u32=5592456（+22369824B） manifest=artifacts/day_0828/f_emissive/baked/manifest.json（sha256:db1244f4） scales=mat38[2.2248,2.2286,2.2248] mat39[3.0019,2.9847,3.0019] mat40[1.8458,3.0862,11.6052] mat59[1.4174,1.4182,1.4174]
+[g31_window_present]: day_0829 臂④ 法线接线 slots=74..143 nm_tris=1046609 appended_u32=85284170（+341136680B）
+[g31_window_present]: Phase B 纹理接线 mapped=144 tex_tris=1046609 heap_texels=164983596 heap_bytes=659934384 header_entries=1872 probes=9936 ssbo_p100=0.000000e0（位级=true 双跑=true） sampler_max_lsb=1（位级=false） nonconstant_slots=112 eval_ms=12447.140
+[g31_window_present]: 装配 scene=bistro-interior tris=1046609 quads=0 points=30 output=1920x1080 eps=0.001941 auto_move=None
+[g31_window_present]: 窗口就绪 1920x1080 channel_order=bgra8_unorm visible=false
+[g31_window_present]: 臂①/臂⑦ tri_base 侧表 1046609 tris（12559308B,未衰减 baseColor——F0 修伤面/透射色调面）
+[g31_window_present]: day_0829 臂④ 切线侧表 1046609 tris（UV 导数法,16745744B）
+[g31_window_present]: G37 W2 臂⑦ 透明材质 mat7 TransparentGlass.DoubleSided（130792 tris,透射率 0.85——判定 = alphaMode==BLEND || baseColor.a<1）
+[g31_window_present]: G37 W2 臂⑧ 灯片表 44024 片(零面积 0/pdf 下溢 0,总功率 2.543,748412 f32 = 2993648 B)
+[g31_window_present]: era 就绪 extent=1920x1080 internal=1920x1080（车道:scene(g31_texture_nrm_gi)→mv→resample→resolve→bloom_bright→bloom_blur_h→bloom_blur_v→bloom_composite→autoexp_reduce→autoexp_state→display_encode（九 pass,bloom on）,resize_eras=0）
+[g31_window_present]: 帧 1/98 render=7.375ms(gpu_encode=0.126ms) present=2.742ms digest=3.522ms
+[g31_window_present]: 帧 20/98 render=7.883ms(gpu_encode=0.110ms) present=1.045ms digest=0.000ms
+[g31_window_present]: 帧 40/98 render=7.290ms(gpu_encode=0.109ms) present=0.960ms digest=0.000ms
+[g31_window_present]: 帧 60/98 render=7.673ms(gpu_encode=0.109ms) present=0.996ms digest=0.000ms
+[g31_window_present]: 帧 80/98 render=7.238ms(gpu_encode=0.110ms) present=0.969ms digest=0.000ms
+[g31_window_present]: 帧 98/98 render=22.888ms(gpu_encode=0.109ms) present=0.985ms digest=104.142ms
+[g31_window_present]: [PSO] sessions=1 unique_variants=10 pso_runtime_creates=0
+[g31_window_present]: evidence → H:/rurix/artifacts/day_0901_g40/t1_restir2/ab/k26_on_mcap4/ev.json
+[g31_window_present]: profile → H:/rurix/artifacts/day_0901_g40/t1_restir2/ab/k26_on_mcap4/prof.json（96 帧逐 pass 分解;assembly+write=0.576ms,debug_labels=true）

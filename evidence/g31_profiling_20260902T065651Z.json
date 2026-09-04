@@ -1,0 +1,221 @@
+{
+  "schema": "rurix.g31.profiling_evidence.v1",
+  "subject": "g31_profiling",
+  "symbolic_gate_key": "g31.waveC.profiling",
+  "wave": "G31+.C",
+  "anchor": {
+    "todo_row": "G31_PLUS_COMMERCIAL_RENDERER_TODO §5 #54",
+    "anchor_text": "外部用户可自助定位帧内热点",
+    "accept": "GPU 时间戳/pass 级 profiler 对外暴露 + Nsight 标注 + 帧捕获兼容（RenderDoc）"
+  },
+  "surface": {
+    "cli": "--profile-json <path>",
+    "bins": [
+      "g31_window_present",
+      "g14_3_pipeline_perf"
+    ],
+    "profile_output_schema": "milestones/g31/g31_profile_output_schema.json",
+    "stats": "mean/p50/p99/min/max",
+    "g31_passes": [
+      "g14_3_direct_gi",
+      "g14_mv",
+      "g14_8_tsr_resample",
+      "g14_8_tsr_resolve",
+      "g31_display_encode"
+    ],
+    "g14_passes": [
+      "g14_3_direct_gi",
+      "g14_mv",
+      "g14_8_tsr_resample",
+      "g14_8_tsr_resolve"
+    ]
+  },
+  "runs": {
+    "g31_frames": {
+      "frames": 24,
+      "warmup": 6,
+      "mode": "--hidden（真窗口 present 腿）"
+    },
+    "g14_frames": {
+      "frames": 24,
+      "warmup": 6,
+      "mode": "--bench tsr_device inflight=1"
+    },
+    "g31_off": {
+      "digest": "sha256:f727cef6811001147fd70c72454bb4a4e6d4f4860e296d2c6026c32ca33a0c2a",
+      "render_digest": "sha256:101998653e951df28b8e0254dfb18bfefcec54584b17550ad16b0ff44f7b5a57",
+      "real_render_frame_ms": 4.966729
+    },
+    "g31_on": {
+      "digest": "sha256:f727cef6811001147fd70c72454bb4a4e6d4f4860e296d2c6026c32ca33a0c2a",
+      "render_digest": "sha256:101998653e951df28b8e0254dfb18bfefcec54584b17550ad16b0ff44f7b5a57",
+      "real_render_frame_ms": 5.412892
+    },
+    "g14_off": {
+      "last_frame_digest": "sha256:101998653e951df28b8e0254dfb18bfefcec54584b17550ad16b0ff44f7b5a57",
+      "frame_ms_production_mean": 3.023604166666667
+    },
+    "g14_on": {
+      "last_frame_digest": "sha256:101998653e951df28b8e0254dfb18bfefcec54584b17550ad16b0ff44f7b5a57",
+      "frame_ms_production_mean": 2.3649083333333336
+    }
+  },
+  "profiles": {
+    "g31": {
+      "path": ".tmp\\g31_gates\\profiling\\g31_profile_20260902T065651Z_r1.json",
+      "frames_measured": 24,
+      "gpu_sum_mean_ms": 1.669063,
+      "render_wall_mean_ms": 4.91115,
+      "cpu_seg_sum_mean_ms": 3.524588,
+      "host_residual_mean_ms": 1.370288,
+      "identity_ok": true,
+      "debug_labels_active": true,
+      "annotated_pass_count": 5,
+      "assembly_ms": 9.557,
+      "scene_gpu_mean_ms": 1.028516,
+      "schema_valid": true
+    },
+    "g14": {
+      "path": ".tmp\\g31_gates\\profiling\\g14_profile_20260902T065651Z_r1.json",
+      "frames_measured": 24,
+      "gpu_sum_mean_ms": 1.572761,
+      "render_wall_mean_ms": 2.408412,
+      "cpu_seg_sum_mean_ms": 2.329383,
+      "host_residual_mean_ms": 0.109492,
+      "identity_ok": true,
+      "debug_labels_active": true,
+      "annotated_pass_count": 4,
+      "assembly_ms": 0.9843,
+      "scene_gpu_mean_ms": 0.987851,
+      "schema_valid": true
+    }
+  },
+  "identity_rounds": {
+    "rounds": 5,
+    "g31": [
+      {
+        "gpu_sum_mean_ms": 1.727225,
+        "render_wall_mean_ms": 5.412892,
+        "host_residual_mean_ms": 1.888304,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.673569,
+        "render_wall_mean_ms": 5.04525,
+        "host_residual_mean_ms": 1.420996,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.663081,
+        "render_wall_mean_ms": 4.539775,
+        "host_residual_mean_ms": 1.161717,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.645413,
+        "render_wall_mean_ms": 4.547617,
+        "host_residual_mean_ms": 1.260754,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.669063,
+        "render_wall_mean_ms": 4.91115,
+        "host_residual_mean_ms": 1.370288,
+        "identity_ok": true
+      }
+    ],
+    "g14": [
+      {
+        "gpu_sum_mean_ms": 1.565387,
+        "render_wall_mean_ms": 2.364908,
+        "host_residual_mean_ms": -0.024313,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.572761,
+        "render_wall_mean_ms": 2.103804,
+        "host_residual_mean_ms": 0.109492,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.584132,
+        "render_wall_mean_ms": 2.639108,
+        "host_residual_mean_ms": 0.309725,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.551235,
+        "render_wall_mean_ms": 2.408412,
+        "host_residual_mean_ms": 0.117037,
+        "identity_ok": true
+      },
+      {
+        "gpu_sum_mean_ms": 1.581477,
+        "render_wall_mean_ms": 2.479313,
+        "host_residual_mean_ms": 0.057125,
+        "identity_ok": true
+      }
+    ]
+  },
+  "zero_drift": {
+    "g31_digest_identical": true,
+    "g31_render_digest_identical": true,
+    "g14_digest_identical": true,
+    "method": "profiler on/off 双臂同参复跑 digest 位级对拍（g31 双锚 presented+render;g14 last_frame;G39 T4 加固:off 锚 × on 全 5 轮逐轮全等——on 各轮 digest 位级恒值蕴含其中,判定只加严）"
+  },
+  "annotations": {
+    "extension": "VK_EXT_debug_utils",
+    "entry_points": "vkCmdBeginDebugUtilsLabelEXT/vkCmdEndDebugUtilsLabelEXT",
+    "site": "src/rurix-rt/src/render_exec.rs record_frame_body 逐 pass 包裹（timestamp 区间 + pass 本体）",
+    "absent_behavior": "fail-silent 零开销跳过（双符号任一缺失即 None,label_names 不分配）",
+    "g31_active": true,
+    "g14_active": true
+  },
+  "tool_probe": {
+    "renderdoc": {
+      "state": "absent",
+      "path": "",
+      "probe": "PATH(renderdoccmd) + C:\\Program Files\\RenderDoc\\renderdoccmd.exe"
+    },
+    "nsight_graphics": {
+      "state": "absent",
+      "path": "",
+      "probe": "PATH(nsg) + C:\\Program Files\\NVIDIA Corporation\\Nsight Graphics*"
+    }
+  },
+  "capture_compat": {
+    "method": "static_checklist_no_renderdoc",
+    "validation_error_count_total": 0,
+    "blocklist_hits": 0,
+    "blocklist": [
+      "vkCmdSetDiscardRectangleEXT",
+      "VK_NVX_binary_import",
+      "vkQueueBindSparse",
+      "vkCmdBeginVideoCoding",
+      "VK_KHR_video_queue",
+      "VK_NV_low_latency",
+      "VK_NV_cluster_acceleration_structure",
+      "VK_EXT_opacity_micromap"
+    ],
+    "audited_files": [
+      "src/rurix-rt/src/render_exec.rs",
+      "src/rurix-rt/src/vk_g31_present.rs"
+    ],
+    "present_path": "vkQueuePresentKHR 标准 swapchain 腿（vk_g31_present.rs staging→copy→present;帧定界可捕获）",
+    "rdc_path": "",
+    "rdc_bytes": 0,
+    "dev_env_degrade": [
+      "RenderDoc 不在机（PATH + C:\\Program Files\\RenderDoc 双探 absent）：真捕获腿未跑,静态捕获兼容核验面兑现（validation 静默 + blocklist 0 命中）,不冒充真捕获",
+      "Nsight Graphics 不在机（PATH(nsg) + Nsight Graphics* 双探 absent）：标注 UI 复核未跑,标注段存在由 profile debug_labels 面机器核验"
+    ],
+    "note": "RenderDoc absent——静态核验面（validation 静默 + 捕获不兼容 API 模式 0 命中）;真捕获腿待 RenderDoc 在机窗复跑本门即自动切换 real_capture 口径"
+  },
+  "environment": {
+    "gpu": "RTX 4070 Ti（本机单卡 measured_local）",
+    "os": "windows",
+    "rustc": "rustc 1.93.1 (01f6ddf75 2026-02-11)",
+    "base_commit": "48cdd9a3cca19d4211a61c86e2b7c141b44d0c57"
+  },
+  "timestamp": "20260902T065651Z",
+  "notes": "G31+ 波 C Task C7 性能剖析与调试工具面（G31_PLUS §5 #54 兑现）：① --profile-json 统一 profiler 输出面（双 bin 同 schema;逐 pass GPU/CPU/帧段 mean/p50/p99 + 恒等式字段 + profiler 开销登记;默认关,on/off 双臂 digest 位级一致为渲染语义零变更机器证明）② Nsight 标注面 （VK_EXT_debug_utils 在位即启用,record_frame_body 逐 pass label,absent 零开销跳过）③ RenderDoc 捕获兼容面（真捕获/静态核验如实两臂）。判据：①profile schema 合规 ②分解全 measured ③分解和≈帧墙钟恒等式（容差 0.10/2.00ms）④标注段存在 ⑤profiler on/off 位级零漂移 ⑥捕获兼容核验 ⑦工具探测登记。g14_3 --profile-json 首接面 = tsr_device 静态臂 inflight=1,vendor 双臂/FIF 流水/dyn/skin 面 CLI fail-closed 拒跑（归后续,不冒充）。G39 T4 identity 多轮中位鲁棒化:on 腿 ×5 轮采样,判据消费逐分量中位数（规则与容差字面 0-byte 不变,变的只是输入;逐轮明细见 identity_rounds 块,r1 供其余 6 facts 口径不变消费）。逐轮 on digest 登记:g31=['sha256:f727cef6', 'sha256:f727cef6', 'sha256:f727cef6', 'sha256:f727cef6', 'sha256:f727cef6'],g14=['sha256:10199865', 'sha256:10199865', 'sha256:10199865', 'sha256:10199865', 'sha256:10199865']（fact⑤ 断言 off 锚 × on 逐轮全等——各轮位级恒值加固）。facts: profile_schema_compliant=PASS; pass_decomposition_measured=PASS; identity_sum_matches_frame=PASS; debug_labels_recorded=PASS; profiler_zero_render_drift=PASS; capture_compat_verified=PASS; tool_probe_registered=PASS"
+}

@@ -367,13 +367,17 @@ const G31_DEFAULT_SPV_REALISM_TRANSP: &str = ".tmp/night_0829/spv/g31_realism_tr
 /// 置零 + 聚类代表灯让位灯片真域,详 w2_wiring/ris_nee/REPORT.md)。
 const G31_DEFAULT_SPV_REALISM_RIS: &str = ".tmp/night_0830/spv/g31_realism_ris.spv";
 /// G39 T1 臂⑨ --lamp-restir 链工件(ris 超集 + 点灯直接光时域 reservoir 换选
-/// 段;params[72..76) 门控在内——签名 +prev_vp/resv_prev/resv_cur 三路〔22 路
+/// 段;params[72..80) 门控在内——签名 +prev_vp/resv_prev/resv_cur 三路〔22 路
 /// View,新最高链位〕;M=8 候选闭式 WRS + prev_vp 重投影时域 merge(m_cap
 /// 截断,host restir_reservoir merge 同义)+ 选中灯 1 条阴影验证射线,gate on
-/// 时点灯逐盏循环整体让位。跨帧状态 = reservoir 双缓冲 4 f32/px parity 轮换
-/// (TSR 五对同律)+ prev_vp 16 f32 逐帧上传;首帧/reset 由 params[74]=0 门
-/// 跳过历史(初值不清安全,era 重建重置——AE state 先例)。
-const G31_DEFAULT_SPV_REALISM_RESTIR: &str = ".tmp/night_0831/spv/g31_realism_restir.spv";
+/// 时点灯逐盏循环整体让位。跨帧状态 = reservoir 双缓冲 **12 f32/px**(G40 T1:
+/// [y,w_sum,m,phat_y | hx,hy,hz,hit_f | nx,ny,nz,预留]——T1b disocclusion
+/// prev 承载 + T1a host 镜像 kernel 精确输入)parity 轮换(TSR 五对同律)+
+/// prev_vp 16 f32 逐帧上传;首帧/reset 由 params[74]=0 门跳过历史(初值不清
+/// 安全,era 重建重置——AE state 先例)。G40 复编工件(kernel T1b/T1c 段进
+/// 链):`.tmp/night_0901/spv/`,sha256 8ac52dc4…(373,388B;G39 谱系件
+/// night_0831 5571e875… 退役留档);既有 9 下位工件 sha 全等维持。
+const G31_DEFAULT_SPV_REALISM_RESTIR: &str = ".tmp/night_0901/spv/g31_realism_restir.spv";
 /// day_0829 realism params 扩面长度（[55..72)：[55] metal-f0 门 [56..60)
 /// rt-ao [60..62) soft-shadows [62..65) rt-reflect [65..67) normal-maps
 /// [67] gi2-tex,[68] G37 W2 transparency 门,[69] gi2-ris 门 [70] ris_m
@@ -381,10 +385,13 @@ const G31_DEFAULT_SPV_REALISM_RESTIR: &str = ".tmp/night_0831/spv/g31_realism_re
 /// 布局 0-byte 不动,realism 任一臂 on 时 params buffer/逐帧上传扩本长度,
 /// off 恒 PARAMS_LEN 既有面）。
 const G31_REAL_PARAMS_LEN: usize = 72;
-/// G39 T1 lamp_restir params 再扩长度([72..76):[72] lamp-restir 门 [73]
-/// m_cap [74] has_history [75] 预留恒 0——restir on 时 params buffer/逐帧
-/// 上传扩本长度,off 恒 G31_REAL_PARAMS_LEN/PARAMS_LEN 既有面 0-byte)。
-const G31_RESTIR_PARAMS_LEN: usize = 76;
+/// G39 T1 lamp_restir params 再扩长度(G40 T1 76→80:[72] lamp-restir 门
+/// [73] m_cap [74] has_history [75] T1c per-pixel 钳值〔--lamp-restir-clamp,
+/// 0 = off——G39 预留槽启用〕[76] T1b 深度拒阈〔--lamp-restir-depth-rej,
+/// 0 = 拒关〕[77] T1b 法线拒阈〔--lamp-restir-nrm-rej,0 = 拒关〕[78..80)
+/// 预留恒 0——restir on 时 params buffer/逐帧上传扩本长度,off 恒
+/// G31_REAL_PARAMS_LEN/PARAMS_LEN 既有面 0-byte)。
+const G31_RESTIR_PARAMS_LEN: usize = 80;
 /// C13 SVT 接线门键（--svt on 面 evidence `gate` 字段字面）。
 const G31_SVT_GATE: &str = "g31.waveC.svt";
 /// C13 SVT 接线 evidence schema 字面（milestones/g31/g31_svt_evidence_schema.json 同字面）。
@@ -3591,6 +3598,9 @@ fn g31_lane_descs_tex_nrm<'x>(
     tri_transp_bytes: Option<&'x [u8]>,
     lamp_tbl_bytes: Option<&'x [u8]>,
     lamp_restir: bool,
+    // G40 T1a:--lamp-restir-verify 面 reservoir 双份回读注册(须随
+    // lamp_restir;false = readback 列表字节不变)。
+    lamp_restir_verify: bool,
     iw: u32,
     ih: u32,
     ow: u32,
@@ -3730,7 +3740,9 @@ fn g31_lane_descs_tex_nrm<'x>(
             data: None,
             device_local: false,
         })); // G31_U_LRS_PREVVP_TEXNRM
-        let lrs_resv_bytes = u64::from(iw) * u64::from(ih) * 16;
+        // G40 T1:stride 4→12 f32/px(16→48B;[4..8) 命中世界位 + hit_f,
+        // [8..11) 最终法线——T1b prev 承载 + T1a 镜像输入,零新增 binding)。
+        let lrs_resv_bytes = u64::from(iw) * u64::from(ih) * 48;
         d.resources.push(ResourceDesc::Buffer(BufferDesc {
             size: lrs_resv_bytes,
             usage: storage,
@@ -3747,6 +3759,22 @@ fn g31_lane_descs_tex_nrm<'x>(
         sb.push(G31_U_LRS_RESV_TEXNRM[1]);
         sb.push(G31_U_LRS_RESV_TEXNRM[0]);
         assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_RESTIR);
+        // G40 T1a:verify 模式 reservoir 双份回读注册(列表尾追加——既有
+        // readback 下标 0-byte;仅 verify on 注册 ⇒ off/on-非verify 面
+        // readback 列表字节不变;device_local 面帧尾 staging 回读,rt 既有
+        // 通路)。逐帧订阅 parity-cur 一路(prepare_update 子集尾)。
+        if lamp_restir_verify {
+            d.readbacks.push(Readback::Buffer {
+                res: G31_U_LRS_RESV_TEXNRM[0],
+                offset: 0,
+                size: lrs_resv_bytes,
+            });
+            d.readbacks.push(Readback::Buffer {
+                res: G31_U_LRS_RESV_TEXNRM[1],
+                offset: 0,
+                size: lrs_resv_bytes,
+            });
+        }
     }
     sb.push(U_SCENE_COLOR);
     sb.push(U_SCENE_DEPTH);
@@ -3897,6 +3925,8 @@ fn g31_lane_descs_tex_nrm_bloom<'x>(
     tri_transp_bytes: Option<&'x [u8]>,
     lamp_tbl_bytes: Option<&'x [u8]>,
     lamp_restir: bool,
+    // G40 T1a:verify 回读注册(非 bloom 形态同律)。
+    lamp_restir_verify: bool,
     blm: &'x G31BloomAssets<'x>,
     iw: u32,
     ih: u32,
@@ -4029,7 +4059,8 @@ fn g31_lane_descs_tex_nrm_bloom<'x>(
             data: None,
             device_local: false,
         })); // G31_U_LRS_PREVVP_TEXNRM_BLOOM
-        let lrs_resv_bytes = u64::from(iw) * u64::from(ih) * 16;
+        // G40 T1:stride 4→12 f32/px(非 bloom 形态同律注)。
+        let lrs_resv_bytes = u64::from(iw) * u64::from(ih) * 48;
         d.resources.push(ResourceDesc::Buffer(BufferDesc {
             size: lrs_resv_bytes,
             usage: storage,
@@ -4046,6 +4077,19 @@ fn g31_lane_descs_tex_nrm_bloom<'x>(
         sb.push(G31_U_LRS_RESV_TEXNRM_BLOOM[1]);
         sb.push(G31_U_LRS_RESV_TEXNRM_BLOOM[0]);
         assert_eq!(d.resources.len(), G31_U_RESOURCE_COUNT_TEXNRM_BLOOM_RESTIR);
+        // G40 T1a:verify 回读注册(非 bloom 形态同律注)。
+        if lamp_restir_verify {
+            d.readbacks.push(Readback::Buffer {
+                res: G31_U_LRS_RESV_TEXNRM_BLOOM[0],
+                offset: 0,
+                size: lrs_resv_bytes,
+            });
+            d.readbacks.push(Readback::Buffer {
+                res: G31_U_LRS_RESV_TEXNRM_BLOOM[1],
+                offset: 0,
+                size: lrs_resv_bytes,
+            });
+        }
     }
     sb.push(U_SCENE_COLOR);
     sb.push(U_SCENE_DEPTH);
@@ -4239,6 +4283,503 @@ struct G31FrameRec {
     /// C7 profiler 面：本帧全量逐 pass GPU 计时（telemetry 声明序;(pass 名, ns)）。
     /// 五段提取面 0-byte——既有字段全部同值维持,本列为 --profile-json 唯一消费面。
     pass_gpu_ns: Vec<(String, f64)>,
+    /// G40 T1a:verify 帧 reservoir 回读 + 帧上下文(镜像对拍消费;非 verify
+    /// 帧/verify off = None,既有面 0-byte)。
+    lrs_verify: Option<(Vec<u8>, G31LrsFrameCtx)>,
+}
+
+/// G40 T1a:verify 帧镜像上下文(kernel 消费参数的 host 精确镜像输入——
+/// prepare_update 同帧同值直取;prev_vp = 逐帧上传的同一 16 f32,has_history
+/// = params[74] 同源,frame_c = params[52] 同源)。
+#[derive(Clone)]
+struct G31LrsFrameCtx {
+    prev_vp: [f32; 16],
+    has_history: bool,
+    frame_c: f32,
+    mcap: f32,
+    depth_rej: f32,
+    nrm_rej: f32,
+    /// 本帧绝对序号(诊断打印/red-arm 归因)。
+    frame_index: u32,
+}
+
+/// G40 T1a:镜像对拍累计(两级判据——①硬门:y mismatch 须全部归因为「单
+/// 判定翻转可位级复现 device (y,m) 且 |margin| ≤ ULP 界」的边界事件,任一
+/// 未归因 ⇒ fail-closed 红;②measured:已归因边界事件计数 + margin p100 +
+/// w_sum/W p100 登记。B3 run2 首红实证(09-02):帧 0-7 16.6M 像素 y 位级全等,
+/// 帧 8 全帧 1 例 mismatch 且两侧 w_sum/m 同值 = f32 取样判定边界翻转签名
+/// (Vulkan FDiv/sqrt 精度 ≤ 2.5 ULP 非正确舍入)——f32 ULP 预案 G39 T5 §3.2
+/// 同律:如实量化不凑绿,判据整数化留窗)。
+#[derive(Default)]
+struct G31LrsVerifyStats {
+    frames: u32,
+    pixels: u64,
+    hit_pixels: u64,
+    merged_pixels: u64,
+    y_mismatch: u64,
+    y_attributed: u64,
+    y_unattributed: u64,
+    m_mismatch: u64,
+    wsum_absdiff_p100: f32,
+    w_absdiff_p100: f32,
+    margin_abs_p100: f32,
+}
+
+/// G40 T1a:边界事件 ULP 界(f32 精度链推导,非预算门口径)。Vulkan 精度表:
+/// FDiv ≤ 2.5 ULP / inversesqrt 2 ULP / FMul·FAdd 正确舍入(NoContraction 注入
+/// 面)。取样判定量 q = w/wss − u 中 u 两侧 f32 同式位级同值;w 链 = sqrt(d2s)
+/// → lv/d ×3 → dot → cs/d2s → ·li·gates·pcf → w/wss + wss 8 项累加,相对误差
+/// 保守和 ≲ 18 ULP(q ≤ 1 ⇒ 绝对同量级);取 32 ULP(2^-24 单位)= 1.907e-6。
+const G31_LRS_ULP_BOUND: f32 = 32.0 * (f32::EPSILON * 0.5);
+/// G40 T1a:单帧归因分析上限——超出即不再逐例翻转分析、一律计未归因(边界
+/// 事件预期量级 ≪ 1 例/帧,超限本身即非 ULP 域;红臂全帧分叉走此路 fail-closed)。
+const G31_LRS_ATTRIB_CAP: usize = 4096;
+
+/// G40 T1a:镜像链帧常量(kernel 消费参数的 host 同值)。
+struct G31LrsMirrorEnv<'a> {
+    points: &'a [f32],
+    pcf: f32,
+    gpc: f32,
+    hg: f32,
+    cand_step: f32,
+    prev_vp: &'a [f32; 16],
+    resv_prev: Option<&'a [f32]>,
+    iw: usize,
+    ih: usize,
+    eps2: f32,
+    lamp_contrib: f32,
+    frame_c: f32,
+    mcap: f32,
+    depth_rej: f32,
+    nrm_rej: f32,
+}
+
+/// G40 T1a:单像素镜像链产物(四元组 + 逐判定边界余量/候选,归因翻转复现用)。
+struct G31LrsChainOut {
+    y: f32,
+    phy: f32,
+    wsum: f32,
+    m: f32,
+    hit: bool,
+    merged: bool,
+    /// 判定 0..8 = WRS 8 候选,8 = 时域 merge(计数门关时无第 9 项)。
+    margins: [f32; 9],
+    cands: [f32; 9],
+    n_dec: usize,
+}
+
+/// G40 T1a:host 镜像对拍一帧(EVAL_RESTIR §6.2「y 整数锚/p100 对拍在新
+/// 形态下重建」兑现)。镜像域 = kernel 臂⑨ reservoir 链(WRS 8 候选 →
+/// prev_vp 重投影 → T1b 两拒 merge → 写回四元组)——四元组在验证射线**之前**
+/// 定值 ⇒ 镜像零射线求交;kernel 精确输入(命中位/最终法线/hit_f)自
+/// reservoir [4..11) 槽直取,随机维闭式(R2/R3 黄金比共轭相位 + params[52]
+/// 帧旋转)与 phat 口径(max3(li)·cos/d2s·三 gate)逐字复算。位级先决 =
+/// 场景 SPV 的 NoContraction 注入(B4 纹理接线既有面,L9454)——restir 依赖
+/// --textures on 恒经该路装载。判据:y 逐像素位级全等 fail-closed(g28 y
+/// 整数锚 20000/20000 先例);m 位级偏差计数 + w_sum/W |Δ| p100 measured
+/// 登记。red_phase = 镜像随机相位扰动臂(红臂:证明镜像真实复算随机维)。
+///
+/// 两级判据(B3 run2 首红后升级,G31LrsVerifyStats 文档同律):y 位级不等的像素
+/// 进入归因——同像素链以单个判定(WRS 候选 k∈0..8 / 时域 merge k=8)take/keep
+/// 取反重跑,若 (y,m) 位级复现 device 且该判定 |margin| ≤ G31_LRS_ULP_BOUND ⇒
+/// 「边界事件」计 y_attributed(measured 登记 margin p100);否则计 y_unattributed
+/// ⇒ 帧尾 fail-closed 红。m 由 take 判定不可达(8 + mcl 恒定)⇒ m 不等即不归因。
+#[allow(clippy::too_many_arguments)]
+fn g31_lrs_mirror_frame(
+    resv_cur: &[f32],
+    resv_prev: Option<&[f32]>,
+    ctx: &G31LrsFrameCtx,
+    points: &[f32],
+    point_count: usize,
+    iw: usize,
+    ih: usize,
+    ray_eps: f32,
+    lamp_contrib: f32,
+    red_phase: bool,
+    stats: &mut G31LrsVerifyStats,
+) {
+    let big: f32 = 1e30;
+    let eps2 = ray_eps * ray_eps;
+    let pcf = point_count as f32;
+    let gpc = (pcf * big).min(1.0).max(0.0);
+    let hg: f32 = if ctx.has_history { 1.0 } else { 0.0 };
+    // red-arm phase:候选步进相位扰动(镜像侧;device 不动 ⇒ y 必分叉)。
+    // 〔B3 run2 静态复核修正:原字面 0.618034 与 0.6180339887498949 的 f32 同值
+    // (0x3F1E377A)⇒ 红臂空转;改 0.62(f32 差 ≈1.97e-3 ≫ ULP 界,且全帧候选
+    // 集分叉 ⇒ 归因 cap 溢出走未归因路,构造性必红)。〕
+    let cand_step: f32 = if red_phase { 0.62 } else { 0.6180339887498949 };
+    let env = G31LrsMirrorEnv {
+        points,
+        pcf,
+        gpc,
+        hg,
+        cand_step,
+        prev_vp: &ctx.prev_vp,
+        resv_prev,
+        iw,
+        ih,
+        eps2,
+        lamp_contrib,
+        frame_c: ctx.frame_c,
+        mcap: ctx.mcap,
+        depth_rej: ctx.depth_rej,
+        nrm_rej: ctx.nrm_rej,
+    };
+    let mut unattributed: Vec<String> = Vec::new();
+    let mut frame_mismatch: usize = 0;
+    let mut frame_attributed: u64 = 0;
+    for py in 0..ih {
+        for px in 0..iw {
+            let i = py * iw + px;
+            let base = i * 12;
+            let d_y = resv_cur[base];
+            let d_wsum = resv_cur[base + 1];
+            let d_m = resv_cur[base + 2];
+            let d_phy = resv_cur[base + 3];
+            let hx = resv_cur[base + 4];
+            let hy = resv_cur[base + 5];
+            let hz = resv_cur[base + 6];
+            let hit_f = resv_cur[base + 7];
+            let nx = resv_cur[base + 8];
+            let ny = resv_cur[base + 9];
+            let nz = resv_cur[base + 10];
+            stats.pixels += 1;
+            let out = g31_lrs_chain(&env, px, py, [hx, hy, hz, hit_f], [nx, ny, nz], None);
+            if out.hit {
+                stats.hit_pixels += 1;
+            }
+            if out.merged {
+                stats.merged_pixels += 1;
+            }
+            // ── 判读一级:y 位级全等硬门(g28 y 整数锚先例);不等 ⇒ 归因 ──
+            if out.y.to_bits() != d_y.to_bits() {
+                frame_mismatch += 1;
+                stats.y_mismatch += 1;
+                let m_same = out.m.to_bits() == d_m.to_bits();
+                stats.m_mismatch += u64::from(!m_same);
+                let mut attributed: Option<(usize, f32)> = None;
+                let mut min_abs_margin = f32::INFINITY;
+                if m_same && frame_mismatch <= G31_LRS_ATTRIB_CAP {
+                    for k in 0..out.n_dec {
+                        let mg = out.margins[k];
+                        if mg.abs() < min_abs_margin {
+                            min_abs_margin = mg.abs();
+                        }
+                        if mg.abs() <= G31_LRS_ULP_BOUND {
+                            let alt = g31_lrs_chain(
+                                &env,
+                                px,
+                                py,
+                                [hx, hy, hz, hit_f],
+                                [nx, ny, nz],
+                                Some(k),
+                            );
+                            if alt.y.to_bits() == d_y.to_bits() && alt.m.to_bits() == d_m.to_bits()
+                            {
+                                attributed = Some((k, mg));
+                                break;
+                            }
+                        }
+                    }
+                }
+                match attributed {
+                    Some((k, mg)) => {
+                        stats.y_attributed += 1;
+                        frame_attributed += 1;
+                        if mg.abs() > stats.margin_abs_p100 {
+                            stats.margin_abs_p100 = mg.abs();
+                        }
+                        if stats.y_attributed <= 8 {
+                            eprintln!(
+                                "{GTAG}: T1a 边界事件归因 帧 {} px=({px},{py}) 判定 k={k} margin={mg:.6e}(|margin| ≤ ULP 界 {:.6e})host_y={} dev_y={d_y} flip_cand={} m={}(单判定翻转位级复现 device,计 measured 不判红)",
+                                ctx.frame_index,
+                                G31_LRS_ULP_BOUND,
+                                out.y,
+                                out.cands[k],
+                                out.m
+                            );
+                        }
+                    }
+                    None => {
+                        stats.y_unattributed += 1;
+                        if unattributed.len() < 8 {
+                            unattributed.push(format!(
+                                "px=({px},{py}) host_y={} dev_y={d_y} host_phat={:.6e} dev_phat={d_phy:.6e} host_wsum={:.6e} dev_wsum={d_wsum:.6e} host_m={} dev_m={d_m} min_abs_margin={min_abs_margin:.6e} n_dec={} cap_hit={}",
+                                out.y,
+                                out.phy,
+                                out.wsum,
+                                out.m,
+                                out.n_dec,
+                                frame_mismatch > G31_LRS_ATTRIB_CAP
+                            ));
+                        }
+                    }
+                }
+                // 归因收集后帧尾统一 fail(先量化全帧,预案打印完整)。
+                continue;
+            }
+            if out.m.to_bits() != d_m.to_bits() {
+                stats.m_mismatch += 1;
+            }
+            let wsd = (out.wsum - d_wsum).abs();
+            if wsd > stats.wsum_absdiff_p100 {
+                stats.wsum_absdiff_p100 = wsd;
+            }
+            let w_of = |y: f32, wsum: f32, m: f32, phy: f32| -> f32 {
+                let gne = ((y + 1.0) * big).min(1.0).max(0.0);
+                let gp2 = (phy * big).min(1.0).max(0.0);
+                let gm2 = (m * big).min(1.0).max(0.0);
+                let gall = gne * gp2 * gm2;
+                let den = phy * m;
+                let dens = den + (1.0 - gall);
+                (wsum / dens) * gall
+            };
+            let wd = (w_of(out.y, out.wsum, out.m, out.phy) - w_of(d_y, d_wsum, d_m, d_phy)).abs();
+            if wd > stats.w_absdiff_p100 {
+                stats.w_absdiff_p100 = wd;
+            }
+        }
+    }
+    if !unattributed.is_empty() {
+        for m in &unattributed {
+            eprintln!("{GTAG}: T1a y-mismatch {m}");
+        }
+        fail(&format!(
+            "G40 T1a 镜像对拍红:帧 {}(绝对序)y 位级 mismatch 未归因 {} 例(帧内 mismatch 共 {} / 已归因边界事件 {};首 {} 例已打印归因;像素 {} 命中 {};f32 ULP 预案 = 如实量化不凑绿,判据整数化留窗——G39 T5 §3.2 同律)",
+            ctx.frame_index,
+            stats.y_unattributed,
+            frame_mismatch,
+            frame_attributed,
+            unattributed.len(),
+            stats.pixels,
+            stats.hit_pixels,
+        ));
+    }
+    stats.frames += 1;
+}
+
+/// G40 T1a:单像素镜像链(kernel 臂⑨逐字;lrs_gate=1 on 面)。`flip = Some(k)`
+/// 时第 k 判定(0..8 = WRS 候选序,8 = 时域 merge)take/keep 取反、其余字面不动
+/// (归因重跑用);margins/cands 逐判定登记 `w/wss − u` 与候选(WRS = 候选序,
+/// merge = prev y)。
+#[allow(clippy::too_many_arguments)]
+fn g31_lrs_chain(
+    env: &G31LrsMirrorEnv<'_>,
+    px: usize,
+    py: usize,
+    hit: [f32; 4],
+    nrm: [f32; 3],
+    flip: Option<usize>,
+) -> G31LrsChainOut {
+    let big: f32 = 1e30;
+    let tiny: f32 = 0.000001;
+    let [hx, hy, hz, hit_f] = hit;
+    let [nx, ny, nz] = nrm;
+    let points = env.points;
+    let pcf = env.pcf;
+    let gpc = env.gpc;
+    let hg = env.hg;
+    let cand_step = env.cand_step;
+    let prev_vp = env.prev_vp;
+    let resv_prev = env.resv_prev;
+    let iw = env.iw;
+    let ih = env.ih;
+    let eps2 = env.eps2;
+    let lamp_contrib = env.lamp_contrib;
+    let mut out = G31LrsChainOut {
+        y: 0.0,
+        phy: 0.0,
+        wsum: 0.0,
+        m: 0.0,
+        hit: false,
+        merged: false,
+        margins: [0.0; 9],
+        cands: [0.0; 9],
+        n_dec: 0,
+    };
+    let mut lrs_y = 0.0f32 - 1.0;
+    let mut lrs_phy = 0.0f32;
+    let mut lrs_wsum = 0.0f32;
+    let mut lrs_m = 0.0f32;
+    let lrs_n = (1.0f32 * hit_f * gpc) as usize;
+    if lrs_n > 0 {
+        out.hit = true;
+    }
+    let mut lrs_i = 0usize;
+    while lrs_i < lrs_n {
+        // ① M=8 候选 WRS(kernel L967-1014 逐字)。
+        let mut lrs_j = 0usize;
+        while lrs_j < 8usize {
+            let lrs_f = env.frame_c + (lrs_j as f32) * cand_step;
+            let lrs_t0 = (px as f32) * 0.8191725133961645
+                + (py as f32) * 0.6710436067037893
+                + (lrs_f + 1.5278640450004205) * 0.5497004779019703;
+            let lrs_uc = lrs_t0 - lrs_t0.floor();
+            let lrs_t1 = (px as f32) * 0.7548776662466927
+                + (py as f32) * 0.5698402909980532
+                + (lrs_f + 1.9098302562505255) * 0.7548776662466927;
+            let lrs_uwr = lrs_t1 - lrs_t1.floor();
+            let lrs_cand = ((lrs_uc * pcf).min(pcf - 1.0).max(0.0)) as usize;
+            let lrs_pb = lrs_cand * 8;
+            let lrs_lvx = points[lrs_pb] - hx;
+            let lrs_lvy = points[lrs_pb + 1] - hy;
+            let lrs_lvz = points[lrs_pb + 2] - hz;
+            let lrs_lir = points[lrs_pb + 3];
+            let lrs_lig = points[lrs_pb + 4];
+            let lrs_lib = points[lrs_pb + 5];
+            let lrs_d2 = lrs_lvx * lrs_lvx + lrs_lvy * lrs_lvy + lrs_lvz * lrs_lvz;
+            let lrs_gd = ((lrs_d2 - eps2) * big).min(1.0).max(0.0);
+            let lrs_d2s = lrs_d2.max(tiny * tiny);
+            let lrs_d = lrs_d2s.sqrt();
+            let lrs_cwx = lrs_lvx / lrs_d;
+            let lrs_cwy = lrs_lvy / lrs_d;
+            let lrs_cwz = lrs_lvz / lrs_d;
+            let lrs_cs = (nx * lrs_cwx + ny * lrs_cwy + nz * lrs_cwz).max(0.0);
+            let lrs_gcs = (lrs_cs * big).min(1.0).max(0.0);
+            let lrs_ctb = lrs_lir.max(lrs_lig).max(lrs_lib) / lrs_d2s;
+            let lrs_glc = ((lrs_ctb - lamp_contrib) * big + 1.0).min(1.0).max(0.0);
+            let lrs_ph = lrs_lir.max(lrs_lig).max(lrs_lib) * (lrs_cs / lrs_d2s)
+                * (lrs_gd * lrs_gcs * lrs_glc);
+            let lrs_w = lrs_ph * pcf;
+            lrs_wsum += lrs_w;
+            lrs_m += 1.0;
+            let lrs_wsg = (lrs_wsum * big).min(1.0).max(0.0);
+            let lrs_wss = lrs_wsum + (1.0 - lrs_wsg);
+            // 判定 k=lrs_j:margin = w/wss − u(f32 逐字;Rust 不融合 FMA,
+            // 与原单表达式位级同值);flip 命中即 take/keep 取反。
+            let lrs_margin = lrs_w / lrs_wss - lrs_uwr;
+            let mut lrs_take = (lrs_margin * big).min(1.0).max(0.0);
+            if flip == Some(lrs_j) {
+                lrs_take = 1.0 - lrs_take;
+            }
+            out.margins[lrs_j] = lrs_margin;
+            out.cands[lrs_j] = lrs_cand as f32;
+            out.n_dec = lrs_j + 1;
+            let lrs_keep = 1.0 - lrs_take;
+            lrs_y = lrs_take * (lrs_cand as f32) + lrs_keep * lrs_y;
+            lrs_phy = lrs_take * lrs_ph + lrs_keep * lrs_phy;
+            lrs_j += 1;
+        }
+        // ② prev_vp 重投影(kernel L1015-1034 逐字)。
+        let lrs_pcx = ((prev_vp[0] * hx + prev_vp[1] * hy) + prev_vp[2] * hz)
+            + prev_vp[3];
+        let lrs_pcy = ((prev_vp[4] * hx + prev_vp[5] * hy) + prev_vp[6] * hz)
+            + prev_vp[7];
+        let lrs_pcw = ((prev_vp[12] * hx + prev_vp[13] * hy) + prev_vp[14] * hz)
+            + prev_vp[15];
+        let lrs_gw = ((lrs_pcw - 0.00000001) * big).min(1.0).max(0.0);
+        let lrs_pws = lrs_pcw + (1.0 - lrs_gw);
+        let lrs_pu = 0.5 * (lrs_pcx / lrs_pws + 1.0);
+        let lrs_pv = 0.5 * (1.0 - lrs_pcy / lrs_pws);
+        let lrs_pxf = (lrs_pu * (iw as f32)).floor();
+        let lrs_pyf = (lrs_pv * (ih as f32)).floor();
+        let lrs_inx = (((lrs_pxf + 1.0) * big).min(1.0).max(0.0))
+            * ((((iw as f32) - 1.0 - lrs_pxf) * big + 1.0).min(1.0).max(0.0));
+        let lrs_iny = (((lrs_pyf + 1.0) * big).min(1.0).max(0.0))
+            * ((((ih as f32) - 1.0 - lrs_pyf) * big + 1.0).min(1.0).max(0.0));
+        let lrs_mn = (hg * lrs_gw * lrs_inx * lrs_iny) as usize;
+        let lrs_ppx = lrs_pxf.max(0.0).min((iw as f32) - 1.0) as usize;
+        let lrs_ppy = lrs_pyf.max(0.0).min((ih as f32) - 1.0) as usize;
+        // ③ 时域 merge + T1b 两拒(kernel 逐字;prev 读面 = 上帧回读)。
+        let mut lrs_mi = 0usize;
+        while lrs_mi < lrs_mn {
+            let rp = resv_prev.unwrap_or_else(|| {
+                fail("G40 T1a: merge 计数门开而上帧回读缺失(verify 窗口配平破坏,fail-closed)")
+            });
+            let lrs_pr = (lrs_ppy * iw + lrs_ppx) * 12;
+            let lrs_ry = rp[lrs_pr];
+            let lrs_rw = rp[lrs_pr + 1];
+            let lrs_rm = rp[lrs_pr + 2];
+            let lrs_rp2 = rp[lrs_pr + 3];
+            let lrs_gy = ((lrs_ry + 1.0) * big).min(1.0).max(0.0);
+            let lrs_gylt = ((pcf - lrs_ry) * big).min(1.0).max(0.0);
+            let lrs_gm = (lrs_rm * big).min(1.0).max(0.0);
+            let lrs_gph = (lrs_rp2 * big).min(1.0).max(0.0);
+            // T1b 深度拒(kernel 同字面)。
+            let lrs_pgx = rp[lrs_pr + 4];
+            let lrs_pgy = rp[lrs_pr + 5];
+            let lrs_pgz = rp[lrs_pr + 6];
+            let lrs_ppw = ((prev_vp[12] * lrs_pgx + prev_vp[13] * lrs_pgy)
+                + prev_vp[14] * lrs_pgz)
+                + prev_vp[15];
+            let lrs_dth = env.depth_rej;
+            let lrs_dgon = (lrs_dth * big).min(1.0).max(0.0);
+            let lrs_dpass = (((lrs_dth * lrs_pcw.abs()
+                - (lrs_ppw - lrs_pcw).abs())
+                * big)
+                + 1.0)
+                .min(1.0)
+                .max(0.0);
+            let lrs_rejd = (1.0 - lrs_dgon) + lrs_dgon * lrs_dpass;
+            // T1b 法线拒(kernel 同字面)。
+            let lrs_pnx = rp[lrs_pr + 8];
+            let lrs_pny = rp[lrs_pr + 9];
+            let lrs_pnz = rp[lrs_pr + 10];
+            let lrs_nth = env.nrm_rej;
+            let lrs_ngon = (lrs_nth * big).min(1.0).max(0.0);
+            let lrs_ndot = nx * lrs_pnx + ny * lrs_pny + nz * lrs_pnz;
+            let lrs_npass =
+                (((lrs_ndot - lrs_nth) * big) + 1.0).min(1.0).max(0.0);
+            let lrs_rejn = (1.0 - lrs_ngon) + lrs_ngon * lrs_npass;
+            let lrs_ok = lrs_gy * lrs_gylt * lrs_gm * lrs_rejd * lrs_rejn;
+            if lrs_ok > 0.0 {
+                out.merged = true;
+            }
+            let lrs_mcl = lrs_rm.min(env.mcap.max(1.0)) * lrs_ok;
+            let lrs_yb = ((lrs_ry.max(0.0)) as usize) * 8;
+            let lrs_ylvx = points[lrs_yb] - hx;
+            let lrs_ylvy = points[lrs_yb + 1] - hy;
+            let lrs_ylvz = points[lrs_yb + 2] - hz;
+            let lrs_ylir = points[lrs_yb + 3];
+            let lrs_ylig = points[lrs_yb + 4];
+            let lrs_ylib = points[lrs_yb + 5];
+            let lrs_yd2 =
+                lrs_ylvx * lrs_ylvx + lrs_ylvy * lrs_ylvy + lrs_ylvz * lrs_ylvz;
+            let lrs_ygd = ((lrs_yd2 - eps2) * big).min(1.0).max(0.0);
+            let lrs_yd2s = lrs_yd2.max(tiny * tiny);
+            let lrs_yd = lrs_yd2s.sqrt();
+            let lrs_ycs = (nx * (lrs_ylvx / lrs_yd) + ny * (lrs_ylvy / lrs_yd)
+                + nz * (lrs_ylvz / lrs_yd))
+                .max(0.0);
+            let lrs_ygcs = (lrs_ycs * big).min(1.0).max(0.0);
+            let lrs_yctb = lrs_ylir.max(lrs_ylig).max(lrs_ylib) / lrs_yd2s;
+            let lrs_yglc =
+                ((lrs_yctb - lamp_contrib) * big + 1.0).min(1.0).max(0.0);
+            let lrs_phn = lrs_ylir.max(lrs_ylig).max(lrs_ylib)
+                * (lrs_ycs / lrs_yd2s)
+                * (lrs_ygd * lrs_ygcs * lrs_yglc);
+            let lrs_dn = lrs_rp2 * lrs_rm;
+            let lrs_dns = lrs_dn + (1.0 - lrs_gph * lrs_gm);
+            let lrs_wo = lrs_ok * lrs_gph * lrs_phn * (lrs_rw / lrs_dns) * lrs_mcl;
+            lrs_wsum += lrs_wo;
+            lrs_m += lrs_mcl;
+            let lrs_t2 = (px as f32) * 0.8191725133961645
+                + (py as f32) * 0.6710436067037893
+                + (env.frame_c + 2.2917963075006306) * 0.5497004779019703;
+            let lrs_um = lrs_t2 - lrs_t2.floor();
+            let lrs_wsg2 = (lrs_wsum * big).min(1.0).max(0.0);
+            let lrs_wss2 = lrs_wsum + (1.0 - lrs_wsg2);
+            // 判定 k=8(时域 merge take):同 WRS 形 margin 登记 + flip。
+            let lrs_margin2 = lrs_wo / lrs_wss2 - lrs_um;
+            let mut lrs_tk2 = (lrs_margin2 * big).min(1.0).max(0.0);
+            if flip == Some(8) {
+                lrs_tk2 = 1.0 - lrs_tk2;
+            }
+            out.margins[8] = lrs_margin2;
+            out.cands[8] = lrs_ry;
+            out.n_dec = 9;
+            let lrs_kp2 = 1.0 - lrs_tk2;
+            lrs_y = lrs_tk2 * lrs_ry + lrs_kp2 * lrs_y;
+            lrs_phy = lrs_tk2 * lrs_phn + lrs_kp2 * lrs_phy;
+            lrs_mi += 1;
+        }
+        lrs_i += 1;
+    }
+    out.y = lrs_y;
+    out.phy = lrs_phy;
+    out.wsum = lrs_wsum;
+    out.m = lrs_m;
+    out
 }
 
 /// C7 profiler 逐帧记录（--profile-json 收集面;post-warmup 测量窗与 render_ms 同口径）。
@@ -4385,6 +4926,25 @@ struct G31TsrLane<'a> {
     /// 不扩不写不 override,参数/绑定面 0-byte)。
     lamp_restir: bool,
     lamp_restir_mcap: f32,
+    /// G40 T1c per-pixel W·phat 钳值(params[75];0 = off 缺省)。
+    lamp_restir_clamp: f32,
+    /// G40 T1b disocclusion 两拒阈(params[76]/[77];0 = 该拒关断;缺省
+    /// 0.10/0.80 字面裁决登记 REPORT)。
+    lamp_restir_depth_rej: f32,
+    lamp_restir_nrm_rej: f32,
+    /// G40 T1a 镜像对拍帧数(帧 [0,N) 订阅 parity-cur reservoir 回读;0 =
+    /// verify off——readback 列表未注册,子集零追加)。
+    lamp_restir_verify: u32,
+    /// G40 T1a:verify readback 列表基下标(resv[0] 注册位;resv[1] = 基+1;
+    /// verify off 无意义恒 0)。
+    lrs_rb_base: u32,
+    /// G40 T1a:帧计数(prepare/rec 同帧一致读,frame() 尾部推进——parity
+    /// 翻转同位)。
+    lrs_frame_c: u32,
+    /// G40 T1a:verify 帧上下文暂存(prepare_update 填,rec_from_output 取走
+    /// 随 rec 出——prev_vp/has_history/帧旋转 [52] 的镜像精确输入;RefCell =
+    /// 两法 &self 收器下的帧内单写单读栈位,frame() 同步编排零竞争)。
+    lrs_ctx: std::cell::RefCell<Option<G31LrsFrameCtx>>,
     /// Phase D TSR 降噪质量档（--tsr-quality on 车道创建后经 set_tsrq 一次性
     /// 挂载 min_alpha/clamp → prepare_update 置 tsr_params[19..21);off =
     /// false ⇒ 两槽不写与零填充逐位同值,参数面 0-byte——resolve SPV 换载在
@@ -4485,6 +5045,13 @@ impl<'a> G31TsrLane<'a> {
             gi2_nee: false,
             lamp_restir: false,
             lamp_restir_mcap: 8.0,
+            lamp_restir_clamp: 0.0,
+            lamp_restir_depth_rej: 0.0,
+            lamp_restir_nrm_rej: 0.0,
+            lamp_restir_verify: 0,
+            lrs_rb_base: 0,
+            lrs_frame_c: 0,
+            lrs_ctx: std::cell::RefCell::new(None),
             tsrq: false,
             tsrq_min_alpha: 0.0,
             tsrq_clamp: 0.0,
@@ -4577,9 +5144,25 @@ impl<'a> G31TsrLane<'a> {
 
     /// G39 T1 臂⑨ 点灯直接光时域 reservoir 挂载(--lamp-restir on 车道创建后
     /// 一次性;off 车道不调用 ⇒ 不扩不写不 override,参数/绑定面 0-byte)。
-    fn set_lamp_restir(&mut self, mcap: f32) {
+    /// G40 T1:签名扩 clamp/两拒阈(params[75..78))+ verify 帧数与 readback
+    /// 基下标(机械补参,调用点闭集 1 处)。
+    #[allow(clippy::too_many_arguments)]
+    fn set_lamp_restir(
+        &mut self,
+        mcap: f32,
+        clamp: f32,
+        depth_rej: f32,
+        nrm_rej: f32,
+        verify_n: u32,
+        rb_base: u32,
+    ) {
         self.lamp_restir = true;
         self.lamp_restir_mcap = mcap;
+        self.lamp_restir_clamp = clamp;
+        self.lamp_restir_depth_rej = depth_rej;
+        self.lamp_restir_nrm_rej = nrm_rej;
+        self.lamp_restir_verify = verify_n;
+        self.lrs_rb_base = rb_base;
     }
 
     /// Phase D TSR 降噪质量档挂载（--tsr-quality on 车道创建后一次性
@@ -4729,10 +5312,11 @@ impl<'a> G31TsrLane<'a> {
             if self.gi2_nee {
                 scene_params[71] = 1.0;
             }
-            // G39 T1 lamp_restir:params 再扩 [72..76)([72] 门/[73] m_cap/
+            // G39 T1 lamp_restir:params 再扩 [72..80)([72] 门/[73] m_cap/
             // [74] has_history〔!reset && has_history_state,TSR tsr_params[8]
-            // 同式——reset/首帧 = 0,kernel merge 计数门零迭代零读〕/[75] 预留
-            // 恒 0;off 不扩不写 = 参数面 0-byte)。
+            // 同式——reset/首帧 = 0,kernel merge 计数门零迭代零读〕;G40 T1:
+            // [75] T1c 钳值〔0 = off〕/[76] T1b 深度拒阈/[77] T1b 法线拒阈
+            // 〔0 = 拒关〕/[78..80) 预留恒 0;off 不扩不写 = 参数面 0-byte)。
             if self.lamp_restir {
                 scene_params.resize(G31_RESTIR_PARAMS_LEN, 0.0);
                 scene_params[72] = 1.0;
@@ -4742,6 +5326,9 @@ impl<'a> G31TsrLane<'a> {
                 } else {
                     0.0
                 };
+                scene_params[75] = self.lamp_restir_clamp;
+                scene_params[76] = self.lamp_restir_depth_rej;
+                scene_params[77] = self.lamp_restir_nrm_rej;
             }
             // 时序采样帧旋转（gi2 off 时 pack 未写 [52],时序臂补写——gi2
             // on 时 pack 已写同值,幂等。G39 T1:lamp_restir 候选/判定序列
@@ -4813,6 +5400,21 @@ impl<'a> G31TsrLane<'a> {
             } else {
                 G31_U_LRS_PREVVP_TEXNRM
             };
+            // G40 T1a:verify 帧上下文暂存(prev_vp/has_history/[52]/阈值
+            // 同帧同值——kernel 消费面的镜像精确输入;rec_from_output 取走)。
+            if self.lamp_restir_verify > 0 && self.lrs_frame_c < self.lamp_restir_verify {
+                let mut pv16 = [0.0f32; 16];
+                pv16.copy_from_slice(&lrs_pv);
+                *self.lrs_ctx.borrow_mut() = Some(G31LrsFrameCtx {
+                    prev_vp: pv16,
+                    has_history: !reset && self.has_history_state,
+                    frame_c: self.gi2_frame,
+                    mcap: self.lamp_restir_mcap,
+                    depth_rej: self.lamp_restir_depth_rej,
+                    nrm_rej: self.lamp_restir_nrm_rej,
+                    frame_index: self.lrs_frame_c,
+                });
+            }
             uploads.push((
                 StableResourceId(u64::from(lrs_pvp_idx) + 1),
                 0,
@@ -5097,6 +5699,18 @@ impl<'a> G31TsrLane<'a> {
                 subset.push(self.fg_layout.rb_mvn);
             }
         }
+        // G40 T1a:verify 窗口帧订阅 parity-cur reservoir 回读(子集尾 =
+        // 消费序尾;verify off/窗口外帧零追加——既有子集字面 0-byte。verify
+        // 帧无回读面 = 口径破坏 fail-closed,evidence 跑逐帧 BGRA 恒有)。
+        if self.lamp_restir_verify > 0 && self.lrs_frame_c < self.lamp_restir_verify {
+            if readback == G31Readback::None {
+                return Err(
+                    "G40 T1a: verify 窗口帧须有回读面(readback=None 与镜像对拍互斥,fail-closed)"
+                        .into(),
+                );
+            }
+            subset.push(self.lrs_rb_base + p as u32);
+        }
         let update = FrameUpdate {
             tlas_update: None,
             buffer_uploads: uploads,
@@ -5145,6 +5759,8 @@ impl<'a> G31TsrLane<'a> {
         let bgra_px = (ow * oh * 4) as usize;
         let f32_px = (ow * oh * 3) as usize;
         let mv_px = (ow * oh * 2) as usize;
+        // G40 T1a:verify 帧 reservoir 回读容器(子集尾消费;None 面 0-byte)。
+        let mut lrs_verify: Option<(Vec<u8>, G31LrsFrameCtx)> = None;
         let mut idx = 0usize;
         let take_rb = |out: &mut DeviceFrameOutput, idx: &mut usize| -> Result<Vec<u8>, String> {
             if *idx >= out.readbacks.len() {
@@ -5248,6 +5864,23 @@ impl<'a> G31TsrLane<'a> {
             } else {
                 (None, None, Vec::new(), None)
             };
+            // G40 T1a:verify 帧 reservoir 回读消费(子集尾同位;stride 12
+            // f32/px 域检 + prepare 暂存 ctx 配平取走)。
+            if self.lamp_restir_verify > 0 && self.lrs_frame_c < self.lamp_restir_verify {
+                let b = take_rb(&mut out, &mut idx)?;
+                if b.is_empty() || b.len() % 48 != 0 {
+                    return Err(format!(
+                        "G40 T1a: reservoir 回读字节 {} 非 48B/px 整倍(stride 12 f32 域检)",
+                        b.len()
+                    ));
+                }
+                let ctx = self
+                    .lrs_ctx
+                    .borrow_mut()
+                    .take()
+                    .ok_or("G40 T1a: verify 帧 ctx 缺失(prepare/rec 配平破坏,fail-closed)")?;
+                lrs_verify = Some((b, ctx));
+            }
             if idx != out.readbacks.len() {
                 return Err(format!(
                     "A5 回读消费序 {idx} ≠ 实到路数 {}",
@@ -5297,6 +5930,7 @@ impl<'a> G31TsrLane<'a> {
             hzb: None,
             svt_requests,
             pass_gpu_ns,
+            lrs_verify,
         })
     }
 
@@ -5332,6 +5966,8 @@ impl<'a> G31TsrLane<'a> {
         self.prev_vp_j = Some(*vp_j);
         self.has_history_state = true;
         self.parity = 1 - self.parity;
+        // G40 T1a:帧计数推进(parity 翻转同位——prepare/rec 同帧一致读后)。
+        self.lrs_frame_c = self.lrs_frame_c.wrapping_add(1);
         Ok(rec)
     }
 }
@@ -6638,6 +7274,7 @@ impl<'a> G31HzbLane<'a> {
             hzb: Some(hz),
             svt_requests: None, // B1 HZB 面与 C13 SVT 闭集互斥（恒 None）
             pass_gpu_ns,
+            lrs_verify: None, // G40 T1a:HZB 面与 restir 闭集互斥(恒 None)
         })
     }
 }
@@ -7548,6 +8185,19 @@ fn main() {
     // 字面不含之,锚零漂)。
     let mut lamp_restir = false;
     let mut lamp_restir_mcap: Option<usize> = None;
+    // G40 T1 三件合一子旗标(全闭集 fail-closed,须随 --lamp-restir on):
+    // T1a --lamp-restir-verify N = 帧 [0,N) host 镜像对拍(reservoir 回读 +
+    // 逐像素 WRS/merge/W 链复算,y 全等硬门 + W/w_sum p100 登记);
+    // --lamp-restir-verify-red phase|resv = 镜像 red-arm(随机相位扰动/回读
+    // 构造性篡改 ⇒ 必红,须随 verify)。T1c --lamp-restir-clamp = per-pixel
+    // W·phat 钳值(0 = off 缺省,域 [0,64])。T1b --lamp-restir-depth-rej /
+    // --lamp-restir-nrm-rej = disocclusion 两拒阈(缺省 0.10/0.80 字面裁决,
+    // 0 = 该拒关断,域 [0,1];显式给出须随 on)。
+    let mut lamp_restir_verify: Option<usize> = None;
+    let mut lamp_restir_verify_red: Option<String> = None;
+    let mut lamp_restir_clamp: Option<f32> = None;
+    let mut lamp_restir_depth_rej: Option<f32> = None;
+    let mut lamp_restir_nrm_rej: Option<f32> = None;
     // 夜间巡航 D3：bloom 加性臂（默认 off = 既有面 0-byte/既有 digest 锚零漂移;
     // on = resolve 后插 bright→blurH→blurV→composite 四 pass,display_encode 改读
     // 合成缓冲）。strength/threshold/spv 覆盖件须随 --bloom on（fail-closed）。
@@ -7964,6 +8614,38 @@ fn main() {
                     take_arg(&args, &mut i)
                         .parse::<usize>()
                         .unwrap_or_else(|_| fail("--lamp-restir-mcap 非 usize")),
+                );
+            }
+            // G40 T1 三件合一子旗标(闭集校验在解析后统一段)。
+            "--lamp-restir-verify" => {
+                lamp_restir_verify = Some(
+                    take_arg(&args, &mut i)
+                        .parse::<usize>()
+                        .unwrap_or_else(|_| fail("--lamp-restir-verify 非 usize")),
+                );
+            }
+            "--lamp-restir-verify-red" => {
+                lamp_restir_verify_red = Some(take_arg(&args, &mut i));
+            }
+            "--lamp-restir-clamp" => {
+                lamp_restir_clamp = Some(
+                    take_arg(&args, &mut i)
+                        .parse::<f32>()
+                        .unwrap_or_else(|_| fail("--lamp-restir-clamp 非 f32")),
+                );
+            }
+            "--lamp-restir-depth-rej" => {
+                lamp_restir_depth_rej = Some(
+                    take_arg(&args, &mut i)
+                        .parse::<f32>()
+                        .unwrap_or_else(|_| fail("--lamp-restir-depth-rej 非 f32")),
+                );
+            }
+            "--lamp-restir-nrm-rej" => {
+                lamp_restir_nrm_rej = Some(
+                    take_arg(&args, &mut i)
+                        .parse::<f32>()
+                        .unwrap_or_else(|_| fail("--lamp-restir-nrm-rej 非 f32")),
                 );
             }
             "--normal-strength" => {
@@ -8999,6 +9681,46 @@ fn main() {
     if lamp_restir && !(1..=64).contains(&lamp_restir_mcap_v) {
         fail("--lamp-restir-mcap 必须 ∈ [1,64](时域置信截断域,fail-closed)");
     }
+    // ── G40 T1 三件合一子旗标闭集校验(fail-closed;全部须随 --lamp-restir
+    //    on,red 须随 verify;域检齐备)──
+    if !lamp_restir
+        && (lamp_restir_verify.is_some()
+            || lamp_restir_verify_red.is_some()
+            || lamp_restir_clamp.is_some()
+            || lamp_restir_depth_rej.is_some()
+            || lamp_restir_nrm_rej.is_some())
+    {
+        fail("--lamp-restir-verify/-verify-red/-clamp/-depth-rej/-nrm-rej 均须随 --lamp-restir on(off 面零消费,fail-closed)");
+    }
+    let lamp_restir_verify_n = lamp_restir_verify.unwrap_or(0);
+    if lamp_restir_verify.is_some() && lamp_restir_verify_n == 0 {
+        fail("--lamp-restir-verify 必须 ≥1(镜像对拍帧数,fail-closed)");
+    }
+    let lamp_restir_verify_red_v = match lamp_restir_verify_red.as_deref() {
+        None => 0u32,
+        Some("phase") => 1,
+        Some("resv") => 2,
+        Some(other) => fail(&format!(
+            "--lamp-restir-verify-red 闭集 phase|resv(得 {other})"
+        )),
+    };
+    if lamp_restir_verify_red_v != 0 && lamp_restir_verify_n == 0 {
+        fail("--lamp-restir-verify-red 须随 --lamp-restir-verify(red-arm 属镜像对拍臂,fail-closed)");
+    }
+    let lamp_restir_clamp_v = lamp_restir_clamp.unwrap_or(0.0);
+    if lamp_restir && !(0.0..=64.0).contains(&lamp_restir_clamp_v) {
+        fail("--lamp-restir-clamp 必须 ∈ [0,64](W·phat 归一化钳域,0 = off,fail-closed)");
+    }
+    // T1b 两拒缺省 = 0.10/0.80 字面裁决(A/B 数据登记 REPORT;0 = 该拒关断
+    // = G39 v1 语言形——dolly A/B 对照臂)。
+    let lamp_restir_depth_rej_v = lamp_restir_depth_rej.unwrap_or(0.10);
+    let lamp_restir_nrm_rej_v = lamp_restir_nrm_rej.unwrap_or(0.80);
+    if lamp_restir && !(0.0..=1.0).contains(&lamp_restir_depth_rej_v) {
+        fail("--lamp-restir-depth-rej 必须 ∈ [0,1](视深相对差阈,0 = 拒关,fail-closed)");
+    }
+    if lamp_restir && !(0.0..=1.0).contains(&lamp_restir_nrm_rej_v) {
+        fail("--lamp-restir-nrm-rej 必须 ∈ [0,1](法线点积阈,0 = 拒关,fail-closed)");
+    }
     if lamp_restir
         && (spv_texture == G31_DEFAULT_SPV_TEXTURE_NRM
             || spv_texture == G31_DEFAULT_SPV_TEXTURE_NRM_GI2
@@ -9867,6 +10589,15 @@ fn main() {
     let mut svt_era_pt: Vec<u8> = Vec::new();
     let mut svt_era_pool: Vec<u8> = Vec::new();
     let mut svt_stats = G31SvtStats::default();
+    // G40 T1a:镜像对拍状态(verify off 全零消费;points 事实源 = pack_points
+    // 同一函数——descs U_POINTS 同字节)。
+    let mut lrs_prev_resv: Option<Vec<f32>> = None;
+    let mut lrs_vstats = G31LrsVerifyStats::default();
+    let lrs_points_f32: Vec<f32> = if lamp_restir_verify_n > 0 {
+        pack_points(&scene)
+    } else {
+        Vec::new()
+    };
     // G31+ #58 逐帧 cut 统计收集面（--cluster-lod leaf|on 才消费;off 空 vec
     // 零消费。每 16 帧对 cut 做覆盖性机核采样,fail-closed）。
     let mut cluster_frame_stats: Vec<ClusterFrameStat> = Vec::new();
@@ -10314,6 +11045,7 @@ fn main() {
                     transp_ref,
                     ris_ref,
                     lamp_restir,
+                    lamp_restir_verify_n > 0,
                     bloom_assets.as_ref().unwrap(),
                     in_w,
                     in_h,
@@ -10336,6 +11068,7 @@ fn main() {
                     transp_ref,
                     ris_ref,
                     lamp_restir,
+                    lamp_restir_verify_n > 0,
                     in_w,
                     in_h,
                     ew,
@@ -10891,11 +11624,26 @@ fn main() {
                     if gi2_ris || gi2_nee {
                         l.set_gi2_ris(gi2_ris, gi2_ris_m_v as f32, gi2_nee);
                     }
-                    // G39 T1 臂⑨:--lamp-restir → params[72..75) + prev_vp
+                    // G39 T1 臂⑨:--lamp-restir → params[72..80) + prev_vp
                     // 逐帧上传 + scene pass reservoir parity override(off
                     // 不挂载 ⇒ 不扩不写不 override,参数/绑定面 0-byte)。
+                    // G40 T1:clamp/两拒阈 + verify 帧数与 readback 基下标
+                    // (verify 双份注册在 readbacks 列表尾 ⇒ 基 = len−2;
+                    // verify off 恒 0 零消费)。
                     if lamp_restir {
-                        l.set_lamp_restir(lamp_restir_mcap_v as f32);
+                        let lrs_rb_base = if lamp_restir_verify_n > 0 {
+                            (descs.readbacks.len() - 2) as u32
+                        } else {
+                            0
+                        };
+                        l.set_lamp_restir(
+                            lamp_restir_mcap_v as f32,
+                            lamp_restir_clamp_v,
+                            lamp_restir_depth_rej_v,
+                            lamp_restir_nrm_rej_v,
+                            lamp_restir_verify_n as u32,
+                            lrs_rb_base,
+                        );
                     }
                     // day_0829 臂⑤:--soft-shadows on → params[60..62)（off
                     // 不挂载 ⇒ 两槽不写参数面 0-byte）。
@@ -11320,6 +12068,54 @@ fn main() {
                 if plan.miss_pixels > 0 {
                     svt_stats.fallback_frames += 1;
                 }
+            }
+
+            // ── G40 T1a:镜像对拍消费(verify 窗口帧;rec 携 reservoir 回读
+            //    + 帧上下文——host 逐像素复算 WRS/merge/W 链,y 位级硬门。
+            //    red resv 臂 = 帧 0 回读构造性篡改(首个命中池 y+1 且 m+1——m 由
+            //    take 判定不可达 ⇒ 两级判据归因结构性不可能)⇒ 必红;
+            //    red phase 臂 = 镜像随机相位扰动(全帧候选集分叉 ⇒ 归因 cap 溢出)
+            //    ⇒ 必红)──
+            if let Some((lrs_bytes, lrs_ctx)) = rec.lrs_verify.as_ref() {
+                let mut lrs_cur = read_f32(lrs_bytes);
+                let want = (in_w as usize) * (in_h as usize) * 12;
+                if lrs_cur.len() != want {
+                    fail(&format!(
+                        "帧 {fi} T1a reservoir 回读 f32 数 {} ≠ {want}(iw·ih·12)",
+                        lrs_cur.len()
+                    ));
+                }
+                if lamp_restir_verify_red_v == 2 && fi == 0 {
+                    let mut tampered = false;
+                    for px in 0..want / 12 {
+                        if lrs_cur[px * 12 + 7] != 0.0 && lrs_cur[px * 12] >= 0.0 {
+                            lrs_cur[px * 12] += 1.0;
+                            lrs_cur[px * 12 + 2] += 1.0;
+                            eprintln!(
+                                "{GTAG}: T1a red-arm resv 篡改 px 线性 {px}(y+1,m+1 构造性必红:m 不可由单判定翻转复现 ⇒ 未归因)"
+                            );
+                            tampered = true;
+                            break;
+                        }
+                    }
+                    if !tampered {
+                        fail("T1a red-arm resv: 帧 0 无命中池可篡(场景退化,fail-closed)");
+                    }
+                }
+                g31_lrs_mirror_frame(
+                    &lrs_cur,
+                    lrs_prev_resv.as_deref(),
+                    lrs_ctx,
+                    &lrs_points_f32,
+                    scene.points.len(),
+                    in_w as usize,
+                    in_h as usize,
+                    eps,
+                    lamp_contrib_v,
+                    lamp_restir_verify_red_v == 1,
+                    &mut lrs_vstats,
+                );
+                lrs_prev_resv = Some(lrs_cur);
             }
 
             // ── B1 HZB 逐帧决策面记账 + 接线态对拍（hzb on 面;probe 两帧成对:
@@ -12032,6 +12828,64 @@ fn main() {
             eprintln!("{GTAG}: wp-hlod 统计 sidecar → {path}");
         }
     }
+    // ── G40 T1a:verify 收尾(红臂必须已触发;绿路帧数配平 + p100 登记)──
+    if lamp_restir_verify_n > 0 {
+        if lamp_restir_verify_red_v != 0 {
+            fail("G40 T1a red-arm 未触发(phase/resv 构造性篡改必须红——对拍面未真实消费即冒充,fail-closed)");
+        }
+        let lrs_want = (lamp_restir_verify_n as u32).min(frames_done);
+        if lrs_vstats.frames != lrs_want {
+            fail(&format!(
+                "G40 T1a verify 帧数 {} ≠ 期望 {lrs_want}(订阅/消费配平破坏,fail-closed)",
+                lrs_vstats.frames
+            ));
+        }
+        // 两级判据:走到此处即 y_unattributed == 0(未归因 mismatch 在帧尾
+        // fail-closed 已退出);y_mismatch = 已归因边界事件数(measured,不判红)。
+        if lrs_vstats.y_unattributed != 0 || lrs_vstats.y_mismatch != lrs_vstats.y_attributed {
+            fail(&format!(
+                "G40 T1a verify 统计配平破坏:y_mismatch {} ≠ y_attributed {} 或 y_unattributed {} ≠ 0(fail-closed)",
+                lrs_vstats.y_mismatch, lrs_vstats.y_attributed, lrs_vstats.y_unattributed
+            ));
+        }
+        eprintln!(
+            "{GTAG}: T1a 镜像对拍 GREEN frames={} pixels={} hit_pixels={} merged={} y_mismatch={} y_attributed={} y_unattributed=0 margin_abs_p100={:.6e} ulp_bound={:.6e} m_mismatch={} wsum_absdiff_p100={:.6e} w_absdiff_p100={:.6e}(y 位级硬门 = 未归因 0;边界事件全部单判定翻转归因 ≤ ULP 界;p100 measured 登记)",
+            lrs_vstats.frames,
+            lrs_vstats.pixels,
+            lrs_vstats.hit_pixels,
+            lrs_vstats.merged_pixels,
+            lrs_vstats.y_mismatch,
+            lrs_vstats.y_attributed,
+            lrs_vstats.margin_abs_p100,
+            G31_LRS_ULP_BOUND,
+            lrs_vstats.m_mismatch,
+            lrs_vstats.wsum_absdiff_p100,
+            lrs_vstats.w_absdiff_p100,
+        );
+    }
+    // G40 T1a:verify stats evidence 块(off = null 字面;schema 经
+    // ci/_patch_g31_window_evidence_schemas_g40.py 纯追加;两级判据后 v2 形
+    // = +y_attributed/+y_unattributed(const 0)/+margin_abs_p100/+ulp_bound,
+    // y_mismatch 放开为 ≥0 边界事件计数)。
+    let lrs_vstats_json = if lamp_restir_verify_n > 0 {
+        format!(
+            "{{\"frames\":{},\"pixels\":{},\"hit_pixels\":{},\"merged_pixels\":{},\"y_mismatch\":{},\"y_attributed\":{},\"y_unattributed\":{},\"margin_abs_p100\":{:.9e},\"ulp_bound\":{:.9e},\"m_mismatch\":{},\"wsum_absdiff_p100\":{:.9e},\"w_absdiff_p100\":{:.9e}}}",
+            lrs_vstats.frames,
+            lrs_vstats.pixels,
+            lrs_vstats.hit_pixels,
+            lrs_vstats.merged_pixels,
+            lrs_vstats.y_mismatch,
+            lrs_vstats.y_attributed,
+            lrs_vstats.y_unattributed,
+            lrs_vstats.margin_abs_p100,
+            G31_LRS_ULP_BOUND,
+            lrs_vstats.m_mismatch,
+            lrs_vstats.wsum_absdiff_p100,
+            lrs_vstats.w_absdiff_p100,
+        )
+    } else {
+        "null".to_owned()
+    };
     let mut ev = String::with_capacity(8192);
     ev.push('{');
     // G37 W3 fg_combo 合入：fg 分支语义前移——fg×full 组合跑落 FG evidence 面
@@ -12191,7 +13045,7 @@ fn main() {
             })
             .count();
         ev.push_str(&format!(
-            "\"textures\":{{\"census\":{{\"materials_total\":{},\"with_base_color_texture\":{},\"with_normal_texture\":{},\"with_metallic_roughness_texture\":{},\"primitives_total\":{},\"primitives_with_texcoord0\":{},\"primitives_with_tangent\":{}}},\"mapping_law\":{},\"mapped_materials\":{},\"tex_tris\":{},\"material_slots\":[{}],\"atlas\":{{\"form\":\"texel_heap\",\"cap\":{},\"mip_slots\":{},\"header_entries\":{},\"heap_texels\":{},\"heap_bytes\":{},\"format\":\"u32_packed_rgba8\",\"digest\":{}}},\"mip_law\":{},\"linlut_digest\":{},\"g11_3_manifest\":{{\"path\":\"milestones/g11/g11_3_dds_transcode_manifest.json\",\"entries_matched\":{},\"entries_total\":{}}},\"probe\":{{\"uv_law\":{},\"probe_count\":{},\"eval_ms\":{:.6},\"ssbo\":{{\"p100\":{:.15e},\"bitexact\":{},\"double_run_bitexact\":{},\"device_digest\":{},\"host_digest\":{}}},\"sampler_leg\":{{\"max_lsb_diff\":{},\"bound_lsb\":1,\"bitexact\":{},\"digest\":{},\"host_digest\":{},\"structural_basis\":{}}}}},\"quality_arms\":{{\"smooth_normals\":{},\"ggx\":{},\"lamp_lights\":{},\"lamp_gain\":{},\"lamp_k\":{},\"lamp_contrib\":{},\"bloom\":{},\"dither\":{},\"auto_exposure\":{},\"gi2\":{},\"gi2_scale\":{},\"gi2_clamp\":{},\"lamp_restir\":{},\"lamp_restir_mcap\":{}}},\"spv_texture\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"spv_texture_probe\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"gaps\":{}}},",
+            "\"textures\":{{\"census\":{{\"materials_total\":{},\"with_base_color_texture\":{},\"with_normal_texture\":{},\"with_metallic_roughness_texture\":{},\"primitives_total\":{},\"primitives_with_texcoord0\":{},\"primitives_with_tangent\":{}}},\"mapping_law\":{},\"mapped_materials\":{},\"tex_tris\":{},\"material_slots\":[{}],\"atlas\":{{\"form\":\"texel_heap\",\"cap\":{},\"mip_slots\":{},\"header_entries\":{},\"heap_texels\":{},\"heap_bytes\":{},\"format\":\"u32_packed_rgba8\",\"digest\":{}}},\"mip_law\":{},\"linlut_digest\":{},\"g11_3_manifest\":{{\"path\":\"milestones/g11/g11_3_dds_transcode_manifest.json\",\"entries_matched\":{},\"entries_total\":{}}},\"probe\":{{\"uv_law\":{},\"probe_count\":{},\"eval_ms\":{:.6},\"ssbo\":{{\"p100\":{:.15e},\"bitexact\":{},\"double_run_bitexact\":{},\"device_digest\":{},\"host_digest\":{}}},\"sampler_leg\":{{\"max_lsb_diff\":{},\"bound_lsb\":1,\"bitexact\":{},\"digest\":{},\"host_digest\":{},\"structural_basis\":{}}}}},\"quality_arms\":{{\"smooth_normals\":{},\"ggx\":{},\"lamp_lights\":{},\"lamp_gain\":{},\"lamp_k\":{},\"lamp_contrib\":{},\"bloom\":{},\"dither\":{},\"auto_exposure\":{},\"gi2\":{},\"gi2_scale\":{},\"gi2_clamp\":{},\"lamp_restir\":{},\"lamp_restir_mcap\":{},\"lamp_restir_clamp\":{},\"lamp_restir_depth_rej\":{},\"lamp_restir_nrm_rej\":{},\"lamp_restir_verify\":{}}},\"lamp_restir_verify_stats\":{},\"spv_texture\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"spv_texture_probe\":{{\"path\":{},\"sha256\":{},\"no_contraction_injected\":true}},\"gaps\":{}}},",
             c.materials_total,
             c.with_base_color_texture,
             c.with_normal_texture,
@@ -12241,8 +13095,16 @@ fn main() {
             // G39 T1 lamp_restir:quality_arms 追加两字段(schema 纯追加补丁 =
             // ci/_patch_g31_window_evidence_schemas.py,properties-only 不进
             // required——旧档 evidence 保绿)。
+            // G40 T1:再追加 clamp/两拒/verify 四字段 + verify_stats 兄弟键
+            // (补丁 = ci/_patch_g31_window_evidence_schemas_g40.py 同律;
+            // off 面值 = 缺省字面〔与 mcap=8 恒发射先例同形〕,stats=null)。
             lamp_restir,
             lamp_restir_mcap_v,
+            lamp_restir_clamp_v,
+            lamp_restir_depth_rej_v,
+            lamp_restir_nrm_rej_v,
+            lamp_restir_verify_n,
+            lrs_vstats_json,
             jstr(&spv_texture.replace('\\', "/")),
             jstr(&g31_file_sha(&spv_texture).unwrap_or_else(|e| fail(&e))),
             jstr(&spv_texture_probe.replace('\\', "/")),
@@ -13093,8 +13955,22 @@ fn main() {
                 String::new()
             },
             // G39 T1:lamp_restir on 臂 PASS 行登记（off = 空串,既有字面 0-byte）。
+            // G40 T1:追加 clamp/两拒/verify 段(G39 缺省组合下字面不变——
+            // clamp=0/rej 缺省/verify=0 时不追加,既有 on 臂 PASS 行 0-byte)。
             if lamp_restir {
-                format!(" lamp_restir=on lamp_restir_mcap={lamp_restir_mcap_v}")
+                let mut s = format!(" lamp_restir=on lamp_restir_mcap={lamp_restir_mcap_v}");
+                if lamp_restir_clamp_v > 0.0 {
+                    s.push_str(&format!(" lamp_restir_clamp={lamp_restir_clamp_v}"));
+                }
+                if lamp_restir_depth_rej.is_some() || lamp_restir_nrm_rej.is_some() {
+                    s.push_str(&format!(
+                        " lamp_restir_rej={lamp_restir_depth_rej_v}/{lamp_restir_nrm_rej_v}"
+                    ));
+                }
+                if lamp_restir_verify_n > 0 {
+                    s.push_str(&format!(" lamp_restir_verify={lamp_restir_verify_n}"));
+                }
+                s
             } else {
                 String::new()
             },

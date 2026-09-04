@@ -1,0 +1,215 @@
+{
+  "schema": "rurix.g31.wp_hlod_evidence.v1",
+  "gate": "g31.wave95.wp_hlod",
+  "scene": "bistro-interior",
+  "tier": 100,
+  "backend": "tsr_device",
+  "src_tris": 1046609,
+  "bake": {
+    "cells_total": 30,
+    "cells_nonempty": 20,
+    "cell_size_m": 4.0,
+    "levels": 4,
+    "cell_tris_min": 1,
+    "cell_tris_max": 266643,
+    "passthrough_tris": 44024,
+    "proxy_tris_per_level": [
+      1002585,
+      501277,
+      250628,
+      125310
+    ],
+    "pack_sha256": "b1ee7b2fd6457cb2eadff503c1a9b89cd370651f33c5748e3dbc211eece61e24",
+    "double_build_equal": true,
+    "bake_ms": 3312.2
+  },
+  "full_anchor": {
+    "off_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "full_digest": "sha256:f39e9808b66d3649538850bdcb2c4197a8a2cd0fadb79a3c0f8a8e2f24b4c88c",
+    "bitexact": true
+  },
+  "window_arms": [
+    {
+      "threshold_l0": 0.25,
+      "cells_full": 5,
+      "cells_hlod": 15,
+      "cells_culled": 0,
+      "cells_pending": 0,
+      "out_tris": 657611,
+      "ratio": 0.6283253822583219,
+      "proxy_tris": 388975,
+      "selection_digest": "13268fe257df9f840a512153b679124b400a420cf52b696b11c3efaadeeb3410"
+    },
+    {
+      "threshold_l0": 4.0,
+      "cells_full": 0,
+      "cells_hlod": 20,
+      "cells_culled": 0,
+      "cells_pending": 0,
+      "out_tris": 350807,
+      "ratio": 0.3351843907323556,
+      "proxy_tris": 306783,
+      "selection_digest": "53dc23df44cb83fdf1a00c731e1f6902f0d3777f6595fbe08ae5ac00688b9442"
+    },
+    {
+      "threshold_l0": 8.0,
+      "cells_full": 0,
+      "cells_hlod": 20,
+      "cells_culled": 0,
+      "cells_pending": 0,
+      "out_tris": 306610,
+      "ratio": 0.2929556309949561,
+      "proxy_tris": 262586,
+      "selection_digest": "a09038419c92a5476b565dfef628d8b881cb496826fdf100ea5ad852bbeaf5f4"
+    }
+  ],
+  "mixed_arm": {
+    "threshold_l0": 0.25,
+    "cells_full": 5,
+    "cells_hlod": 15,
+    "mutually_exclusive_mixed": true
+  },
+  "determinism": {
+    "arm_threshold_l0": 4.0,
+    "double_run_digest_equal": true,
+    "selection_digest_prefix_equal": true
+  },
+  "switch_protocol": {
+    "threshold_l0": 4.0,
+    "warmup_frames": 4,
+    "frames": 34,
+    "total_switches": 1,
+    "max_switches_per_frame": 1,
+    "switch_delta_tris_max": 7,
+    "warmup_protocol_verified": true,
+    "events": [
+      {
+        "cell": 27,
+        "from": "hlod_l2",
+        "to": "hlod_l1",
+        "request_frame": 10,
+        "flip_frame": 14,
+        "tris_before": 7,
+        "tris_after": 14
+      }
+    ]
+  },
+  "red_arms": {
+    "tamper_digest": true,
+    "event_order": true,
+    "double_draw": true,
+    "runtime_merge": true
+  },
+  "quality_diff": {
+    "threshold_l0": 4.0,
+    "err_max": 1.0,
+    "err_p95": 0.002191,
+    "regions_over_1": 0,
+    "note": "off vs on(t0=4.0) 收敛帧 HDR 线性域区域 diff（16×16 网格,阈 1.0）;远 cell 出 QEM 代理层的画质差 measured 如实登记不设通过线（G6 纪律）"
+  },
+  "frame_ms": {
+    "off_mean": 13.828663,
+    "on_mean": 11.8938,
+    "note": "bistro-interior tier100 tsr_device --frames 8 同机同窗 measured_local(装配相机冻结出帧;如实登记不设通过线,G6 纪律)"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p rurix-render --features vendor-upscale --bin g14_3_pipeline_perf --bin g31_window_present --bin g10_m137_diff_report --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 2,
+      "command": "cargo build --release -p rurix-asset --bin g31_wp_hlod_bake --quiet",
+      "exit_code": 0
+    },
+    {
+      "seq": 3,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --dump-scene --scene bistro-interior --out H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxcs",
+      "exit_code": 0
+    },
+    {
+      "seq": 4,
+      "command": "H:\\rurix\\target-night\\release\\g31_wp_hlod_bake.exe --scene-dump H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxcs --out H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh --cell-size 4.0 --levels 4 --double-build",
+      "exit_code": 0
+    },
+    {
+      "seq": 5,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\off",
+      "exit_code": 0
+    },
+    {
+      "seq": 6,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\full --wp-hlod full --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 7,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\on_a --wp-hlod on --wp-threshold-l0 4.0 --wp-warmup 4 --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 8,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --bench --scene bistro-interior --tier 100 --backend tsr_device --frames 8 --warmup 2 --out-root H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\on_b --wp-hlod on --wp-threshold-l0 4.0 --wp-warmup 4 --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 9,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 32 --warmup 2 --tier 100 --headless-smoke --auto-move dolly --quality off --wp-hlod on --wp-threshold-l0 0.25 --wp-warmup 4 --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh --wp-stats-out H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\wp_stats_mixed.json --evidence H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\wp_window_ev_mixed.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 10,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 32 --warmup 2 --tier 100 --headless-smoke --auto-move dolly --quality off --wp-hlod on --wp-threshold-l0 4.0 --wp-warmup 4 --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh --wp-stats-out H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\wp_stats_switch.json --evidence H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\wp_window_ev_switch.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 11,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 32 --warmup 2 --tier 100 --headless-smoke --auto-move dolly --quality off --wp-hlod on --wp-threshold-l0 8.0 --wp-warmup 4 --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh --wp-stats-out H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\wp_stats_aggr.json --evidence H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\wp_window_ev_aggr.json",
+      "exit_code": 0
+    },
+    {
+      "seq": 12,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 2 --tier 100 --headless-smoke --quality off --wp-hlod on --wp-red-arm tamper-digest --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 13,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 2 --tier 100 --headless-smoke --quality off --wp-hlod on --wp-red-arm event-order --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 14,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 2 --tier 100 --headless-smoke --quality off --wp-hlod on --wp-red-arm double-draw --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 15,
+      "command": "H:\\rurix\\target-night\\release\\g31_window_present.exe --frames 2 --tier 100 --headless-smoke --quality off --wp-hlod on --wp-red-arm runtime-merge --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 16,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --render --scene bistro-interior --tier 100 --backend tsr_device --frames 4 --out-root H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\render_off",
+      "exit_code": 0
+    },
+    {
+      "seq": 17,
+      "command": "H:\\rurix\\target-night\\release\\g14_3_pipeline_perf.exe --render --scene bistro-interior --tier 100 --backend tsr_device --frames 4 --out-root H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\render_on --wp-hlod on --wp-threshold-l0 4.0 --wp-warmup 4 --wp-pack H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\bistro.rxwh",
+      "exit_code": 0
+    },
+    {
+      "seq": 18,
+      "command": "H:\\rurix\\target-night\\release\\g10_m137_diff_report.exe --frame-a H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\render_off\\bistro-interior\\tier100\\tsr_device\\converged.exr --frame-b H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\render_on\\bistro-interior\\tier100\\tsr_device\\converged.exr --out-dir H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\diff --evidence H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\diff\\report.json --scene-id bistro-interior --camera-id contract --frame-index 0 --threshold 1.0",
+      "exit_code": 0
+    }
+  ],
+  "notes": [
+    "三步文件交接：dump-scene（装配语义单源）→ g31_wp_hlod_bake（XZ cell 网格 + 逐 cell 跨组件合并 + bake_hlod_merged QEM 链事实源直调,#67/#97）→ 生产车道 --wp-hlod 消费（world::partition PartitionRuntime 距离环流送 + 三项预算排队 + world::hlod HlodRuntime 事件消费/digest 核验/screen-size 互斥选层生产机核直调,#95）",
+    "#68 HLOD 代理 GPU 绘制腿 = 代理三角随互斥重建进 BLAS 出帧;同 cell 全量 XOR 代理（互斥机核 + 源三角零重复断言 = 零双绘,bin 内嵌 fail-closed）;切换 = warmup 预热 N 帧后同帧原子翻转（UE bRequireWarmup 模式,flip−request==warmup 逐事件机核）",
+    "#99 popping 指标 = 固定 dolly 轨迹切换事件表 + 逐帧翻转数/三角跳变进 evidence（measured 如实登记）;geomorph/dither 过渡评估留窗",
+    "emissive 三角与 quad 灯面尾段恒 passthrough（光源几何面 0-byte）;代理三角属性 = cell 面积加权均值",
+    "默认 off = 既有面 0-byte（Stage A 锚零漂移;--wp-hlod 为加性闭集开关,与 --cluster-lod/--hzb/--textures/--slab-table 闭集互斥）",
+    "出帧几何冻结于装配期选层（逐帧 AS 更新归 #77/#89 合流窗）;g31 窗口逐帧 tick/选层/切换统计为 host 重算 measured 如实登记不冒充"
+  ]
+}

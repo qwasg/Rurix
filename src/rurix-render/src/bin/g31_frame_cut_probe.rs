@@ -32,13 +32,18 @@
 //! --min-level N(默认 0 = 现状) = 竞技场只装 level≥N 簇(+链兜底根),cut 经
 //! 「level<N → 首个 level≥N 祖先」提升映射,提升后生产 verify 复核 fail-closed。
 //!
-//! G39 T5 旗标(#77 P1;DESIGN = artifacts/day_0831_g39/t5_devicecut/)：
-//! --cut-source host(默认 = 既有路径字面 0-byte)| device = host 决策权/
-//! 施加链/既有判据零移交,device 以冻结 g31_cluster_cull kernel(三关中和至
-//! 纯关 3)平行复算判定码 → 回读逐项对拍(提升前 select 原输出口径;
-//! mismatch/域外码 fail-closed);--cull-spv = rurixc 现编 SPV 工件(device
-//! 时必填,bin 侧 NoContraction 注入不落盘);--cut-red-arm tamper = lod 表
-//! 构造性篡改 ⇒ 对拍必红(消费路径机核)。
+//! G39 T5(#77 P1)→ G40 T2(#77 P2)旗标语义升级(DESIGN =
+//! artifacts/day_0831_g39/t5_devicecut/ §2.7 P2 行;开窗条件 = P1 C1-C5
+//! 全绿在案)：--cut-source host(默认 = 既有路径字面 0-byte)| device =
+//! **决策码为源生产 dispatch**——冻结 g31_cluster_cull kernel(三关中和至
+//! 纯关 3)进表驻留常驻 cull 会话(每帧仅 params 256B 上传),决策码回读
+//! (n×4B)后 host 由 d==4 构造 cut 集;`verify_cut_coverage` host 影子核
+//! 直跑回读集(fail-closed 逐字保持),min-level 提升照旧 host,既有差集/
+//! 上传/refit 施加链 0 改;域外码(∉{2,4})fail-closed。cut_ms 分项
+//! select/verify/promote 加性登记(host/device 双臂恒出)。--cull-spv =
+//! rurixc 现编 SPV 工件(device 时必填,bin 侧 NoContraction 注入不落盘);
+//! --cut-red-arm tamper = lod 表构造性篡改 ⇒ 决策翻转 ⇒ 影子核覆盖性必红
+//! (施加链真实消费 device 决策的构造性机核)。P3(直写竞技场)不预支。
 #![forbid(unsafe_code)]
 // 共享体含本 bin 未消费面（bench/render 腿、vendor 双臂、EXR 出图等）——
 // dead_code 豁免如实登记;本 bin 消费面 = 契约装配/簇包读取/frame-cut 臂。

@@ -103,3 +103,9 @@ artifacts/day_0830_dlss5nr/probe_static/*.asm
 artifacts/day_0831_site/*.raw
 artifacts/day_0831_site/*.raw.*
 artifacts/day_0831_site/*.mp4
+
+# G40 day_0901_g40 T1 A/B 重跑 + dolly 对照逐帧 presented 原始转储不入库
+# (2026-09-01;阶梯八臂 + dolly 三臂 ×24/60 帧 ×7.9MB ≈2GB,G38 t5_risnee /
+# G39 t1_restir 同律)。ev.json / prof.json / stderr.txt / T1_AB_MATRIX.json
+# 结论件保全入库。
+artifacts/day_0901_g40/t1_restir2/ab/**/p.raw*

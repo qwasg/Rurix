@@ -1,0 +1,24 @@
+{"t": "18:52:08", "step": "B1fx_win_fc", "status": "OK", "wall_s": 64.5, "stderr_tail": "0.77 bridge_gpu(copy均=0.35ms build均=19.40ms copy_mode=incr)（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）\n[g31_window_present]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0901_g40\\t3_asmem\\win_fc_sidecar.json\n[g31_window_present]: evidence → H:/rurix/artifacts/day_0901_g40/t3_asmem/win_fc_ev.json\n"}
+{"t": "18:53:10", "step": "B1fx_win_base", "status": "OK", "wall_s": 62.0, "stderr_tail": "unique_variants=5 pso_runtime_creates=0\n[g31_window_present]: cluster-lod 逐帧 cut 统计 frames=26 cut_tris mean=938343 min=932484 max=941257 assembled_out=932484 stat_ms_total=50.6（出帧几何冻结于装配 cut;逐帧 AS 更新归 C/E 阶段）\n[g31_window_present]: evidence → H:/rurix/artifacts/day_0901_g40/t3_asmem/win_base_ev.json\n"}
+{"t": "18:54:25", "step": "run.dyn_x1", "status": "OK", "wall_s": 75.7, "stderr_tail": "动态场景 rebuild 轨迹 x=2.446 y=1.513 z=-2.042 yaw=1.309）\n[g14_3_pipeline_perf]: bench 帧 130/130 frame=121.675ms（动态场景 rebuild 轨迹 x=2.383 y=1.493 z=-2.078 yaw=1.419）\n[g14_3_pipeline_perf]: dyn 核验 12/12 帧通过（质心 ≤2.5px AABB ≤4px）→ H:\\rurix\\.tmp\\g40_b2\\dyn_x1\\bistro-interior\\tier100\\tsr_device\\dyn_verify.json\n"}
+{"t": "18:55:37", "step": "run.dyn_x2", "status": "OK", "wall_s": 71.9, "stderr_tail": "1.513 z=-2.042 yaw=1.309）\n[g14_3_pipeline_perf]: bench 帧 130/130 frame=77.976ms（动态 slot_as rebuild inflight=2 pending=1 轨迹 x=2.383 y=1.493 z=-2.078 yaw=1.419）\n[g14_3_pipeline_perf]: dyn 核验 12/12 帧通过（质心 ≤2.5px AABB ≤4px）→ H:\\rurix\\.tmp\\g40_b2\\dyn_x2\\bistro-interior\\tier100\\tsr_device\\dyn_verify.json\n"}
+{"t": "18:56:49", "step": "run.dyn_x3", "status": "OK", "wall_s": 71.8, "stderr_tail": "1.513 z=-2.042 yaw=1.309）\n[g14_3_pipeline_perf]: bench 帧 130/130 frame=76.592ms（动态 slot_as rebuild inflight=3 pending=2 轨迹 x=2.383 y=1.493 z=-2.078 yaw=1.419）\n[g14_3_pipeline_perf]: dyn 核验 12/12 帧通过（质心 ≤2.5px AABB ≤4px）→ H:\\rurix\\.tmp\\g40_b2\\dyn_x3\\bistro-interior\\tier100\\tsr_device\\dyn_verify.json\n"}
+{"t": "18:58:04", "step": "run.skin_x1", "status": "OK", "wall_s": 75.5, "stderr_tail": "03ms mv_gpu=2.126ms root=(-0.021,-0.010,-0.013)）\n[g14_3_pipeline_perf]: SKIN_GPU_MS mean=0.013636 min=0.002912 max=0.049568\n[g14_3_pipeline_perf]: skin 核验 12/12 帧通过（质心 ≤4px AABB ≤6px MV 中位差 ≤2px 窗级真动 max=2.524px ≥1px）→ H:\\rurix\\.tmp\\g40_b2\\skin_x1\\bistro-interior\\tier100\\tsr_device\\skin_verify.json\n"}
+{"t": "18:58:04", "step": "sv.skin_x1", "status": "OK"}
+{"t": "18:59:16", "step": "run.skin_x2", "status": "OK", "wall_s": 72.0, "stderr_tail": "nflight=2 pending=1 root=(-0.021,-0.010,-0.013)）\n[g14_3_pipeline_perf]: SKIN_GPU_MS mean=0.011178 min=0.002304 max=0.046624\n[g14_3_pipeline_perf]: skin 核验 12/12 帧通过（质心 ≤4px AABB ≤6px MV 中位差 ≤2px 窗级真动 max=2.524px ≥1px）→ H:\\rurix\\.tmp\\g40_b2\\skin_x2\\bistro-interior\\tier100\\tsr_device\\skin_verify.json\n"}
+{"t": "18:59:16", "step": "sv.skin_x2", "status": "OK"}
+{"t": "19:02:13", "step": "run.skin_x3", "status": "OK", "wall_s": 176.9, "stderr_tail": "nflight=3 pending=2 root=(-0.021,-0.010,-0.013)）\n[g14_3_pipeline_perf]: SKIN_GPU_MS mean=0.024801 min=0.002848 max=0.071264\n[g14_3_pipeline_perf]: skin 核验 12/12 帧通过（质心 ≤4px AABB ≤6px MV 中位差 ≤2px 窗级真动 max=2.524px ≥1px）→ H:\\rurix\\.tmp\\g40_b2\\skin_x3\\bistro-interior\\tier100\\tsr_device\\skin_verify.json\n"}
+{"t": "19:02:13", "step": "sv.skin_x3", "status": "OK"}
+{"t": "19:02:13", "step": "J_B1fx_window_anchor", "status": "OK", "fc": "sha256:5540ecaed4fd4c1e3", "base": "sha256:5540ecaed4fd4c1e3"}
+{"t": "19:02:13", "step": "mem.dyn_x1", "status": "OK", "note": "inflight=1 非 slot_as:receipt 应无 slot_as_mem 键(0-byte 负控)"}
+{"t": "19:02:13", "step": "mem.skin_x1", "status": "OK", "note": "inflight=1 非 slot_as:receipt 应无 slot_as_mem 键(0-byte 负控)"}
+{"t": "19:02:13", "step": "mem.dyn_x2", "status": "OK", "per_slot": [120307200, 120307200], "group_total": 240614400}
+{"t": "19:02:13", "step": "mem.skin_x2", "status": "OK", "per_slot": [120310656, 120310656], "group_total": 240621312}
+{"t": "19:02:13", "step": "mem.dyn_x3", "status": "OK", "per_slot": [120307200, 120307200, 120307200], "group_total": 360921600}
+{"t": "19:02:13", "step": "mem.skin_x3", "status": "OK", "per_slot": [120310656, 120310656, 120310656], "group_total": 360931968}
+{"t": "19:02:13", "step": "J_trace.dyn_x2", "status": "OK", "ref": "dyn_rebuild_x2", "bytes": 12500}
+{"t": "19:02:13", "step": "J_trace.dyn_x3", "status": "OK", "ref": "dyn_rebuild_x3", "bytes": 12500}
+{"t": "19:02:13", "step": "J_trace.dyn_x1", "status": "OK", "ref": "dyn_rebuild_x1", "bytes": 12500}
+{"t": "19:02:13", "step": "J_trace.skin_x2", "status": "OK", "ref": "ft_x2_a", "bytes": 12500}
+{"t": "19:02:13", "step": "J_trace.skin_x3", "status": "OK", "ref": "ft_x3_a", "bytes": 12500}
+{"t": "19:02:13", "step": "J_trace.skin_x1", "status": "OK", "ref": "ft_x1_a", "bytes": 12500}

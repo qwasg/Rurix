@@ -60,7 +60,7 @@ G39 自有面(修改 11 + 新件斜杠标注):
 
 ## D. 留窗登记(如实,不冒充)
 
-1. **lamp-k 提档提案判 GO,只登记留 owner**(`t1_restir/LAMP_K_PROPOSAL.md`):建议 A 维持(默认 12/0.6 零动作,26 簇进预算组合已钉死可交付)+ B 留窗(提档默认 = full19→full20 语义变更须整批重锚,与下一触锚变更合批);C 不推荐。
+1. **lamp-k 提档提案判 GO,只登记留 owner**(`t1_restir/LAMP_K_PROPOSAL.md`):建议 A 维持(默认 12/0.6 零动作,26 簇进预算组合已钉死可交付)+ B 留窗(提档默认 = full19→full20 语义变更须整批重锚,与下一触锚变更合批);C 不推荐。**〔2026-09-01 判档落档:A 维持 + B 留窗,C 不采——登记见 LAMP_K_PROPOSAL.md 判档段;本项闭合〕**
 2. T1 **host 镜像对拍臂未建**(EVAL §6.2,约半臂当量):本窗验收走 digest 双跑位级 + A/B 方差,不含 per-pixel host 复算对拍。
 3. T1 **两新税**:restir on ⇒ 点灯软阴影半影让位(圆盘 N 样本不进验证射线)+ 玻璃后点灯影转硬影(透明衰减重走段不进本臂);A/B 判读以 dark ROI 噪声口径为准,亮度/半影差登记不判红。
 4. T1 跨像素 merge 的 phat 重算近似(标准 ReSTIR DI 时域形,m_cap 截断置信有界,非严格无偏)+ per-pixel phat 钳制未做(第一旋钮 = 降 `--lamp-restir-mcap`);dolly disocclusion 深度/法线拒留窗(v1 仅界内/pcw 门);风暴臂(window-storm)× restir 组合未验收。
@@ -72,7 +72,7 @@ G39 自有面(修改 11 + 新件斜杠标注):
 
 ## E. 后续窗口建议(优先级序)
 
-1. **owner 治理窗**:本役工作树入库(commit 按 C 表择取,兄弟面不混)+ lamp-k 提案判档(A/B/C)。
+1. **owner 治理窗**:本役工作树入库(commit 按 C 表择取,兄弟面不混)+ lamp-k 提案判档(A/B/C)。**〔2026-09-01 状态:两项均已完成——入库 = HEAD `1478859a`(feat(g39) 收口波,兄弟面由 owner 一并择入);判档 = A 维持 + B 留窗(LAMP_K_PROPOSAL.md 判档段)。治理窗闭合〕**
 2. **T1 画质补窗**:host 镜像对拍臂(y 整数锚/p100 对拍重建)+ disocclusion 深度/法线拒 + per-pixel phat 钳制——三件合一窗,消解 D-2/D-4。
 3. **T5 P2**:`--cut-source device` 生产 dispatch(判定码免回读,消费 B5 等价门谱系),与 `--min-level` 组合进预算叙事。
 4. **T2 补窗**:bistro 生产规模 slot_as AS 副本内存 evidence 正式登记 + bridge_ext×FIF rt 平行入口评估。

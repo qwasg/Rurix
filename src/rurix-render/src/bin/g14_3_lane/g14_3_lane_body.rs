@@ -10152,6 +10152,18 @@ struct UnifiedTsrLane<'a> {
     /// slot_as 蒙皮臂在飞票据 FIFO（与静态 `pending`/动态 `pending_dyn`
     /// 分列——既有两面 submit/collect 字面 0-byte）。
     pending_skin: VecDeque<PendingSkinFrame>,
+    /// G40 T3:AS 副本组内存账(生产规模 evidence 补登面,G39 HANDOVER §D-7;
+    /// 首次 collect 时自 session telemetry 全量 allocation ledger 按 AS 表项
+    /// `resource_id == resources_len + ai + 1` 过滤求和——g31_fif_dyn_probe
+    /// `slot_as_mem_from_ledger` 同一登记式;逐表项含 instance buffer/BLAS
+    /// 顶点/BLAS storage/TLAS storage/scratch 全部 vkAllocateMemory 真账,
+    /// ledger 项 session 生命周期稳定。非 slot_as 车道恒 None 零成本;
+    /// **预算门条目 `g31.fif_dyn.slot_as_group_mem_bytes` 锚 probe 场景
+    /// 0 动不混**——本面 = bench receipt notes 登记口径)。
+    slot_as_mem_bytes: Option<Vec<u64>>,
+    /// G40 T3:session 资源数(AS 表项 resource_id 基 = resources_len + 1;
+    /// `create_with_slot_as` 自 descs 存档,账过滤消费)。
+    slot_as_resources_len: usize,
 }
 
 /// G31 FIF 流水在飞帧簿记（`submit_with_frame_update` 产出的票据 + 该帧
@@ -10392,6 +10404,9 @@ impl<'a> UnifiedTsrLane<'a> {
             pending_dyn: VecDeque::new(),
             skin_scene_bindings: None,
             pending_skin: VecDeque::new(),
+            // G40 T3:AS 副本组内存账(slot_as 车道首次 collect 时采集)。
+            slot_as_mem_bytes: None,
+            slot_as_resources_len: 0,
         })
     }
 
@@ -10453,6 +10468,17 @@ impl<'a> UnifiedTsrLane<'a> {
         });
         lane.scene_bindings = Some(scene_bindings);
         lane.skin_scene_bindings = skin_scene_bindings;
+        // G40 T3:资源数存档(AS 表项 ledger resource_id 基 = resources_len
+        // + ai + 1,render_exec session ledger 登记式;fif_dyn_probe 同源)。
+        lane.slot_as_resources_len = match descs {
+            UnifiedDescs::Mega(d) => d.0.len(),
+            UnifiedDescs::Split(d) => d.0.len(),
+            UnifiedDescs::MegaDyn(d) => d.0.len(),
+            UnifiedDescs::MegaSkin(d) => d.0.len(),
+            UnifiedDescs::G34Full(d) => d.0.len(),
+            UnifiedDescs::MegaSmoothNrm(d) => d.0.len(),
+            UnifiedDescs::MegaTexNrmGi2(d) => d.0.len(),
+        };
         Ok(lane)
     }
 
@@ -11315,10 +11341,46 @@ impl<'a> UnifiedTsrLane<'a> {
             "slot_as collect: 无在飞票据（提交/收集配平破缺,fail-closed)".to_owned()
         })?;
         let out = self.session.collect(p.ticket)?;
+        self.capture_slot_as_mem(&out);
         let mut rec =
             self.rec_from_output(out, p.readback_out, p.readback_scene, ow, oh, iw, ih)?;
         rec.frame_index = p.frame_index;
         Ok(rec)
+    }
+
+    /// G40 T3:AS 副本组内存账首帧采集(生产规模 evidence 补登面;ledger 项
+    /// session 生命周期稳定 ⇒ 首次 collect 采一次即为组恒值。过滤式 =
+    /// g31_fif_dyn_probe `slot_as_mem_from_ledger` 同源:AS 表项 `ai` 的分配
+    /// 按 `resource_id == resources_len + ai + 1` 登记,逐表项求和 = 该槽
+    /// instance buffer/BLAS 顶点/BLAS storage/TLAS storage/scratch 全部
+    /// vkAllocateMemory 真账。非 slot_as 车道零触碰——off 面 0-byte)。
+    #[allow(dead_code)] // G38 L2a 同律:g14_3_pipeline_perf 独消费面(诚实标注)
+    fn capture_slot_as_mem(&mut self, out: &DeviceFrameOutput) {
+        if self.slot_as_mem_bytes.is_none()
+            && let Some(g) = self.slot_as_group
+        {
+            self.slot_as_mem_bytes = Some(
+                (0..g.len as u64)
+                    .map(|ai| {
+                        let want =
+                            StableResourceId(self.slot_as_resources_len as u64 + ai + 1);
+                        out.telemetry
+                            .allocations
+                            .iter()
+                            .filter(|a| a.resource_id == Some(want))
+                            .map(|a| a.bytes)
+                            .sum()
+                    })
+                    .collect(),
+            );
+        }
+    }
+
+    /// G40 T3:内存账读面(bench receipt notes 消费;None = 非 slot_as 车道/
+    /// 尚未 collect)。
+    #[allow(dead_code)] // 同上独消费面
+    fn slot_as_mem_bytes(&self) -> Option<&[u64]> {
+        self.slot_as_mem_bytes.as_deref()
     }
 
     /// G38（RFC-0030 v1.1 §4.3 L2a 批次 B）蒙皮臂 slot_as FIF 提交半程：与
@@ -11419,6 +11481,9 @@ impl<'a> UnifiedTsrLane<'a> {
             "slot_as collect: 无在飞票据（提交/收集配平破缺,fail-closed)".to_owned()
         })?;
         let out = self.session.collect(p.ticket)?;
+        // G40 T3:AS 副本组内存账首帧采集(dyn 半程同律;skin 组含角色
+        // updatable BLAS ×S,账径同一过滤式)。
+        self.capture_slot_as_mem(&out);
         let mut rec = self
             .skin_rec_from_output(out, p.readback_out, p.verify, p.debug_tris, ow, oh, iw, ih)?;
         rec.frame_index = p.frame_index;
@@ -16144,6 +16209,23 @@ fn g14_profile_json(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// G40 T3:AS 副本组内存账 → bench receipt 加性 JSON 段(尾随逗号 + 缩进,
+/// 注入 receipt 固定位;空账不可达——slot_as 车道首 collect 必采)。登记口径
+/// 与预算门分界:预算门条目 `g31.fif_dyn.slot_as_group_mem_bytes` 锚
+/// **probe 场景**(g31_fif_dyn_probe,44,544B/66,816 阈)0 动;本段 = 生产
+/// bistro 规模(全场景 BLAS/TLAS/instance/scratch ×S,数百 MB 级)receipt
+/// notes 登记面,不混口径不进预算判读(RFC-0030 §4.3 L2a evidence 义务 +
+/// G39 HANDOVER §D-7 补登)。
+#[allow(dead_code)]
+fn slot_as_mem_receipt_json(mem: &[u64]) -> String {
+    let per: Vec<String> = mem.iter().map(u64::to_string).collect();
+    format!(
+        "\"slot_as_mem\": {{\"per_slot_bytes\": [{}], \"group_total_bytes\": {}, \"note\": \"AS 副本组内存账(生产 bistro 规模;session telemetry allocation ledger 按 AS 表项 resource_id=resources_len+ai+1 过滤求和,逐槽含 instance/BLAS 顶点/BLAS storage/TLAS storage/scratch 全部 vkAllocateMemory 真账;首次 collect 采集,ledger 项 session 生命周期稳定;预算门条目 g31.fif_dyn.slot_as_group_mem_bytes 锚 probe 场景不混口径,本段 = receipt notes 登记面不进预算判读)\"}},\n  ",
+        per.join(","),
+        mem.iter().sum::<u64>(),
+    )
+}
+
 fn bench_leg(
     scene_id: &str,
     tier: u32,
@@ -16326,6 +16408,9 @@ fn bench_leg(
     let mut tail_ms: Vec<f64> = Vec::new();
     let mut prod_ms: Vec<f64> = Vec::new();
     let mut last_digest = String::new();
+    // G40 T3:AS 副本组内存账 receipt 注入段(dyn/skin slot_as 臂排空后填;
+    // 非 slot_as 臂恒空串 ⇒ receipt 字节 0 漂——off 面 0-byte)。
+    let mut slot_as_mem_json = String::new();
     // C7 profiler 收集面（--profile-json on 才消费;post-warmup 与 frame_ms 同窗;
     // debug label 活跃态随车道创建簿记）。
     let mut profile_frames: Vec<G14ProfileFrame> = Vec::new();
@@ -16650,6 +16735,12 @@ fn bench_leg(
                     Ok(r) => r,
                     Err(e) => fail(&format!("bench 动态 slot_as 排空 collect: {e}")),
                 };
+                // G40 T3:排空段内取账(首次 collect 已采,此处读面幂等)。
+                if slot_as_mem_json.is_empty()
+                    && let Some(mem) = lane.slot_as_mem_bytes()
+                {
+                    slot_as_mem_json = slot_as_mem_receipt_json(mem);
+                }
                 drain_wait_ms += t_drain.elapsed().as_secs_f64() * 1000.0;
                 if rec.validation_error_count != 0 {
                     fail(&format!(
@@ -17410,6 +17501,12 @@ fn bench_leg(
                     Ok(r) => r,
                     Err(e) => fail(&format!("bench 蒙皮 slot_as 排空 collect: {e}")),
                 };
+                // G40 T3:排空段内取账(dyn 臂同律)。
+                if slot_as_mem_json.is_empty()
+                    && let Some(mem) = lane.slot_as_mem_bytes()
+                {
+                    slot_as_mem_json = slot_as_mem_receipt_json(mem);
+                }
                 drain_wait_ms += t_drain.elapsed().as_secs_f64() * 1000.0;
                 if rec.validation_error_count != 0 {
                     fail(&format!(
@@ -18629,7 +18726,7 @@ fn bench_leg(
         .join(backend_name);
     std::fs::create_dir_all(&out_dir).unwrap_or_else(|e| fail(&format!("输出目录: {e}")));
     let receipt = format!(
-        "{{\n  \"schema\": \"rurix.g14.pipeline_perf_bench_receipt.v1\",\n  \"contract\": {},\n  \"contract_digest_rurix\": {},\n  \"scene_id\": {},\n  \"tier\": {},\n  \"backend\": {},\n  \"seed\": {},\n  \"jitter_base\": {},\n  \"output_size\": [{}, {}],\n  \"internal_size\": [{}, {}],\n  \"exposure\": {},\n  \"warmup\": {},\n  \"inflight\": {},\n  \"frames_measured\": {},\n  \"iterations_total\": {},\n  \"frame_ms\": [{}],\n  \"scene_render_ms\": [{}],\n  \"mv_ms\": [{}],\n  \"upscale_ms\": [{}],\n  \"scene_gpu_ns\": [{}],\n  \"cpu_record_ns\": [{}],\n  \"cpu_submit_ns\": [{}],\n  \"cpu_fence_wait_ns\": [{}],\n  \"tail_ms\": [{}],\n  \"frame_ms_production\": [{}],\n  \"stats_post_warmup\": {{\"frame_ms_mean\": {}, \"frame_ms_sd\": {}, \"frame_ms_cv\": {}, \"frame_ms_min\": {}, \"frame_ms_max\": {}, \"scene_render_ms_mean\": {}, \"mv_ms_mean\": {}, \"upscale_ms_mean\": {}, \"scene_gpu_ns_mean\": {}, \"cpu_record_ns_mean\": {}, \"cpu_submit_ns_mean\": {}, \"cpu_fence_wait_ns_mean\": {}, \"tail_ms_mean\": {}, \"frame_ms_production_mean\": {}, \"frame_ms_production_sd\": {}, \"frame_ms_production_cv\": {}, \"frame_ms_production_min\": {}, \"frame_ms_production_max\": {}}},\n  \"caliber\": {},\n  \"steady_state_fps_mean\": {},\n  \"render_lane\": {},\n  \"timer\": {},\n  \"last_frame_digest\": {},\n  \"gi_arm\": \"direct_only（--gi off；GI 臂 not-triggered 登记见 render_receipt 面）\"\n}}\n",
+        "{{\n  \"schema\": \"rurix.g14.pipeline_perf_bench_receipt.v1\",\n  \"contract\": {},\n  \"contract_digest_rurix\": {},\n  \"scene_id\": {},\n  \"tier\": {},\n  \"backend\": {},\n  \"seed\": {},\n  \"jitter_base\": {},\n  \"output_size\": [{}, {}],\n  \"internal_size\": [{}, {}],\n  \"exposure\": {},\n  \"warmup\": {},\n  \"inflight\": {},\n  \"frames_measured\": {},\n  \"iterations_total\": {},\n  \"frame_ms\": [{}],\n  \"scene_render_ms\": [{}],\n  \"mv_ms\": [{}],\n  \"upscale_ms\": [{}],\n  \"scene_gpu_ns\": [{}],\n  \"cpu_record_ns\": [{}],\n  \"cpu_submit_ns\": [{}],\n  \"cpu_fence_wait_ns\": [{}],\n  \"tail_ms\": [{}],\n  \"frame_ms_production\": [{}],\n  \"stats_post_warmup\": {{\"frame_ms_mean\": {}, \"frame_ms_sd\": {}, \"frame_ms_cv\": {}, \"frame_ms_min\": {}, \"frame_ms_max\": {}, \"scene_render_ms_mean\": {}, \"mv_ms_mean\": {}, \"upscale_ms_mean\": {}, \"scene_gpu_ns_mean\": {}, \"cpu_record_ns_mean\": {}, \"cpu_submit_ns_mean\": {}, \"cpu_fence_wait_ns_mean\": {}, \"tail_ms_mean\": {}, \"frame_ms_production_mean\": {}, \"frame_ms_production_sd\": {}, \"frame_ms_production_cv\": {}, \"frame_ms_production_min\": {}, \"frame_ms_production_max\": {}}},\n  {}\"caliber\": {},\n  \"steady_state_fps_mean\": {},\n  \"render_lane\": {},\n  \"timer\": {},\n  \"last_frame_digest\": {},\n  \"gi_arm\": \"direct_only（--gi off；GI 臂 not-triggered 登记见 render_receipt 面）\"\n}}\n",
         jstr(&contract_path.replace('\\', "/")),
         jstr(&contract.digest),
         jstr(scene_id),
@@ -18674,6 +18771,7 @@ fn bench_leg(
         p_cv,
         p_min,
         p_max,
+        slot_as_mem_json,
         jstr(&caliber),
         1000.0 / f_mean,
         jstr(&render_lane),

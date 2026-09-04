@@ -17,9 +17,13 @@
 //   [67] 臂⑥ --gi2-tex 门;[68] 臂⑦ --transparency 门(G37 W2);
 //   [69] 臂⑧ --gi2-ris 门 [70] ris_m 候选数 [71] --gi2-nee 门(G37 W2
 //   ris_nee,第 8 链位;原 [69..72) 预留槽全数启用,REAL_PARAMS_LEN=72 不变)
-//   [72..76) 臂⑨ --lamp-restir 门/m_cap/has_history/预留(G39 T1
-//   lamp_restir,第 9 链位;纯追加扩面 RESTIR_PARAMS_LEN=76——restir on 才
-//   扩,off 恒 72/56 既有面 0-byte)
+//   [72..76) 臂⑨ --lamp-restir 门/m_cap/has_history/[75] per-pixel 钳值
+//   (G39 T1 lamp_restir,第 9 链位;G40 T1c 启用原预留槽 [75]:W·phat_y
+//   归一化钳,0 = off——--lamp-restir-clamp)
+//   [76..80) G40 T1b disocclusion 两拒(--lamp-restir-depth-rej [76] 深度
+//   相对差阈/--lamp-restir-nrm-rej [77] 法线点积阈,0 = 拒关;[78..80) 预留
+//   恒 0;RESTIR_PARAMS_LEN 76→80——restir on 才扩,off 恒 72/56 既有面
+//   0-byte)
 // ## 侧表扩面:tri_base 3 f32/tri 未衰减 baseColor(--metal-f0 off 绑 12B
 // 零哑表,门 off 地址钳 0 保底读——texmeta slot 钳 0 同律)。
 // ## G37 W2 transparency 臂⑦侧表:tri_transp 1 f32/tri(0 = 不透明,(0,1] =
@@ -39,11 +43,15 @@
 // tri_count×0.0 零表(阴影重走段 tri_transp[prim] 无门保底读,trinm 回退律)。
 // ## G39 T1 lamp_restir 臂⑨跨帧面:prev_vp 16 f32(上帧 VP 行主序——
 // pack_mv_params prev_vp 同布局,host 逐帧 buffer_uploads;reset 帧 = 当前
-// vp 且 [74]=0 门跳过)+ reservoir 双缓冲 4 f32/px = [y, w_sum, m, phat_y]
-// (y = f32 灯下标,-1.0 哨兵空;host parity 轮换 binding_overrides,TSR 五对
-// 同律;初值不清——首帧由 [74]=0 门零读,era 重建重置)。签名尾追 lamp_tbl
-// 之后成第 9 链位,仅编译 g31_realism_restir.spv〔22 路 View,--lamp-restir
-// on 独载〕;restir on 而下位臂 off 时下位链全占位(lamp_tbl 80B 哑表律)。
+// vp 且 [74]=0 门跳过)+ reservoir 双缓冲(G40 T1 stride 4→**12 f32/px** =
+// [y, w_sum, m, phat_y | hx, hy, hz, hit_f | nx, ny, nz, 预留]:前 4 =
+// reservoir 四元组〔y = f32 灯下标,-1.0 哨兵空〕,[4..8) = 本帧命中世界位 +
+// hit_f,[8..11) = 本帧最终法线〔法线贴图臂后值〕——T1b disocclusion 两拒
+// 的 prev 承载面 + T1a host 镜像对拍的 kernel 精确输入,零新增 binding;
+// host parity 轮换 binding_overrides,TSR 五对同律;初值不清——首帧由
+// [74]=0 门零读,era 重建重置)。签名尾追 lamp_tbl 之后成第 9 链位,仅编译
+// g31_realism_restir.spv〔22 路 View,--lamp-restir on 独载〕;restir on 而
+// 下位臂 off 时下位链全占位(lamp_tbl 80B 哑表律)。
 //
 // ── 以下为 fork 基线头注(day_0828 谱系,逐字保留)──
 // Phase B 统一质量 kernel —— kernels/g18_smooth_nrm.rx 逐字 fork（平滑顶点
@@ -138,9 +146,11 @@ kernel fn g31_texture_nrm_gi(
     lamp_tbl: View<global, f32>,
     // G39 T1 lamp_restir:上帧 VP 16 f32(第 9 链位签名扩展;头注布局)。
     prev_vp: View<global, f32>,
-    // G39 T1 lamp_restir:上帧 reservoir(4 f32/px;读面,parity 轮换)。
+    // G39 T1 lamp_restir:上帧 reservoir(G40 T1 stride 12 f32/px,头注布局;
+    // 读面,parity 轮换)。
     resv_prev: View<global, f32>,
-    // G39 T1 lamp_restir:本帧 reservoir 写回(4 f32/px;parity 轮换)。
+    // G39 T1 lamp_restir:本帧 reservoir 写回(G40 T1 stride 12 f32/px;
+    // parity 轮换)。
     resv_cur: ViewMut<global, f32>,
     out_color: ViewMut<global, f32>,
     out_depth: ViewMut<global, f32>,
@@ -1032,21 +1042,49 @@ kernel fn g31_texture_nrm_gi(
             // 界内钳位读地址(恒有效;消费经 lrs_mn 计数门)。
             let lrs_ppx = lrs_pxf.max(0.0).min((width as f32) - 1.0) as usize;
             let lrs_ppy = lrs_pyf.max(0.0).min((height as f32) - 1.0) as usize;
-            let mut lrs_mi = 0usize;
-            while lrs_mi < lrs_mn {
-                let lrs_pr = (lrs_ppy * width + lrs_ppx) * 4;
-                let lrs_ry = resv_prev[lrs_pr];
-                let lrs_rw = resv_prev[lrs_pr + 1];
-                let lrs_rm = resv_prev[lrs_pr + 2];
-                let lrs_rp = resv_prev[lrs_pr + 3];
-                // 槽有效门:y ≥ 0((y+1)·big,g28 同源)× y < point_count ×
-                // m > 0;phat_y > 0 单独入 W_prev 门(host merge w_other=0
-                // 分支同义,m 照加)。
-                let lrs_gy = ((lrs_ry + 1.0) * big).min(1.0).max(0.0);
-                let lrs_gylt = ((lrs_pcf - lrs_ry) * big).min(1.0).max(0.0);
-                let lrs_gm = (lrs_rm * big).min(1.0).max(0.0);
-                let lrs_gph = (lrs_rp * big).min(1.0).max(0.0);
-                let lrs_ok = lrs_gy * lrs_gylt * lrs_gm;
+        let mut lrs_mi = 0usize;
+        while lrs_mi < lrs_mn {
+            let lrs_pr = (lrs_ppy * width + lrs_ppx) * 12;
+            let lrs_ry = resv_prev[lrs_pr];
+            let lrs_rw = resv_prev[lrs_pr + 1];
+            let lrs_rm = resv_prev[lrs_pr + 2];
+            let lrs_rp = resv_prev[lrs_pr + 3];
+            // 槽有效门:y ≥ 0((y+1)·big,g28 同源)× y < point_count ×
+            // m > 0;phat_y > 0 单独入 W_prev 门(host merge w_other=0
+            // 分支同义,m 照加)。
+            let lrs_gy = ((lrs_ry + 1.0) * big).min(1.0).max(0.0);
+            let lrs_gylt = ((lrs_pcf - lrs_ry) * big).min(1.0).max(0.0);
+            let lrs_gm = (lrs_rm * big).min(1.0).max(0.0);
+            let lrs_gph = (lrs_rp * big).min(1.0).max(0.0);
+            // ── G40 T1b disocclusion 两拒(EVAL §5.4 / G39 REPORT §五-2:
+            //    merge 计数门追加 prev 深度差 + 法线点积——折入槽有效门
+            //    lrs_ok ⇒ 拒 = m 不加/w_other=0/take 门自落 0,零合并重启;
+            //    阈 0 = 该拒关断〔(x·big) 门恒 0 ⇒ rej 恒 1〕)──
+            // 深度拒:prev 槽存上帧命中世界位,经同一 prev_vp 行 3 投影得
+            // 上帧相机视深,与当前命中视深 lrs_pcw 相对差 ≤ params[76]。
+            let lrs_pgx = resv_prev[lrs_pr + 4];
+            let lrs_pgy = resv_prev[lrs_pr + 5];
+            let lrs_pgz = resv_prev[lrs_pr + 6];
+            let lrs_ppw = ((prev_vp[12] * lrs_pgx + prev_vp[13] * lrs_pgy)
+                + prev_vp[14] * lrs_pgz)
+                + prev_vp[15];
+            let lrs_dth = params[76];
+            let lrs_dgon = (lrs_dth * big).min(1.0).max(0.0);
+            let lrs_dpass = (((lrs_dth * lrs_pcw.abs() - (lrs_ppw - lrs_pcw).abs()) * big)
+                + 1.0)
+                .min(1.0)
+                .max(0.0);
+            let lrs_rejd = (1.0 - lrs_dgon) + lrs_dgon * lrs_dpass;
+            // 法线拒:当前最终法线 · prev 槽法线 ≥ params[77]。
+            let lrs_pnx = resv_prev[lrs_pr + 8];
+            let lrs_pny = resv_prev[lrs_pr + 9];
+            let lrs_pnz = resv_prev[lrs_pr + 10];
+            let lrs_nth = params[77];
+            let lrs_ngon = (lrs_nth * big).min(1.0).max(0.0);
+            let lrs_ndot = nx * lrs_pnx + ny * lrs_pny + nz * lrs_pnz;
+            let lrs_npass = (((lrs_ndot - lrs_nth) * big) + 1.0).min(1.0).max(0.0);
+            let lrs_rejn = (1.0 - lrs_ngon) + lrs_ngon * lrs_npass;
+            let lrs_ok = lrs_gy * lrs_gylt * lrs_gm * lrs_rejd * lrs_rejn;
                 // m_cap 截断(host merge m_other = min(m, m_cap) 同义)。
                 let lrs_mcl = lrs_rm.min(params[73].max(1.0)) * lrs_ok;
                 // 当前着色点重算 phat(y)(候选同式;地址钳 0 保底读,消费经门)。
@@ -1097,6 +1135,16 @@ kernel fn g31_texture_nrm_gi(
             let lrs_den = lrs_phy * lrs_m;
             let lrs_dens = lrs_den + (1.0 - lrs_gall);
             let lrs_wgt = (lrs_wsum / lrs_dens) * lrs_gall;
+            // ── G40 T1c per-pixel phat 归一化钳制(EVAL §5 缓解第二半句 /
+            //    G39 REPORT §四-3:W·phat_y ≤ params[75],0 = off——只钳输出
+            //    消费权重,reservoir 写回四元组不动 ⇒ 时域链/镜像对拍面零
+            //    扰动;firefly 有界 = 无历史退化时 W·phat ≈ phat·pc/m 量级,
+            //    钳值语义 = 有效样本放大上限)──
+            let lrs_cv = params[75];
+            let lrs_cg = (lrs_cv * big).min(1.0).max(0.0);
+            let lrs_wps = (lrs_wgt * lrs_phy).max(tiny);
+            let lrs_csc = (lrs_cv / lrs_wps).min(1.0);
+            let lrs_wgc = lrs_wgt * ((1.0 - lrs_cg) + lrs_cg * lrs_csc);
             // 选中灯几何/光度重取(点灯循环逐字同形;地址钳 0 保底读)。
             let lrs_sb = ((lrs_y.max(0.0)) as usize) * 8;
             let lrs_slvx = points[lrs_sb] - hx;
@@ -1145,7 +1193,9 @@ kernel fn g31_texture_nrm_gi(
             // 贡献 = f(y)·vis·W(diffuse 与循环 li·g·keep 同式,keep →
             // kpre·vis·W)。
             let lrs_geo = lrs_scs / lrs_sd2s;
-            let lrs_kw = lrs_kpre * lrs_vis * lrs_wgt;
+            // G40 T1c:消费钳后权重 lrs_wgc(clamp off ⇒ 数学 == lrs_wgt——
+            // 既有行改写登记,让位门先例形)。
+            let lrs_kw = lrs_kpre * lrs_vis * lrs_wgc;
             dir_r = dir_r + lrs_slir * lrs_geo * lrs_kw;
             dir_g = dir_g + lrs_slig * lrs_geo * lrs_kw;
             dir_b = dir_b + lrs_slib * lrs_geo * lrs_kw;
@@ -1182,14 +1232,24 @@ kernel fn g31_texture_nrm_gi(
         }
         // 写回本帧 reservoir(gate on 全像素恒写——miss/空池像素写 -1 哨兵,
         // 下一帧任意重投影目标读安全;gate off 计数门零写,未来超集工件 off 面
-        // 占位 buffer 零触达)。
+        // 占位 buffer 零触达)。G40 T1 stride 12:[4..8) 本帧命中世界位 +
+        // hit_f,[8..11) 本帧最终法线(nx/ny/nz 法线贴图臂后值)——T1b prev
+        // 承载 + T1a 镜像 kernel 精确输入;[11] 预留恒 0。
         let lrs_wn = lrs_gate as usize;
         let mut lrs_k = 0usize;
         while lrs_k < lrs_wn {
-            resv_cur[i * 4] = lrs_y;
-            resv_cur[i * 4 + 1] = lrs_wsum;
-            resv_cur[i * 4 + 2] = lrs_m;
-            resv_cur[i * 4 + 3] = lrs_phy;
+            resv_cur[i * 12] = lrs_y;
+            resv_cur[i * 12 + 1] = lrs_wsum;
+            resv_cur[i * 12 + 2] = lrs_m;
+            resv_cur[i * 12 + 3] = lrs_phy;
+            resv_cur[i * 12 + 4] = hx;
+            resv_cur[i * 12 + 5] = hy;
+            resv_cur[i * 12 + 6] = hz;
+            resv_cur[i * 12 + 7] = hit_f;
+            resv_cur[i * 12 + 8] = nx;
+            resv_cur[i * 12 + 9] = ny;
+            resv_cur[i * 12 + 10] = nz;
+            resv_cur[i * 12 + 11] = 0.0;
             lrs_k = lrs_k + 1;
         }
         // ── Phase C GI2 加性臂：1 反弹间接光（params[51] 门；day_0828 C 相）──

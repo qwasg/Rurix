@@ -1,0 +1,279 @@
+{
+ "schema": "rurix.day0901.g40.gates.v1",
+ "fails": [],
+ "verdict": "PASS",
+ "rows": [
+  {
+   "t": "14:52:54",
+   "step": "seg.build",
+   "status": "BEGIN"
+  },
+  {
+   "t": "14:52:55",
+   "step": "build.frame_cut_probe",
+   "status": "OK",
+   "argv": "cargo build --release -p rurix-render --features vendor-upscale --bin g31_frame_cut_probe",
+   "wall_s": 0.2,
+   "tail": "                                           \u001b[1m\u001b[93m^^^^^^^^\u001b[0m\n     \u001b[1m\u001b[96m|\u001b[0m\n     \u001b[1m\u001b[96m= \u001b[0m\u001b[1m\u001b[97mnote\u001b[0m: `#[warn(function_casts_as_integer)]` on by default\n\u001b[1m\u001b[96mhelp\u001b[0m: first cast to a pointer `as *const ()`\n     \u001b[1m\u001b[96m|\u001b[0m\n\u001b[1m\u001b[96m7945\u001b[0m \u001b[1m\u001b[96m| \u001b[0m                    slot.write_unaligned(hook_get_module_filename_w\u001b[92m as *const ()\u001b[0m as usize as u64);\n     \u001b[1m\u001b[96m|\u001b[0m                                                                     \u001b[92m++++++++++++\u001b[0m\n\n\u001b[1m\u001b[93mwarning\u001b[0m: `rurix-rt` (lib) generated 17 warnings (run `cargo fix --lib -p rurix-rt` to apply 7 suggestions)\n\u001b[1m\u001b[92m    Finished\u001b[0m `release` profile [optimized] target(s) in 0.17s\n"
+  },
+  {
+   "t": "14:52:55",
+   "step": "build.fif_dyn_probe",
+   "status": "OK",
+   "argv": "cargo build --release -p rurix-render --features vendor-upscale --bin g31_fif_dyn_probe",
+   "wall_s": 0.2,
+   "tail": "                                           \u001b[1m\u001b[93m^^^^^^^^\u001b[0m\n     \u001b[1m\u001b[96m|\u001b[0m\n     \u001b[1m\u001b[96m= \u001b[0m\u001b[1m\u001b[97mnote\u001b[0m: `#[warn(function_casts_as_integer)]` on by default\n\u001b[1m\u001b[96mhelp\u001b[0m: first cast to a pointer `as *const ()`\n     \u001b[1m\u001b[96m|\u001b[0m\n\u001b[1m\u001b[96m7945\u001b[0m \u001b[1m\u001b[96m| \u001b[0m                    slot.write_unaligned(hook_get_module_filename_w\u001b[92m as *const ()\u001b[0m as usize as u64);\n     \u001b[1m\u001b[96m|\u001b[0m                                                                     \u001b[92m++++++++++++\u001b[0m\n\n\u001b[1m\u001b[93mwarning\u001b[0m: `rurix-rt` (lib) generated 17 warnings (run `cargo fix --lib -p rurix-rt` to apply 7 suggestions)\n\u001b[1m\u001b[92m    Finished\u001b[0m `release` profile [optimized] target(s) in 0.09s\n"
+  },
+  {
+   "t": "14:52:55",
+   "step": "seg.build",
+   "status": "END",
+   "seg_fails": []
+  },
+  {
+   "t": "14:52:55",
+   "step": "seg.gates",
+   "status": "BEGIN"
+  },
+  {
+   "t": "15:09:55",
+   "step": "gate.profiling",
+   "status": "OK",
+   "argv": "py -3 ci/g31_profiling_smoke.py --gate g31.waveC.profiling",
+   "wall_s": 1020.0,
+   "tail": "ue annotated=4/4（render_exec.rs 逐 pass vkCmdBegin/EndDebugUtilsLabelEXT;Nsight/RenderDoc 可辨识）\n[g31_profiling]   fact profiler_zero_render_drift: PASS — g31 digest+render_digest 双锚 off×on 全 5 轮位级一致（sha256:f727cef681100114…）,g14 last_frame_digest 全 5 轮位级一致（sha256:101998653e951df2…）\n[g31_profiling]   fact capture_compat_verified: PASS — method=static_checklist_no_renderdoc validation=静默（门腿 rc 全 0,harness 逐帧 validation_error_count==0 fail-closed）blocklist 命中=0（RenderDoc absent 降级登记）\n[g31_profiling]   fact tool_probe_registered: PASS — renderdoc=absent nsight_graphics=absent 双探在档\n[g31_profiling] evidence: evidence\\g31_profiling_20260902T065651Z.json\n[g31_profiling] GATE PASS g31.waveC.profiling\n\n"
+  },
+  {
+   "t": "15:24:25",
+   "step": "gate.wp_hlod",
+   "status": "OK",
+   "argv": "py -3 ci/g31_wp_hlod_smoke.py --gate g31.wave95.wp_hlod",
+   "wall_s": 869.8,
+   "tail": ":\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\render_off\\bistro-interior\\tier100\\tsr_device\\converged.exr --frame-b H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\render_on\\bistro-interior\\tier100\\tsr_device\\converged.exr --out-dir H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\diff --evidence H:\\rurix\\.tmp\\g31_gates\\wave95_wp_hlod\\diff\\report.json --scene-id bistro-interior --camera-id contract --frame-index 0 --threshold 1.0\n[gpu_device_lock] released purpose='g31 wave95 wp-hlod device 腿'\n[g31_wp_hlod] PASS gate=g31.wave95.wp_hlod（构建绿 + bake double-build 确定 + 全 Full digest 锚位级 + 三档阈值单调下降 + 混合互斥帧 + on 双跑位级 + dolly 切换 warmup 协议 + 四 RED 臂 + 画质差 measured） evidence=H:\\rurix\\evidence\\g31_wp_hlod_20260902T072425Z.json\n\n"
+  },
+  {
+   "t": "15:47:32",
+   "step": "gate.g36_geo",
+   "status": "OK",
+   "argv": "py -3 ci/g36_geo_composition_smoke.py --gate g36.wave1.geo_composition",
+   "wall_s": 1387.7,
+   "tail": "\\target-night\\release\\g35_particle_lane.exe --frames 24 --warmup 4 --tier 50 --particles on --oit wboit --cluster-lod on --cluster-error-px 4.0 --cluster-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxcp --wp-hlod on --wp-threshold-l0 0.25 --wp-pack H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\bistro.rxwh --evidence H:\\rurix\\.tmp\\g36_gates\\wave1_geo_composition\\g35_geo_b.json\n[gpu_device_lock] released purpose='g36 wave1 geo 组合 device 腿'\n[g36_geo_composition] PASS gate=g36.wave1.geo_composition（十 facts 全绿：构建/双包确定/单开零漂移/leaf×full 位级锚/混合双跑位级/dyn+skin 组合/g34 五特性恒等锚/host parity 入容差/HZB 六特性真剔除/粒子×OIT×geo 位级） evidence=H:\\rurix\\evidence\\g36_geo_composition_gate_20260902T074732Z.json\n\n"
+  },
+  {
+   "t": "15:48:20",
+   "step": "gate.restir_wiring",
+   "status": "OK",
+   "argv": "py -3 ci/g31_restir_wiring_smoke.py --gate g31.waveB.restir",
+   "wall_s": 47.2,
+   "tail": "tir_wire] rurixc --target vulkan 产 SPV + spirv-val 独立校验通过\n[g31_restir_wire] dev-env 探针绿（真机真跑面成立）\n[g31_restir_wire]   G28 门维持复跑全绿: y 锚 20000/20000 p100=2.831e-06 ≤ tol=5.662e-06 3σ dev=3.045e-03 双跑位级\n[g31_restir_wire]   车道双臂绿: var 1.789e-05→1.129e-06 （reduction 15.844）dispatch_ms 278.8674→216.4564\n[g31_restir_wire]   off 静态锚零漂移: digest=sha256:c66e9f0e5f9c7163… == 在档锚\n[g31_restir_wire]   冻结面 0-byte: git diff --quiet g27-closed 提交面 + 工作树双面 0-byte；git diff --quiet g28-closed 提交面 + 工作树双面 0-byte\n[gpu_device_lock] released purpose='g31_restir_wire 构建+SPV+G28 门维持+双臂真跑'\n[g31_restir_wire] evidence: H:\\rurix\\evidence\\g31_restir_wiring_20260902T074819Z.json\n[g31_restir_wire] GATE PASS g31.waveB.restir\n\n"
+  },
+  {
+   "t": "15:48:20",
+   "step": "seg.gates",
+   "status": "END",
+   "seg_fails": []
+  },
+  {
+   "t": "15:48:20",
+   "step": "seg.framecut",
+   "status": "BEGIN"
+  },
+  {
+   "t": "15:48:20",
+   "step": "fc.selftest",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_frame_cut_probe.exe --selftest",
+   "wall_s": 0.1,
+   "tail": "[g31_frame_cut_probe]: PASS selftest（host 腿;device 判档归 GPU 验收窗）\n\n[g31_frame_cut_probe]: red-arm 模式甲 受害全局簇 0(期望 4;parent 球半径→−MAX ⇒ device 必翻 2)\n[g31_frame_cut_probe]: red-arm 模式乙 受害全局簇 0(期望 2;self→−MAX/parent→+MAX ⇒ device 必翻 4)\n[g31_frame_cut_probe]: red-arm 模式乙 受害全局簇 0(期望 2;self→−MAX/parent→+MAX ⇒ device 必翻 4)\n[g31_frame_cut_probe]: selftest OK（布局/owner 二分/单调细化 12 帧 1→4 tri/增量写器/零面积折叠/双跑确定性/kernel 结构/min-level 提升+降档布局/脏区段合并/device 对拍臂 host 面〔表+sentinel 映射+f32::MAX 根编码透传+params 三关中和+期望码+NoContraction 注入器+red-arm 裁决〕/P2 决策消费链〔决策码逆展平+ml0/ml1 与 host select 后链同判〕,全 fail-closed 已过）\n"
+  },
+  {
+   "t": "15:49:38",
+   "step": "fc.incr",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_frame_cut_probe.exe --cluster-pack .tmp/g36_gates/wave1_geo_composition/bistro.rxcp --error-px 2.0 --frames 16 --step-m 0.15 --res 96x54 --refit-copy incr --evidence H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_incr.json",
+   "wall_s": 78.7,
+   "tail": "00（LOD 判据分辨率 = 内部分辨率,#58/W2 同口径）\n[g31_frame_cut_probe]: 簇包就绪 blocks=187 clusters=123169 passthrough=44024（gltf sha/覆盖恰一次/叶几何位级 已核）\n[g31_frame_cut_probe]: G38 T3 旗标 refit_copy=incr min_level=0 cut_source=host\n[g31_frame_cut_probe]: 会话就绪 arena_tris=2082603 arena_mb=75.0 create_ms=401（单 BLAS 单实例,ALLOW_UPDATE;初始 build 含帧 0 cut）\n[g31_frame_cut_probe]: 双跑 digest 位级 16 帧全等;cut_tris 888460 → 937542（单调不减）\n[g31_frame_cut_probe]: 逐帧 cut→AS 更新臂 OK frames=16 refit_frames=16 exec_ms(refit均)=21.83 bridge_gpu(copy均=0.58ms build均=20.37ms copy_mode=incr)（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）\n[g31_frame_cut_probe]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_incr.json\n"
+  },
+  {
+   "t": "15:50:44",
+   "step": "fc.full",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_frame_cut_probe.exe --cluster-pack .tmp/g36_gates/wave1_geo_composition/bistro.rxcp --error-px 2.0 --frames 16 --step-m 0.15 --res 96x54 --refit-copy full --evidence H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_full.json",
+   "wall_s": 66.1,
+   "tail": "00（LOD 判据分辨率 = 内部分辨率,#58/W2 同口径）\n[g31_frame_cut_probe]: 簇包就绪 blocks=187 clusters=123169 passthrough=44024（gltf sha/覆盖恰一次/叶几何位级 已核）\n[g31_frame_cut_probe]: G38 T3 旗标 refit_copy=full min_level=0 cut_source=host\n[g31_frame_cut_probe]: 会话就绪 arena_tris=2082603 arena_mb=75.0 create_ms=404（单 BLAS 单实例,ALLOW_UPDATE;初始 build 含帧 0 cut）\n[g31_frame_cut_probe]: 双跑 digest 位级 16 帧全等;cut_tris 888460 → 937542（单调不减）\n[g31_frame_cut_probe]: 逐帧 cut→AS 更新臂 OK frames=16 refit_frames=16 exec_ms(refit均)=29.30 bridge_gpu(copy均=8.95ms build均=18.84ms copy_mode=full)（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）\n[g31_frame_cut_probe]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_full.json\n"
+  },
+  {
+   "t": "15:51:51",
+   "step": "fc.incr_r2",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_frame_cut_probe.exe --cluster-pack .tmp/g36_gates/wave1_geo_composition/bistro.rxcp --error-px 2.0 --frames 16 --step-m 0.15 --res 96x54 --refit-copy incr --evidence H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_incr_r2.json",
+   "wall_s": 66.0,
+   "tail": "LOD 判据分辨率 = 内部分辨率,#58/W2 同口径）\n[g31_frame_cut_probe]: 簇包就绪 blocks=187 clusters=123169 passthrough=44024（gltf sha/覆盖恰一次/叶几何位级 已核）\n[g31_frame_cut_probe]: G38 T3 旗标 refit_copy=incr min_level=0 cut_source=host\n[g31_frame_cut_probe]: 会话就绪 arena_tris=2082603 arena_mb=75.0 create_ms=348（单 BLAS 单实例,ALLOW_UPDATE;初始 build 含帧 0 cut）\n[g31_frame_cut_probe]: 双跑 digest 位级 16 帧全等;cut_tris 888460 → 937542（单调不减）\n[g31_frame_cut_probe]: 逐帧 cut→AS 更新臂 OK frames=16 refit_frames=16 exec_ms(refit均)=22.37 bridge_gpu(copy均=0.56ms build均=20.46ms copy_mode=incr)（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）\n[g31_frame_cut_probe]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_incr_r2.json\n"
+  },
+  {
+   "t": "15:52:56",
+   "step": "fc.ml1",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_frame_cut_probe.exe --cluster-pack .tmp/g36_gates/wave1_geo_composition/bistro.rxcp --error-px 2.0 --frames 16 --step-m 0.15 --res 96x54 --refit-copy incr --min-level 1 --evidence H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_ml1.json",
+   "wall_s": 65.1,
+   "tail": "/叶几何位级 已核）\n[g31_frame_cut_probe]: G38 T3 旗标 refit_copy=incr min_level=1 cut_source=host\n[g31_frame_cut_probe]: min-level 降档臂 N=1 arena_tris=1080018(全簇布局对照 = 逐块逐簇全量;cut 经 level<N→首个 level≥N 祖先提升,提升后生产 verify 复核)\n[g31_frame_cut_probe]: 会话就绪 arena_tris=1080018 arena_mb=38.9 create_ms=313（单 BLAS 单实例,ALLOW_UPDATE;初始 build 含帧 0 cut）\n[g31_frame_cut_probe]: 双跑 digest 位级 16 帧全等;cut_tris 888460 → 937542（单调不减）\n[g31_frame_cut_probe]: 逐帧 cut→AS 更新臂 OK frames=16 refit_frames=16 exec_ms(refit均)=9.06 bridge_gpu(copy均=0.22ms build均=8.10ms copy_mode=incr)（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）\n[g31_frame_cut_probe]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t3_ml1.json\n"
+  },
+  {
+   "t": "15:54:01",
+   "step": "fc.dev",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_frame_cut_probe.exe --cluster-pack .tmp/g36_gates/wave1_geo_composition/bistro.rxcp --error-px 2.0 --frames 16 --step-m 0.15 --res 96x54 --cut-source device --cull-spv H:\\rurix\\.tmp\\g40_gates\\t2_devicecut\\g31_cluster_cull.spv --evidence H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t5_dev.json",
+   "wall_s": 65.8,
+   "tail": "60 + lod 3941408);P2 形态 = 决策码为源(表驻留 cull 会话,每帧仅 params 256B 上传;host 影子核 verify + 提升/施加链照旧 host)\n[g31_frame_cut_probe]: cull 会话就绪 n=123169 驻留表字节=9360844 create_ms=225(P2 表驻留;每帧 params 256B 上传 + 决策码 492676B 回读)\n[g31_frame_cut_probe]: 会话就绪 arena_tris=2082603 arena_mb=75.0 create_ms=168（单 BLAS 单实例,ALLOW_UPDATE;初始 build 含帧 0 cut）\n[g31_frame_cut_probe]: 双跑 digest 位级 16 帧全等;cut_tris 888460 → 937542（单调不减）\n[g31_frame_cut_probe]: 逐帧 cut→AS 更新臂 OK frames=16 refit_frames=16 exec_ms(refit均)=22.12 bridge_gpu(copy均=0.58ms build均=20.09ms copy_mode=incr)（措辞 = measured 登记不设通过线;AS 更新增量 = refit/非 refit 帧对照）\n[g31_frame_cut_probe]: 逐帧 cut sidecar → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\framecut_ev\\t5_dev.json\n"
+  },
+  {
+   "t": "15:54:01",
+   "step": "fc.judge",
+   "status": "OK",
+   "incr_eq_full": true,
+   "double_run": true
+  },
+  {
+   "t": "15:54:01",
+   "step": "fc.judge_dev",
+   "status": "OK",
+   "dev_eq_host": true
+  },
+  {
+   "t": "15:54:01",
+   "step": "fc.cross_g38",
+   "status": "OK",
+   "match": true
+  },
+  {
+   "t": "15:54:01",
+   "step": "seg.framecut",
+   "status": "END",
+   "seg_fails": []
+  },
+  {
+   "t": "15:54:01",
+   "step": "seg.fif",
+   "status": "BEGIN"
+  },
+  {
+   "t": "15:54:01",
+   "step": "fif.selftest",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_fif_dyn_probe.exe --selftest",
+   "wall_s": 0.1,
+   "tail": "[g31_fif_dyn_probe]: PASS selftest 5/5(纯 host;device 判档归 GPU 验收窗)\n\n[g31_fif_dyn_probe] selftest slot_validator(红绿臂,rt 事实源直调): PASS\n[g31_fif_dyn_probe] selftest slot_ring(写面隔离模型): PASS\n[g31_fif_dyn_probe] selftest trajectory(双跑位级/可辨性): PASS\n[g31_fif_dyn_probe] selftest kernels(SPIR-V 结构/几何流): PASS\n[g31_fif_dyn_probe] selftest slot_as_mem(AS 账过滤求和,G38 登记面): PASS\n"
+  },
+  {
+   "t": "15:54:02",
+   "step": "fif.rebuild",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_fif_dyn_probe.exe --frames 48 --rays 96x72 --out H:\\rurix\\artifacts\\day_0901_g40\\closeout\\fif_ev\\evidence_fif_dyn_rebuild_g40.json",
+   "wall_s": 1.0,
+   "tail": "[g31_fif_dyn_probe]: PASS frames=48 action=rebuild(B/C≡A 逐帧 digest 逐字节 + 三臂双跑位级 + validation=0 + 动态见证 + RED 双臂必拒 + AS 内存账登记;帧时 A/B/C measured 已登记,slot_as_group_mem 最大组 44544 bytes)\n\n[g31_fif_dyn_probe]: 三臂判档启动 frames=48 rays=96x72 action=rebuild(A=顺序基线 / B=FIF2 每槽 AS 副本 / C=FIF3 同构;各双跑)\n[g31_fif_dyn_probe]: [A#1 顺序基线] …\n[g31_fif_dyn_probe]: [A#2 顺序基线重放] …\n[g31_fif_dyn_probe]: [B#1 FIF2 每槽副本(含 RED 双臂)] …\n[g31_fif_dyn_probe]: [B#2 FIF2 重放] …\n[g31_fif_dyn_probe]: [C#1 FIF3 每槽副本] …\n[g31_fif_dyn_probe]: [C#2 FIF3 重放] …\n[g31_fif_dyn_probe]: evidence → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\fif_ev\\evidence_fif_dyn_rebuild_g40.json\n"
+  },
+  {
+   "t": "15:54:03",
+   "step": "fif.refit",
+   "status": "OK",
+   "argv": "H:\\rurix\\target-night\\release\\g31_fif_dyn_probe.exe --frames 48 --rays 96x72 --action refit --out H:\\rurix\\artifacts\\day_0901_g40\\closeout\\fif_ev\\evidence_fif_dyn_refit_g40.json",
+   "wall_s": 1.0,
+   "tail": "[g31_fif_dyn_probe]: PASS frames=48 action=refit(B/C≡A 逐帧 digest 逐字节 + 三臂双跑位级 + validation=0 + 动态见证 + RED 双臂必拒 + AS 内存账登记;帧时 A/B/C measured 已登记,slot_as_group_mem 最大组 44544 bytes)\n\n[g31_fif_dyn_probe]: 三臂判档启动 frames=48 rays=96x72 action=refit(A=顺序基线 / B=FIF2 每槽 AS 副本 / C=FIF3 同构;各双跑)\n[g31_fif_dyn_probe]: [A#1 顺序基线] …\n[g31_fif_dyn_probe]: [A#2 顺序基线重放] …\n[g31_fif_dyn_probe]: [B#1 FIF2 每槽副本(含 RED 双臂)] …\n[g31_fif_dyn_probe]: [B#2 FIF2 重放] …\n[g31_fif_dyn_probe]: [C#1 FIF3 每槽副本] …\n[g31_fif_dyn_probe]: [C#2 FIF3 重放] …\n[g31_fif_dyn_probe]: evidence → H:\\rurix\\artifacts\\day_0901_g40\\closeout\\fif_ev\\evidence_fif_dyn_refit_g40.json\n"
+  },
+  {
+   "t": "15:54:03",
+   "step": "fif.rebuild_judge",
+   "status": "OK",
+   "gates_all": true,
+   "trimmed_mean": 44544
+  },
+  {
+   "t": "15:54:03",
+   "step": "fif.refit_judge",
+   "status": "OK",
+   "gates_all": true,
+   "trimmed_mean": 44544
+  },
+  {
+   "t": "15:54:04",
+   "step": "fif.calibrate_check",
+   "status": "OK",
+   "argv": "py -3 ci/calibrate_fif_budget.py --check",
+   "wall_s": 0.1,
+   "tail": "[calibrate_fif_budget]: CHECK PASS — g31.fif_dyn.slot_as_group_mem_bytes 与 evidence 位级互核绿\n\n"
+  },
+  {
+   "t": "15:54:04",
+   "step": "seg.fif",
+   "status": "END",
+   "seg_fails": []
+  },
+  {
+   "t": "15:54:04",
+   "step": "seg.guards",
+   "status": "BEGIN"
+  },
+  {
+   "t": "15:54:05",
+   "step": "guard.check_schemas",
+   "status": "OK",
+   "argv": "py -3 ci/check_schemas.py",
+   "wall_s": 1.7,
+   "tail": "[check_schemas] PASS\n\n"
+  },
+  {
+   "t": "15:54:06",
+   "step": "guard.budget_eval",
+   "status": "OK",
+   "argv": "py -3 ci/budget_eval.py",
+   "wall_s": 0.3,
+   "tail": "peline: PASS — 1 份 UC-02 三 stream 流水线端到端证据(要求 ≥1)\n  PASS m8.counter.cublas_bindings: PASS — 2 个 cublas GEMM/GEMV 绑定(要求 ≥2)\n  PASS m8.counter.release_artifacts_signed: PASS — 2 个发布链路签名产物(要求 ≥1)\n  PASS m8.counter.bilingual_diagnostic_coverage: PASS — 1 份诊断双语全量覆盖证据(要求 ≥1)\n  PASS ms1.bench.uc07_sph_step_ms: PASS — 11.461 ms vs max 17.1915\n  PASS ms1.bench.uc07_offline_frame_s: PASS — 0.116 s vs max 0.1736\n  PASS ms1.bench.uc07_realtime_frame_ms: PASS — 14.833 ms vs max 33.3\n  PASS ms1.counter.host_orch_single_source: PASS — 1 份 single-source 宿主编排端到端证据(要求 ≥1)\n  PASS ms1.counter.uc07_offline_golden_frames: PASS — 1 份 UC-07 离线 golden 端到端证据(要求 ≥1)\n[budget_eval] PASS (330 pass, 0 skip, normal mode)\n\n"
+  },
+  {
+   "t": "15:54:09",
+   "step": "guard.gpu_device_lock",
+   "status": "OK",
+   "argv": "py -3 ci/gpu_device_lock.py --selftest",
+   "wall_s": 3.8,
+   "tail": "  RED ok   — 臂1:同进程嵌套 acquire 超时拒(waited 1.6s)\n  RED ok   — 臂2:子进程跨进程互斥(子进程等待 2.0s 后才得锁)\n  GREEN ok — 臂3:release 后可再得锁\n[gpu_device_lock] SELFTEST PASS (2 RED + 1 GREEN)\n\n"
+  },
+  {
+   "t": "15:54:10",
+   "step": "guard.encode_parity",
+   "status": "OK",
+   "argv": "py -3 ci/g31_encode_parity_smoke.py --selftest",
+   "wall_s": 0.2,
+   "tail": " 根因复刻）在设计点必被检出\n  ok   — RED:转置形态 ≠ 设计点值（47³ 档漂移必红）\n  ok   — GREEN:host 向量化 == 标量金标准（6 探针逐通道）\n  ok   — GREEN:fan 地标预测 == A2b 在案 [144,122,77]\n  ok   — GREEN:位级同帧 → exact 100%/p100=0\n  ok   — GREEN:位级同帧过阈值裁决\n  ok   — GREEN:1 LSB 带内绿（结构容差;单像素差 @10k px）\n  ok   — RED:2 LSB 越带必红（gt1 检出）\n  ok   — GREEN:worst 座标定位（行主序）\n  ok   — RED:exact 99.0% < 99.9% 必红\n  ok   — RED:零像素冒充必红\n  ok   — GREEN:BGRA 序解析（B/R 换位）\n  ok   — GREEN:RGBA 序解析（直通）\n  ok   — RED:截断 raw 必抛\n  ok   — schema 在树 g31_encode_parity_evidence_schema.json\n  ok   — schema required == REQUIRED_KEYS 互核\n  ok   — schema const 互核\n  ok   — schema 阈值 const 与脚本常量互核\n[g31_encode_parity] selftest PASS（设计点红绿臂含转置防复发 + 向量化互核 + 度量器红绿臂 + raw 双序 + schema 互核）\n\n"
+  },
+  {
+   "t": "15:54:10",
+   "step": "guard.texture_sampling",
+   "status": "OK",
+   "argv": "py -3 ci/g31_texture_sampling_smoke.py --selftest",
+   "wall_s": 0.1,
+   "tail": "ma facts enum == FACT_IDS(8)\n  ok   — gate schema const 互核\n  ok   — gate schema demo.mapped == 70（heap 全覆盖档）\n  ok   — gate schema 作废锚占位 const == PENDING_W4_REHARVEST（6fab598c 字面清理项）\n  ok   — gate schema g11_3 entries_total == 70\n  ok   — gate schema heap.header_entries == 70×13\n  ok   — harness heap schema required 含 textures\n  ok   — harness schema const 互核（harness 侧常量沿用）\n  ok   — harness schema census 常量互核（含缺面登记）\n  ok   — harness schema mapped == 70\n  ok   — harness schema atlas.form == texel_heap\n  ok   — harness schema header_entries == 910\n  ok   — harness schema slots 70/70\n  ok   — facts 闭集 = 8\n[g31_texture] selftest PASS（facts=8；heap 律法/探针步幅 4/计数律法红绿臂 + 正例组 + 双 schema 互核 + 作废锚占位钉死）\n\n"
+  },
+  {
+   "t": "15:54:10",
+   "step": "guard.vendor_license",
+   "status": "OK",
+   "argv": "py -3 ci/g31_vendor_license_smoke.py --selftest",
+   "wall_s": 0.1,
+   "tail": "[g31_vendor_license] selftest PASS checks=7 (7 RED + 2 GREEN)\n\n"
+  },
+  {
+   "t": "15:54:10",
+   "step": "guard.blocked_probes",
+   "status": "OK",
+   "argv": "py -3 ci/g31_blocked_probes_smoke.py --selftest",
+   "wall_s": 0.1,
+   "tail": "[g31_blocked_probes] selftest PASS (verdict 闭集 10 臂 + 零冒充 5 臂 + digest 2 臂 + 翻转 4 象限 + 登记件校验 5 臂 + schema 互核)\n\n"
+  },
+  {
+   "t": "15:54:10",
+   "step": "seg.guards",
+   "status": "END",
+   "seg_fails": []
+  }
+ ]
+}

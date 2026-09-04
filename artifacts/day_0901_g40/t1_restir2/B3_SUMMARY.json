@@ -1,0 +1,9 @@
+{
+ "schema": "rurix.day0901.g40.b3.v1",
+ "segments": [
+  "judge"
+ ],
+ "fails": [],
+ "notes": [],
+ "verdict": "PASS"
+}

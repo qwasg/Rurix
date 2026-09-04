@@ -1,0 +1,58 @@
+{
+ "schema": "rurix.day0901.g40.baseline.v1",
+ "fails": 0,
+ "verdict": "PASS",
+ "anchors_asserted": {
+  "alloff_8f": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+  "full19_default_96f": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1",
+  "bench_160f_suffix": "c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02"
+ },
+ "rows": [
+  {
+   "t": "17:07:37",
+   "step": "n1_alloff_8f",
+   "status": "OK",
+   "digest": "sha256:55e4a92d25be959a91d111140b88eb81e0c7c29fe80d1aeee641aa78d8a86288",
+   "wall_s": 65.3,
+   "vuid": 0,
+   "real_render_frame_ms": 5.895638,
+   "stderr_tail": null
+  },
+  {
+   "t": "17:07:37",
+   "step": "n1_verdict",
+   "status": "OK",
+   "got": "sha256:55e4a92d25be959a9",
+   "expect": "sha256:55e4a92d25be959a9"
+  },
+  {
+   "t": "17:08:39",
+   "step": "n2_bench_160f",
+   "status": "OK",
+   "got": "sha256:c1d28ad73783cc3c0"
+  },
+  {
+   "t": "17:08:39",
+   "step": "n3_stagea_probe",
+   "status": "OK",
+   "note": "bench 默认格 == Stage A bistro/t100/tsr 格同一口径回执"
+  },
+  {
+   "t": "17:12:58",
+   "step": "n4_full19_96f",
+   "status": "OK",
+   "digest": "sha256:a5521e4708a814e364fd3bf95b18f0ab69b6646efd039246e8686533c30e4fb1",
+   "wall_s": 259.3,
+   "vuid": 0,
+   "real_render_frame_ms": 11.124742,
+   "stderr_tail": null
+  },
+  {
+   "t": "17:12:58",
+   "step": "n4_verdict",
+   "status": "OK",
+   "got": "sha256:a5521e4708a814e36",
+   "expect": "sha256:a5521e4708a814e36"
+  }
+ ]
+}
