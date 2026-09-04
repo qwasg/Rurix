@@ -33,7 +33,7 @@
 //! | 23 | scan/compact 共享 params(4 f32,[n,nseg,0,0] 同布局同值) | host-visible 逐帧 |
 //! | 24 | emit params(16 f32) | host-visible 逐帧 |
 //! | 25 | indirect_args params(4 f32) | host-visible 逐帧 |
-//! | 26 | 渲染三件共享 params(64 f32,布局 = pack_render_params 头注) | host-visible 逐帧 |
+//! | 26 | 渲染三件共享 params(80 f32,布局 = pack_render_params 头注;[64..80) 雨丝模式追加段) | host-visible 逐帧 |
 //! | 27..=35 | 九流 A 组(pos_x/y/z,vel_x/y/z,age,life,pid;f32/u32×cap) | device |
 //! | 36..=44 | 九流 B 组(同序) | device |
 //! | 45/46 | flags / scan_out(u32×cap) | device |
@@ -83,26 +83,74 @@
 //!     [--spv-p-sim/-p-scan-seg-sum/-p-scan-spine/-p-scan-seg-apply/
 //!      -p-compact/-p-emit/-p-indirect-args <spv>]
 //!     [--spv-splat-clear/--spv-splat/--spv-presolve <spv>]
-//!     [--particles on|off] [--static-camera] [--auto-move orbit|dolly]
+//!     [--particles on|off] [--static-camera] [--auto-move orbit|dolly|dolly-forward] [--auto-move-amp 1.0]
 //!     [--evidence <path>] [--expect-digest <sha256:…>] [--cap 65536] [--seed 42]
 //!     [--mv-witness] [--occlusion-witness] [--mesh-particles N] [--headless]
 //!     [--cluster-lod off|leaf|on --cluster-pack <RXCP> [--cluster-error-px 1.0]]
 //!     [--wp-hlod off|full|on --wp-pack <RXWH> [--wp-threshold-l0 1.0]]
-//!     [--dump-present-raw <path>] [--r-world 0.02] [--splat-stretch 1.0]
+//!     [--dump-present-raw <path>] [--dump-present-every <n>] [--r-world 0.02] [--splat-stretch 1.0]
 //!     [--particle-tint r,g,b] [--particle-alpha-scale 1.0]
+//!     [--rain-shutter 0.0] [--rain-occlusion on|off] [--ev100 <f32>]
+//!     [--scene bistro-interior]
 //!     [--emitter-pos x,y,z] [--emitter-spread x,y,z] [--emitter-vel x,y,z]
 //!     [--emitter-vel-spread x,y,z] [--emitter-life 1.4] [--emitter-gravity -0.9]
+//!     [--emitter-follow-camera on|off] [--emit-max 256]
 //! ```
 //!
 //! 展示面(网站出图)旗标组:**全部默认 = 冻结生产字面,位级零漂移**
 //! (stretch/tint/alpha 的 ×1.0、/1.0 均 IEEE 精确,r_world 默认 = 冻结常量;
 //! kernel params[56..61] 原 reserved 恒 0 槽位启用,三渲染 kernel 头注同录)。
+//! **雨丝模式** `--rain-shutter s`(s ∈ (0,2],缺省 0 = 冻结面):splat 改
+//! 运动模糊胶囊(首 pos → 尾 pos − vel·dt·s,长度 = 每帧真实运动量而非固定
+//! 拉伸)+ 场景 TLAS 逐粒子遮挡射线(`--rain-occlusion`,缺省 on);resolve
+//! 改 tint 作 **display 域**绝对色(1.0 = 显示白,kernel 乘 1/exposure 换回
+//! scene-linear)+ tent 剖面 × 亚像素覆盖峰值(远雨自然减淡)+ 末段淡出,
+//! 并对赢家足迹(外扩 1.5 px 吸收 TSR 重采样核扩散)写 U_REACTIVE = 1(TSR
+//! has_reactive 同步置 1)⇒ 该像素取当前帧,历史钳制不参与;quirk 深度域软粒子
+//! 造成的「倒水滴」形不再出现。**注**:day_0831_site rain_probe 的彩色噪点
+//! 主因是 `.tmp/g35_gates/render/g31_display_encode.spv` 为 8/27 旧源码
+//! (B-spline 基 b1/b2 写错,0e605c34 已修源)编出的过期二进制——现编 SPV 即消;
+//! 出图前须用当前 rurixc 重编该 SPV。render params 64 → 80 f32
+//! ([61..80) 追加段;冻结面恒 0),splat 追加 vel×3 + AS 绑定,presolve 追加
+//! U_REACTIVE 绑定(屏障计划同步;冻结面 kernel 分支逐字不动,双 parity 布局键
+//! 恒等)。与 --splat-stretch / --oit ≠ off / 见证夹具互斥(如实拒跑)。
+//! **换景** `--scene <id>`(缺省 bistro-interior = 锚格/见证冻结构型):展示面
+//! 换景须 `--particles on` + 自定义 `--contract`(含该 scene_id 行:camera/
+//! lighting/material_policy)+ `--expect-digest` + 显式 `--gltf`(共享体
+//! default_gltf 闭集只认 bistro-interior|cornell-box,本 bin 不触共享体);
+//! G10 provenance 文件名按 scene_id 连字符→下划线派生,缺失如实登记 MISSING。
+//! 雨天室外候选(bistro-exterior)接入即走此路径。
 //! `--dump-present-raw` = 末帧 presented BGRA8 写盘(w/h u32 LE 头同
 //! g31_window_present 布局,raw2png.py 直通;回读面 = 既有末帧回读,零追加
 //! GPU 读回)。--emitter-* 逐字段覆写生产夹具(与见证夹具互斥;device 上传
 //! 与 host 金标准镜像同源消费,整数流一致性不破)。非默认展示参数须随
 //! --particles on(off 面携带 = 静默无效冒充,如实拒跑)。参数面回显进
 //! evidence `showcase` 块(全默认 = null)。
+//!
+//! **推轨短片面**(day_0902_rain_night 战役;四旗标**全缺省 = 位级零漂移**):
+//! - `--dump-present-every n`(n ≥ 1,须随 `--dump-present-raw <base>`):每 n 帧
+//!   (帧号含 warmup,`fi % n == 0`)把该帧 presented BGRA8 写 `<base>.f<帧号 4 位>`
+//!   (w/h u32 LE 头同 g31_window_present 逐帧写盘布局);末帧 `<base>` 照旧由
+//!   既有 last 分支写。命中帧追加一路 BGRA 回读(`--auto-move` 面本已逐帧回读;
+//!   回读 = device→host 拷贝,不改渲染数值);`digest_seq` 门仍只看
+//!   `--auto-move`。缺省 None ⇒ `rb.bgra` 表达式 `… || false` 短路回旧值。
+//! - `--auto-move-amp f`(f ∈ (0, 64],须随 `--auto-move`):orbit/dolly 位移项
+//!   ×f(yaw 角量不乘——角量与轨长无关);新轨迹 `dolly-forward` = 沿契约相机
+//!   前向 XZ 归一方向匀速推进 `d = f·t`(t = fi/total;eye.y/yaw/pitch 不变)。
+//!   缺省 1.0:`0.35 * 1.0` 等 IEEE 精确 ⇒ orbit/dolly 逐位同旧值。
+//! - `--emitter-follow-camera on|off`(须随 `--particles on` + `--auto-move`;与见证
+//!   夹具互斥):逐帧把发射中心平移 `eye(fi) − eye(0)`,**先改 `mirror.desc.pos`
+//!   再 `mirror.step`** ⇒ host 金标准 `pcore::frame(&self.desc)` 与 device
+//!   `lane.frame(&mirror.desc)` 消费同一份 pos,随机带消费律/整数流不变。缺省
+//!   off 分支不执行。
+//! - `--emit-max n`(n ∈ [256, 4096],须随 `--particles on`;与见证夹具互斥):
+//!   emit pass Direct dispatch 上界 + 生产发射预算按 `n/256` 线性放大
+//!   (`min((64 + f·17 % 192)·n/256, cap − n_curr)`);缺省 256 走冻结臂字面。
+//!   随机带克隆守卫:`r_k = table[(pid·7919 + k) % 65536]`,7919 与 2^16 互素 ⇒
+//!   全 7 槽克隆 ⇔ pid ≡ pid′ (mod 65536);同屏存活粒子跨度
+//!   `peak·ceil(life/dt) ≥ 65536` 即拒跑(降 --emit-max 或缩 --emitter-life);
+//!   `peak·total ≥ 2^24` 拒跑(pid 走 f32 参数面精确域,core `emit_step` 断言面
+//!   提前中文化)。evidence `showcase` 追加四键回显 + 顶层 `gltf` 路径/sha 登记。
 //!
 //! 闭集:--static-camera 与 --auto-move 互斥(缺省 = 静态契约相机);
 //! --mv-witness/--occlusion-witness 互斥且须随 --particles on + 静态相机;
@@ -127,7 +175,7 @@ include!("g14_3_lane/g14_3_lane_body.rs");
 use rurix_render::display::aces13::aces13_device_encode_params;
 use rurix_render::particles::core as pcore;
 use rurix_render::particles::oit_arms as poit;
-use rurix_render::particles::{SEG, rand_table as p_rand_table};
+use rurix_render::particles::{RAND_K, RAND_TABLE_LEN, SEG, rand_table as p_rand_table};
 
 const G35L_TAG: &str = "[g35_particle_lane]";
 /// G35-3 门键(evidence `gate` 字段字面)。
@@ -157,6 +205,8 @@ const G35L_R_WORLD: f32 = 0.02;
 const G35L_SOFT_RANGE: f32 = 0.05;
 /// emit pass Direct dispatch 上界(kernel 内 j < emit_count 守卫;
 /// emit_schedule 上界 = 64+191 = 255 < 256)。
+/// 推轨短片面 `--emit-max n` 可放大为 n ∈ [256, 4096](dispatch 与生产预算同比
+/// `n/256`);缺省即本常量 ⇒ 冻结节奏逐字。
 const G35L_EMIT_MAX: u32 = 256;
 
 // ---------------------------------------------------------------------------
@@ -386,9 +436,15 @@ const G35L_PLAN_SPLAT: &[(u32, TargetState)] = &[
     (27, TargetState::StorageWrite),
     (28, TargetState::StorageWrite),
     (29, TargetState::StorageWrite),
+    (30, TargetState::StorageWrite),
+    (31, TargetState::StorageWrite),
+    (32, TargetState::StorageWrite),
     (36, TargetState::StorageWrite),
     (37, TargetState::StorageWrite),
     (38, TargetState::StorageWrite),
+    (39, TargetState::StorageWrite),
+    (40, TargetState::StorageWrite),
+    (41, TargetState::StorageWrite),
     (U_SCENE_DEPTH, TargetState::StorageWrite),
     (G35L_WINNER, TargetState::StorageWrite),
 ];
@@ -414,6 +470,7 @@ const G35L_PLAN_PRESOLVE: &[(u32, TargetState)] = &[
     (U_SCENE_DEPTH, TargetState::StorageWrite),
     (U_SCENE_COLOR, TargetState::StorageWrite),
     (U_MV_OUT, TargetState::StorageWrite),
+    (U_REACTIVE, TargetState::StorageWrite),
 ];
 /// encode pass 屏障计划(g34 G34_U_PLAN_ENCODE 同型:TSR 输出双 parity 并集
 /// + 编码参数 + BGRA8 输出)。
@@ -653,16 +710,28 @@ impl G35Camera {
 }
 
 /// auto-move 确定性轨迹(帧号唯一事实源,绝对位姿;g34_auto_move_pose 逐字同模)。
-fn g35l_auto_move_pose(name: &str, cam0: &G35Camera, fi: u32, total: u32) -> (f32, f32, [f32; 3]) {
+///
+/// `amp` = 位移倍率(`--auto-move-amp`,缺省 1.0):orbit/dolly 的**位移项**乘
+/// amp,yaw 角量不乘(角量与轨长无关)。乘法写作左结合 `0.35 * amp * a.sin()`
+/// = `(0.35·amp)·sin`,amp = 1.0 时 `x * 1.0` IEEE 精确 ⇒ 与旧字面逐位同值。
+/// `dolly-forward` = 沿 cam0 前向 XZ 归一方向匀速推进 `d = amp·t`(t = fi/total,
+/// 末帧位移 ≈ amp 米),eye.y/yaw/pitch 不变(推轨短片面,相机不摆头)。
+fn g35l_auto_move_pose(
+    name: &str,
+    cam0: &G35Camera,
+    fi: u32,
+    total: u32,
+    amp: f64,
+) -> (f32, f32, [f32; 3]) {
     let t = f64::from(fi) / f64::from(total.max(1));
     let tau = std::f64::consts::TAU;
     match name {
         "orbit" => {
             let a = tau * t;
             let eye = [
-                (f64::from(cam0.eye[0]) + 0.35 * a.sin()) as f32,
-                (f64::from(cam0.eye[1]) + 0.05 * (2.0 * a).sin()) as f32,
-                (f64::from(cam0.eye[2]) + 0.35 * (a.cos() - 1.0)) as f32,
+                (f64::from(cam0.eye[0]) + 0.35 * amp * a.sin()) as f32,
+                (f64::from(cam0.eye[1]) + 0.05 * amp * (2.0 * a).sin()) as f32,
+                (f64::from(cam0.eye[2]) + 0.35 * amp * (a.cos() - 1.0)) as f32,
             ];
             let yaw = (f64::from(cam0.yaw) + 0.30 * a.sin()) as f32;
             (yaw, cam0.pitch, eye)
@@ -671,16 +740,27 @@ fn g35l_auto_move_pose(name: &str, cam0: &G35Camera, fi: u32, total: u32) -> (f3
             let a = tau * t;
             let f = cam0.forward();
             let fxz = (f[0] * f[0] + f[2] * f[2]).sqrt().max(1e-6);
-            let d = 0.50 * (std::f64::consts::PI * t).sin();
+            let d = 0.50 * amp * (std::f64::consts::PI * t).sin();
             let eye = [
                 (f64::from(cam0.eye[0]) + f64::from(f[0] / fxz) * d) as f32,
-                (f64::from(cam0.eye[1]) + 0.03 * a.sin()) as f32,
+                (f64::from(cam0.eye[1]) + 0.03 * amp * a.sin()) as f32,
                 (f64::from(cam0.eye[2]) + f64::from(f[2] / fxz) * d) as f32,
             ];
             let yaw = (f64::from(cam0.yaw) - 0.20 * a.sin()) as f32;
             (yaw, cam0.pitch, eye)
         }
-        other => fail(&format!("--auto-move 轨迹 {other} 越闭集(orbit|dolly)")),
+        "dolly-forward" => {
+            let f = cam0.forward();
+            let fxz = (f[0] * f[0] + f[2] * f[2]).sqrt().max(1e-6);
+            let d = amp * t;
+            let eye = [
+                (f64::from(cam0.eye[0]) + f64::from(f[0] / fxz) * d) as f32,
+                cam0.eye[1],
+                (f64::from(cam0.eye[2]) + f64::from(f[2] / fxz) * d) as f32,
+            ];
+            (cam0.yaw, cam0.pitch, eye)
+        }
+        other => fail(&format!("--auto-move 轨迹 {other} 越闭集(orbit|dolly|dolly-forward)")),
     }
 }
 
@@ -802,6 +882,9 @@ struct G35HostMirror {
     cap: usize,
     /// 发射调度模式(见证腿闭集)。
     sched: G35EmitSched,
+    /// 生产发射上限(`--emit-max`;缺省 `G35L_EMIT_MAX` ⇒ 冻结节奏逐字,
+    /// 非缺省时 Production 预算按 `emit_max/256` 线性放大)。
+    emit_max: usize,
 }
 
 impl G35HostMirror {
@@ -814,16 +897,21 @@ impl G35HostMirror {
             pid_base: 0,
             cap,
             sched,
+            emit_max: G35L_EMIT_MAX as usize,
         }
     }
 
     /// 确定性发射预算(G35-2 冻结字面:min(64 + f·17 % 192, cap − n_curr);
     /// SingleF0 = 帧 0 单发射;OitPair = 帧 0/帧 30 各发 1)。
+    /// `--emit-max` 非缺省时 Production 臂 = min((64 + f·17 % 192)·emit_max/256,
+    /// cap − n_curr)(整数算术,峰值 255·emit_max/256 < emit_max = dispatch 上界);
+    /// 缺省臂字面不动。
     fn emit_schedule(&self, f: u32) -> usize {
         match self.sched {
             G35EmitSched::SingleF0 => usize::from(f == 0),
             G35EmitSched::OitPair => usize::from(f == 0 || f == G35L_OIT_WITNESS_F2),
-            G35EmitSched::Production => (64 + (f as usize * 17) % 192).min(self.cap - self.a.n),
+            G35EmitSched::Production if self.emit_max == G35L_EMIT_MAX as usize => (64 + (f as usize * 17) % 192).min(self.cap - self.a.n),
+            G35EmitSched::Production => ((64 + (f as usize * 17) % 192) * self.emit_max / G35L_EMIT_MAX as usize).min(self.cap - self.a.n),
         }
     }
 
@@ -872,10 +960,18 @@ struct G35FxParams {
     r_world: f32,
     /// 雨丝竖直拉伸比(params[56];1.0 = 圆点)。
     stretch: f32,
-    /// 展示面调色乘子(params[57..60);1.0 = 程序化调色冻结形)。
+    /// 展示面调色乘子(params[57..60);1.0 = 程序化调色冻结形;雨丝模式下
+    /// = 雨滴 scene-linear 绝对色)。
     tint: [f32; 3],
     /// 不透明度乘子(params[60];1.0 = 冻结 alpha)。
     alpha_scale: f32,
+    /// 雨丝模式快门占 dt 比(params[61];0.0 = 冻结面〔椭圆 splat + 火焰调色
+    /// + quirk 域软粒子〕;>0 = 运动模糊胶囊 + TLAS 逐粒子遮挡 + reactive
+    /// 掩码,kernels/g35_render_splat.rx / g35_render_resolve.rx「雨丝模式」
+    /// 头注)。
+    rain_shutter: f32,
+    /// 雨丝模式 TLAS 遮挡开关(params[62];仅 rain_shutter > 0 时消费)。
+    rain_occlusion: bool,
 }
 
 impl Default for G35FxParams {
@@ -885,9 +981,24 @@ impl Default for G35FxParams {
             stretch: 1.0,
             tint: [1.0, 1.0, 1.0],
             alpha_scale: 1.0,
+            rain_shutter: 0.0,
+            rain_occlusion: true,
         }
     }
 }
+
+impl G35FxParams {
+    /// 雨丝模式启用判(kernel params[61] > 0 同判;TSR has_reactive 同源)。
+    fn rain_on(&self) -> bool {
+        self.rain_shutter > 0.0
+    }
+}
+
+/// 雨丝遮挡射线 t_min(米;相机近旁自遮挡防护,kernel 内按射线长度归一)。
+const G35L_RAIN_RAY_TMIN: f32 = 0.02;
+/// P_PARAMS_RENDER 长度(f32;G35-3 冻结 64 → 雨丝模式扩 80,[64..80) 追加段;
+/// OIT params 镜像仍取 [0..64) 逐字——OIT kernel 布局 0-byte)。
+const G35L_RENDER_PARAMS_LEN: usize = 80;
 
 /// P_PARAMS_RENDER 布局(kernels/g35_splat_clear/g35_render_splat/
 /// g35_render_resolve 头注逐字同源):
@@ -895,7 +1006,12 @@ impl Default for G35FxParams {
 ///   [6]=px_count [7]=p11(投影阵 [1][1] = 1/tan(fov_y/2))
 ///   [8..24)=vp_j [24..40)=vp(未抖;行 0/1 = 生产字面深度域,行 3 = 视深)
 ///   [40..56)=prev_vp_j [56]=stretch_y [57..60)=tint_rgb
-///   [60]=alpha_scale [61..64)=reserved(恒 0)。
+///   [60]=alpha_scale [61]=rain_shutter(0 = 冻结面) [62]=rain_occlusion
+///   [63]=rain_inv_exposure(= 1/exposure;雨滴色以 display 域指定,kernel 换回
+///   scene-linear) [64..67)=eye_xyz(相机世界位置,遮挡射线原点)
+///   [67]=ray_tmin [68..80)=reserved(恒 0)。
+///   雨丝模式关闭时 [61..80) 恒 0 ⇒ kernel 冻结面分支逐字执行(默认面位级
+///   零漂移;[0..64) 与 G35-3 冻结布局逐字同值)。
 #[allow(clippy::too_many_arguments)]
 fn g35l_pack_render_params(
     iw: u32,
@@ -905,6 +1021,8 @@ fn g35l_pack_render_params(
     vp_j: &Mat4,
     vp: &Mat4,
     prev_vp_j: &Mat4,
+    eye: [f32; 3],
+    exposure: f32,
     fx: &G35FxParams,
 ) -> Vec<f32> {
     let mut v = vec![
@@ -924,12 +1042,21 @@ fn g35l_pack_render_params(
             }
         }
     }
-    v.resize(64, 0.0);
+    v.resize(G35L_RENDER_PARAMS_LEN, 0.0);
     v[56] = fx.stretch;
     v[57] = fx.tint[0];
     v[58] = fx.tint[1];
     v[59] = fx.tint[2];
     v[60] = fx.alpha_scale;
+    if fx.rain_on() {
+        v[61] = fx.rain_shutter;
+        v[62] = if fx.rain_occlusion { 1.0 } else { 0.0 };
+        v[63] = if exposure > 0.0 { 1.0 / exposure } else { 1.0 };
+        v[64] = eye[0];
+        v[65] = eye[1];
+        v[66] = eye[2];
+        v[67] = G35L_RAIN_RAY_TMIN;
+    }
     v
 }
 
@@ -951,7 +1078,11 @@ fn g35l_pack_oit_params(
     red_arm: bool,
     fx: &G35FxParams,
 ) -> Vec<f32> {
-    let mut v = g35l_pack_render_params(iw, ih, p11, d_max, vp_j, vp, prev_vp_j, fx);
+    // 镜像段 = 冻结 64 f32(雨丝模式与 OIT 档互斥,[61..80) 追加段截去 ⇒
+    // OIT kernel 消费布局 0-byte;eye 传零向量不进镜像)。
+    let mut v =
+        g35l_pack_render_params(iw, ih, p11, d_max, vp_j, vp, prev_vp_j, [0.0; 3], 1.0, fx);
+    v.truncate(64);
     let (tx, ty) = (iw.div_ceil(16), ih.div_ceil(16));
     v.push(tx as f32);
     v.push(ty as f32);
@@ -1048,7 +1179,7 @@ impl G35ParticleBits {
             core_params0: vec![0u8; 4 * 4],
             emit_params0: vec![0u8; 16 * 4],
             args_params0: vec![0u8; 4 * 4],
-            render_params0: vec![0u8; 64 * 4],
+            render_params0: vec![0u8; G35L_RENDER_PARAMS_LEN * 4],
         }
     }
 }
@@ -1172,15 +1303,22 @@ fn g35l_bind_emit(p: usize) -> Bindings {
     }
 }
 
+/// splat 绑定(kernel 签名序:tlas / params / args / pos×3 / vel×3 /
+/// scene_depth / winner;AS 表 0 = 场景 TLAS,雨丝模式逐粒子遮挡射线消费,
+/// 冻结面不 trace——绑定常驻使 A/B parity 覆盖 set0 布局键恒等)。
 fn g35l_bind_splat(p: usize) -> Bindings {
     let (_, dst) = g35l_groups(p);
     Bindings {
+        accel_structs: vec![0],
         storage_buffers: vec![
             G35L_P_RENDER_PARAMS,
             G35L_ARGS,
             dst,
             dst + 1,
             dst + 2,
+            dst + 3,
+            dst + 4,
+            dst + 5,
             U_SCENE_DEPTH,
             G35L_WINNER,
         ],
@@ -1188,6 +1326,9 @@ fn g35l_bind_splat(p: usize) -> Bindings {
     }
 }
 
+/// presolve 绑定(kernel 签名序:params / vis / pos×3 / vel×3 / age / life /
+/// scene_depth / scene_color / mv_out / reactive;U_REACTIVE 仅雨丝模式逐
+/// 像素写,冻结面不触——母版 has_reactive = 0 面该缓冲不被 TSR 消费)。
 fn g35l_bind_presolve(p: usize) -> Bindings {
     let (_, dst) = g35l_groups(p);
     Bindings {
@@ -1205,6 +1346,7 @@ fn g35l_bind_presolve(p: usize) -> Bindings {
             U_SCENE_DEPTH,
             U_SCENE_COLOR,
             U_MV_OUT,
+            U_REACTIVE,
         ],
         ..Bindings::default()
     }
@@ -1296,6 +1438,7 @@ fn g35_on_descs<'x>(
     ow: u32,
     oh: u32,
     cap: usize,
+    emit_max: u32,
 ) -> G35OnDescs<'x> {
     let (m_res, m_passes, m_barriers, m_readbacks) = mother;
     let ipc = (iw * ih) as u64;
@@ -1464,7 +1607,9 @@ fn g35_on_descs<'x>(
     passes.push(cp(
         "g35_emit",
         &pbits.spv_emit,
-        DispatchSpec::Direct([G35L_EMIT_MAX, 1, 1]),
+        // emit_max 缺省 = G35L_EMIT_MAX(冻结字面);--emit-max 放大 dispatch 上界,
+        // kernel 内 j < emit_count 守卫不变(LocalSize 1 ⇒ 线程数 = emit_max)。
+        DispatchSpec::Direct([emit_max, 1, 1]),
         g35l_bind_emit(0),
     )); // 7
     passes.push(cp(
@@ -2081,6 +2226,7 @@ impl<'a> G35OnLane<'a> {
         jitter: [f32; 2],
         vp: &Mat4,
         vp_j: &Mat4,
+        eye: [f32; 3],
         exposure: f32,
         reset: bool,
         ctl: &G35FrameCtl,
@@ -2095,7 +2241,19 @@ impl<'a> G35OnLane<'a> {
         let prev = self.prev_vp_j.unwrap_or(*vp_j);
         let mv_params = pack_mv_params(iw, ih, &inv_cur, &prev, self.prev_vp_j.is_some());
         let has_history = !reset && self.has_history_state;
-        let tsr_params = pack_tsr_params(iw, ih, ow, oh, jitter, exposure, has_history, false);
+        // 雨丝模式:presolve 对赢家足迹写 U_REACTIVE = 1 ⇒ TSR resolve alpha = 1
+        // 取当前帧(YCoCg 历史钳制假色根治);冻结面 has_reactive = 0 与母版同字面
+        // (reactive = has_reactive·bilinear ⇒ ×0 IEEE 精确,非赢家像素零漂移)。
+        let tsr_params = pack_tsr_params(
+            iw,
+            ih,
+            ow,
+            oh,
+            jitter,
+            exposure,
+            has_history,
+            self.fx.rain_on(),
+        );
         let p = self.parity;
         // 粒子五 params(host 金标准平行推得;kernel 头注参数面逐字镜像)。
         let sim_params: Vec<f32> = vec![
@@ -2128,8 +2286,9 @@ impl<'a> G35OnLane<'a> {
             ctl.nseg_curr as f32, // alive_slot = seg_offsets 总和槽下标
         ];
         let args_params: Vec<f32> = vec![ctl.emit_count as f32, ctl.nseg_curr as f32, 0.0, 0.0];
-        let render_params =
-            g35l_pack_render_params(iw, ih, self.p11, self.d_max, vp_j, vp, &prev, &self.fx);
+        let render_params = g35l_pack_render_params(
+            iw, ih, self.p11, self.d_max, vp_j, vp, &prev, eye, exposure, &self.fx,
+        );
         let up = |res: u32, v: &[f32]| (StableResourceId(u64::from(res) + 1), 0u64, bytes_f32(v));
         let mut uploads: Vec<(StableResourceId, u64, Vec<u8>)> = vec![
             up(U_SCENE_PARAMS, &scene_params),
@@ -2424,6 +2583,7 @@ impl<'a> G35OnLane<'a> {
         jitter: [f32; 2],
         vp: &Mat4,
         vp_j: &Mat4,
+        eye: [f32; 3],
         exposure: f32,
         reset: bool,
         ctl: &G35FrameCtl,
@@ -2432,7 +2592,7 @@ impl<'a> G35OnLane<'a> {
         rb: G35Rb,
     ) -> Result<G35FrameRec, String> {
         let (prov, update) =
-            self.prepare(jitter, vp, vp_j, exposure, reset, ctl, desc, scene_params, rb)?;
+            self.prepare(jitter, vp, vp_j, eye, exposure, reset, ctl, desc, scene_params, rb)?;
         let out = self.session.execute_with_frame_update(&prov, &update)?;
         let rec = self.rec_from_output(out, rb)?;
         self.prev_vp_j = Some(*vp_j);
@@ -2524,6 +2684,8 @@ fn main() {
     let mut particles_on = false;
     let mut static_camera = false;
     let mut auto_move: Option<String> = None;
+    // 推轨短片面:轨迹位移倍率(1.0 = 冻结轨迹幅度,×1.0 IEEE 精确 ⇒ 位级零漂移)。
+    let mut auto_move_amp: f64 = 1.0;
     let mut cap: usize = 65536;
     let mut seed: u64 = 42;
     let mut mv_witness = false;
@@ -2542,6 +2704,8 @@ fn main() {
     let mut wp_threshold_l0: f64 = 1.0;
     // ── 展示面(网站出图)参数:全部默认 = 冻结生产字面,位级零漂移 ──
     let mut dump_raw_path = String::new();
+    // 逐帧出图周期(--dump-present-every;None = 旧行为 0-byte,只写末帧)。
+    let mut dump_every: Option<u32> = None;
     let mut fx = G35FxParams::default();
     let mut emitter_pos: Option<[f32; 3]> = None;
     let mut emitter_spread: Option<[f32; 3]> = None;
@@ -2549,6 +2713,12 @@ fn main() {
     let mut emitter_vel_spread: Option<[f32; 3]> = None;
     let mut emitter_life: Option<f32> = None;
     let mut emitter_gravity: Option<f32> = None;
+    // 推轨短片面:发射中心逐帧跟随相机位移(缺省 off = 分支不执行,0-byte);
+    // 生产发射上限(缺省 G35L_EMIT_MAX = 冻结节奏/dispatch 字面)。
+    let mut emitter_follow = false;
+    let mut emit_max: u32 = G35L_EMIT_MAX;
+    let mut ev100_override: Option<f32> = None;
+    let mut scene_arg = String::from("bistro-interior");
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -2605,6 +2775,11 @@ fn main() {
             }
             "--static-camera" => static_camera = true,
             "--auto-move" => auto_move = Some(take_arg(&args, &mut i)),
+            "--auto-move-amp" => {
+                auto_move_amp = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--auto-move-amp 非 f64"))
+            }
             "--cap" => {
                 cap = take_arg(&args, &mut i)
                     .parse()
@@ -2656,6 +2831,13 @@ fn main() {
             }
             // ── 展示面(网站出图)旗标:默认 = 冻结生产字面,位级零漂移 ──
             "--dump-present-raw" => dump_raw_path = take_arg(&args, &mut i),
+            "--dump-present-every" => {
+                dump_every = Some(
+                    take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--dump-present-every 非 u32")),
+                )
+            }
             "--r-world" => {
                 fx.r_world = take_arg(&args, &mut i)
                     .parse()
@@ -2672,6 +2854,26 @@ fn main() {
                     .parse()
                     .unwrap_or_else(|_| fail("--particle-alpha-scale 非 f32"))
             }
+            "--rain-shutter" => {
+                fx.rain_shutter = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--rain-shutter 非 f32"))
+            }
+            "--rain-occlusion" => {
+                fx.rain_occlusion = match take_arg(&args, &mut i).as_str() {
+                    "on" => true,
+                    "off" => false,
+                    other => fail(&format!("--rain-occlusion {other} 越闭集(on|off)")),
+                }
+            }
+            "--ev100" => {
+                ev100_override = Some(
+                    take_arg(&args, &mut i)
+                        .parse()
+                        .unwrap_or_else(|_| fail("--ev100 非 f32")),
+                )
+            }
+            "--scene" => scene_arg = take_arg(&args, &mut i),
             "--emitter-pos" => emitter_pos = Some(parse_f32_triplet(&take_arg(&args, &mut i), "--emitter-pos")),
             "--emitter-spread" => emitter_spread = Some(parse_f32_triplet(&take_arg(&args, &mut i), "--emitter-spread")),
             "--emitter-vel" => emitter_vel = Some(parse_f32_triplet(&take_arg(&args, &mut i), "--emitter-vel")),
@@ -2690,6 +2892,19 @@ fn main() {
                         .unwrap_or_else(|_| fail("--emitter-gravity 非 f32")),
                 )
             }
+            // 推轨短片面(day_0902_rain_night):发射器跟随相机 / 发射上限。
+            "--emitter-follow-camera" => {
+                emitter_follow = match take_arg(&args, &mut i).as_str() {
+                    "on" => true,
+                    "off" => false,
+                    other => fail(&format!("--emitter-follow-camera {other} 越闭集(on|off)")),
+                }
+            }
+            "--emit-max" => {
+                emit_max = take_arg(&args, &mut i)
+                    .parse()
+                    .unwrap_or_else(|_| fail("--emit-max 非 u32"))
+            }
             other => fail(&format!("未知参数 {other}")),
         }
         i += 1;
@@ -2705,9 +2920,16 @@ fn main() {
         fail("--static-camera 与 --auto-move 互斥");
     }
     if let Some(name) = auto_move.as_deref() {
-        if !matches!(name, "orbit" | "dolly") {
-            fail(&format!("--auto-move 轨迹 {name} 越闭集(orbit|dolly)"));
+        if !matches!(name, "orbit" | "dolly" | "dolly-forward") {
+            fail(&format!("--auto-move 轨迹 {name} 越闭集(orbit|dolly|dolly-forward)"));
         }
+    }
+    // 推轨短片面:位移倍率域 + 须随 --auto-move(--auto-move 本身已与见证夹具互斥)。
+    if !(auto_move_amp.is_finite() && auto_move_amp > 0.0 && auto_move_amp <= 64.0) {
+        fail("--auto-move-amp 须 ∈ (0, 64] 有限值(位移倍率;1.0 = 冻结轨迹幅度)");
+    }
+    if auto_move_amp != 1.0 && auto_move.is_none() {
+        fail("--auto-move-amp 非默认须随 --auto-move");
     }
     if mv_witness && occlusion_witness {
         fail("--mv-witness 与 --occlusion-witness 互斥(单腿单构型)");
@@ -2770,6 +2992,45 @@ fn main() {
     if !(fx.r_world.is_finite() && fx.r_world >= 0.001 && fx.r_world <= 0.5) {
         fail("--r-world 须 ∈ [0.001, 0.5] 米(默认 0.02 冻结字面)");
     }
+    // ── 雨丝模式闭集裁决(--rain-shutter ∈ (0, 2];0 = 冻结面)──
+    if !(fx.rain_shutter.is_finite() && fx.rain_shutter >= 0.0 && fx.rain_shutter <= 2.0) {
+        fail("--rain-shutter 须 ∈ (0.0, 2.0](快门占 dt 比;1.0 = 整帧曝光;缺省 0 = 冻结面)");
+    }
+    if fx.rain_on() && fx.stretch != 1.0 {
+        fail("--rain-shutter 与 --splat-stretch 互斥(雨丝长度由速度×快门决定,拉伸比无消费面 = 静默无效冒充)");
+    }
+    if fx.rain_on() && oit != G35Oit::Off {
+        fail("--rain-shutter 与 --oit sorted|wboit 互斥(OIT kernel 消费冻结 64 f32 镜像,无雨丝模式分支;如实拒跑不冒充)");
+    }
+    if !fx.rain_occlusion && !fx.rain_on() {
+        fail("--rain-occlusion off 须随 --rain-shutter > 0(冻结面无遮挡射线消费面)");
+    }
+    if scene_arg != "bistro-interior" {
+        if scene_arg.is_empty()
+            || !scene_arg
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            fail("--scene 须为 [a-z0-9-]+ 场景 id(契约 scenes[].scene_id 字面)");
+        }
+        if !particles_on || mv_witness || occlusion_witness || oit_witness || mesh_particles > 0 {
+            fail("--scene ≠ bistro-interior 为展示面换景,须随 --particles on 且与见证夹具互斥(锚格/见证 = bistro-interior 冻结构型)");
+        }
+        if expect_digest.is_none() {
+            fail("--scene ≠ bistro-interior 须同携 --contract <含该场景行的契约> + --expect-digest(FROZEN 契约无该场景行,缺省门必红)");
+        }
+    }
+    if let Some(ev) = ev100_override {
+        if !(ev.is_finite() && (-16.0..=16.0).contains(&ev)) {
+            fail("--ev100 须 ∈ [-16, 16] 有限值(展示面曝光覆写;缺省 = 契约 ev100)");
+        }
+        if !particles_on {
+            fail("--ev100 须随 --particles on(off 面 = Stage A 锚格语义,曝光覆写即冒充)");
+        }
+        if mv_witness || occlusion_witness || oit_witness || mesh_particles > 0 {
+            fail("--ev100 与见证夹具互斥(见证 = 冻结标定构型)");
+        }
+    }
     if let Some(l) = emitter_life {
         if !(l.is_finite() && l > 0.0) {
             fail("--emitter-life 须为正有限 f32");
@@ -2795,15 +3056,47 @@ fn main() {
     let fx_touched = fx.stretch != 1.0
         || fx.tint != [1.0, 1.0, 1.0]
         || fx.alpha_scale != 1.0
-        || fx.r_world != G35L_R_WORLD;
+        || fx.r_world != G35L_R_WORLD
+        || fx.rain_on();
     if fx_touched && !particles_on {
-        fail("--r-world/--splat-stretch/--particle-tint/--particle-alpha-scale 须随 --particles on(粒子 pass 组消费面,off 面携带 = 静默无效冒充)");
+        fail("--r-world/--splat-stretch/--particle-tint/--particle-alpha-scale/--rain-shutter 须随 --particles on(粒子 pass 组消费面,off 面携带 = 静默无效冒充)");
     }
     if fx_touched && (mv_witness || occlusion_witness || oit_witness || mesh_particles > 0) {
         fail("展示面效果参数与见证夹具互斥(见证 = 冻结标定构型,形/色变化污染判读域)");
     }
     if !dump_raw_path.is_empty() && !particles_on {
         fail("--dump-present-raw 须随 --particles on(展示面出图 = 粒子车道产物)");
+    }
+    // ── 推轨短片面闭集裁决(day_0902_rain_night;四旗标全缺省 = 0-byte)──
+    if let Some(n) = dump_every {
+        if n == 0 {
+            fail("--dump-present-every 须 ≥ 1(每 n 帧落一帧 presented BGRA8)");
+        }
+        if dump_raw_path.is_empty() {
+            fail("--dump-present-every 须随 --dump-present-raw(逐帧文件 = 该基路径派生 .f<帧号>,fail-closed)");
+        }
+    }
+    if emitter_follow {
+        if !particles_on {
+            fail("--emitter-follow-camera on 须随 --particles on(发射器 = 粒子车道消费面)");
+        }
+        if auto_move.is_none() {
+            fail("--emitter-follow-camera on 须随 --auto-move(静态相机位移恒零 = 静默无效冒充)");
+        }
+        if mv_witness || occlusion_witness || oit_witness || mesh_particles > 0 {
+            fail("--emitter-follow-camera on 与见证夹具互斥(见证 = 冻结标定发射构型)");
+        }
+    }
+    if emit_max != G35L_EMIT_MAX {
+        if !(G35L_EMIT_MAX..=4096).contains(&emit_max) {
+            fail("--emit-max 须 ∈ [256, 4096](256 = 冻结节奏 64 + f·17 % 192 ≤ 255)");
+        }
+        if !particles_on {
+            fail("--emit-max 须随 --particles on");
+        }
+        if mv_witness || occlusion_witness || oit_witness || mesh_particles > 0 {
+            fail("--emit-max 与见证夹具互斥(见证 = 单/双粒子标定发射)");
+        }
     }
     // ── G36 W4 geo 组合面闭集裁决(fail-closed)：模式闭集 + 包必填 + 参数域
     //    (g14_3 同律字面)。互斥解除范围：geo × --particles on|off × --oit
@@ -2877,8 +3170,11 @@ fn main() {
         G35Mode::OffFace
     };
 
-    // ① 生产契约(digest 门 == FROZEN;不等拒跑)。
-    let scene_id = "bistro-interior";
+    // ① 生产契约(digest 门 == FROZEN;不等拒跑)。缺省 scene = bistro-interior
+    //    (锚格语义);展示面 --scene <id> 换场景须同携自定义 --contract(含该
+    //    scene_id 行)+ --expect-digest + --gltf(共享体 default_gltf 只认闭集
+    //    两场景,未知 id 即 fail——本 bin 不触共享体,未知场景要求显式 glTF)。
+    let scene_id = scene_arg.as_str();
     let (pre, frames) = prelude(
         scene_id,
         tier,
@@ -2890,19 +3186,26 @@ fn main() {
     let contract = &pre.contract;
     let (out_w, out_h, in_w, in_h, cseed) = (pre.out_w, pre.out_h, pre.in_w, pre.in_h, pre.seed);
     // ② G10 语料 provenance 登记(sha 快照;字段级核验门归 g34.wave1,本门
-    //    facts 闭集无 g10 项——登记不裁决)。
+    //    facts 闭集无 g10 项——登记不裁决;文件名 = scene_id 连字符→下划线,
+    //    缺失如实登记 MISSING)。
+    let scene_file_stem = scene_id.replace('-', "_");
     let g10_json = format!(
         "{{\"contract\":{},\"camera\":{},\"lighting\":{}}}",
         jstr(&g35l_file_sha(&format!(
-            "{g10_dir}/contract_params_bistro_interior.json"
+            "{g10_dir}/contract_params_{scene_file_stem}.json"
         ))),
-        jstr(&g35l_file_sha(&format!("{g10_dir}/camera_bistro_interior.json"))),
+        jstr(&g35l_file_sha(&format!("{g10_dir}/camera_{scene_file_stem}.json"))),
         jstr(&g35l_file_sha(&format!(
-            "{g10_dir}/lighting_bistro_interior.json"
+            "{g10_dir}/lighting_{scene_file_stem}.json"
         ))),
     );
     // ③ 场景装配。
     if gltf_path.is_empty() {
+        if !matches!(scene_id, "bistro-interior" | "cornell-box") {
+            fail(&format!(
+                "--scene {scene_id} 非共享体 default_gltf 闭集(bistro-interior|cornell-box),须显式 --gltf <scene.gltf>"
+            ));
+        }
         gltf_path = default_gltf(scene_id).to_owned();
     }
     let scene = match assemble_scene(&contract.raw, scene_id, Path::new(&gltf_path)) {
@@ -2968,8 +3271,15 @@ fn main() {
         "null".to_owned()
     };
     let eps = scene_eps(&scene.positions);
-    let ev100 = f64::from(scene.ev100);
+    // 展示面 --ev100 覆写(缺省 None = 契约 ev100 逐字,exposure 位级同值)。
+    let ev100 = f64::from(ev100_override.unwrap_or(scene.ev100));
     let exposure = 2.0f32.powf(-(ev100 as f32));
+    if let Some(ev) = ev100_override {
+        eprintln!(
+            "{G35L_TAG}: 展示面 --ev100 {ev} 覆写契约 ev100 {}(exposure={exposure:e};仅 on 面出图,digest 非锚格语义)",
+            scene.ev100
+        );
+    }
     let jitter_base = (cseed % JITTER_WINDOW_MOD) as u32;
     let p11 = 1.0f32 / (scene.camera.fov_y_rad * 0.5).tan();
     let d_max = scene.camera.far;
@@ -2992,7 +3302,7 @@ fn main() {
     let cam0 = G35Camera::from_spec(&scene.camera);
     let pose = |fi: u32| -> CameraSpec {
         if let Some(name) = auto_move.as_deref() {
-            let (yaw, pitch, eye) = g35l_auto_move_pose(name, &cam0, fi, total);
+            let (yaw, pitch, eye) = g35l_auto_move_pose(name, &cam0, fi, total, auto_move_amp);
             let mut c = cam0;
             c.yaw = yaw;
             c.pitch = pitch;
@@ -3266,6 +3576,7 @@ fn main() {
                 seed,
                 contract_path: &contract_path,
                 contract_digest: &contract.digest,
+                gltf_path: &gltf_path,
                 g10_json: &g10_json,
                 spv: &spv,
                 render_digest: &digest_on,
@@ -3306,6 +3617,7 @@ fn main() {
                 seed,
                 contract_path: &contract_path,
                 contract_digest: &contract.digest,
+                gltf_path: &gltf_path,
                 g10_json: &g10_json,
                 spv: &spv,
                 render_digest: &render_digest,
@@ -3370,6 +3682,36 @@ fn main() {
             d
         }
     };
+    // ── --emit-max 随机带克隆守卫(缺省 256 不评估 = 0-byte)──
+    // 消费律 r_k = table[(pid·RAND_K + k) % RAND_TABLE_LEN],RAND_K = 7919 为素数、
+    // 与 2^16 互素 ⇒ pid ↦ pid·7919 mod 65536 为双射 ⇒ 两粒子全 7 槽随机数克隆
+    // ⇔ pid ≡ pid′ (mod 65536)。同屏同时存活的 pid 跨度上界 = 峰值发射数 ×
+    // 存活帧数;跨度 ≥ 65536 即必然出现同屏克隆(位置/速度/寿命全同 ⇒ 视觉重影),
+    // fail-closed 拒跑。峰值 = 冻结节奏上界 255 按 emit_max/256 放大(整数算术同
+    // emit_schedule)。pid 走 f32 参数面(kernel params[1]),core `emit_step` 断言
+    // pid_base + emit_count < 2^24——peak·total 为其上界,提前中文拒跑。
+    if emit_max != G35L_EMIT_MAX {
+        let peak = 255usize * emit_max as usize / G35L_EMIT_MAX as usize;
+        let frames_alive = (desc.life_base / G35L_DT).ceil().max(1.0) as usize;
+        let span = peak * frames_alive;
+        if span >= RAND_TABLE_LEN {
+            fail(&format!(
+                "--emit-max {emit_max} 随机带克隆守卫红:峰值发射 {peak}/帧 × 存活 {frames_alive} 帧(life {} s / dt {G35L_DT})= 同屏 pid 跨度 {span} ≥ {RAND_TABLE_LEN}(r_k = table[(pid·{RAND_K}+k) % {RAND_TABLE_LEN}],{RAND_K} 与 2^16 互素 ⇒ 全 7 槽克隆 ⇔ pid ≡ pid′ mod {RAND_TABLE_LEN});降 --emit-max 或缩 --emitter-life",
+                desc.life_base
+            ));
+        }
+        if peak * total as usize >= (1usize << 24) {
+            fail(&format!(
+                "--emit-max {emit_max} pid 精确域守卫红:峰值发射 {peak}/帧 × 总帧 {total} = pid 上界 {} ≥ 2^24(pid 走 f32 参数面精确域;core emit_step 同断言);降 --emit-max 或缩 --frames/--warmup",
+                peak * total as usize
+            ));
+        }
+        if span > cap {
+            eprintln!(
+                "{G35L_TAG}: 提示 --emit-max {emit_max} 同屏 pid 跨度 {span} > cap {cap}:发射预算按 cap − n_curr 钳制(非红,登记面)"
+            );
+        }
+    }
     let sched = match mode {
         G35Mode::MvWitness | G35Mode::OcclusionWitness => G35EmitSched::SingleF0,
         G35Mode::OitWitness => G35EmitSched::OitPair,
@@ -3377,6 +3719,8 @@ fn main() {
     };
     let witness_mirror = matches!(mode, G35Mode::MvWitness | G35Mode::OcclusionWitness);
     let mut mirror = G35HostMirror::new(cap, seed, desc, sched);
+    // --emit-max 注入 host 金标准镜像(缺省即 new() 内 G35L_EMIT_MAX,赋同值无漂移)。
+    mirror.emit_max = emit_max as usize;
     let assets = lane_assets(&scene, in_w, in_h);
     let bits = UnifiedLaneBits::load(
         &spv.scene,
@@ -3421,6 +3765,7 @@ fn main() {
         out_w,
         out_h,
         cap,
+        emit_max,
     );
     let blas_refs: [&[f32]; 1] = [&assets.tris];
     let accel = [AccelStructDesc {
@@ -3468,12 +3813,25 @@ fn main() {
     let mut last_vp_j: Option<Mat4> = None;
     let mut prev_vp_j_host: Option<Mat4> = None;
     let mut last_prev_vp_j: Option<Mat4> = None;
+    // 帧 0 相机位置(--emitter-follow-camera 位移基准;纯 host 位姿求值,无副作用)。
+    let eye0 = pose(0).eye;
     for fi in 0..total {
         let spec = pose(fi);
         let vp = build_vp(&spec, in_w, in_h);
         let inv_vp = vp.inverse().unwrap_or_else(|| fail("view-proj 必须可逆"));
         let j = jit(fi);
         let vp_j = jittered_vp(&vp, j, in_w, in_h);
+        // --emitter-follow-camera:发射中心 = 基准盒 desc.pos + (eye(fi) − eye(0))。
+        // 先改 mirror.desc 再 step ⇒ host 金标准 pcore::frame(&self.desc) 与 device
+        // lane.frame(&mirror.desc) 消费同一份 pos(emit_params[2..5) 逐帧上传),
+        // 随机带消费律/整数流不变;缺省 off 不执行(mirror.desc 保持构造值)。
+        if emitter_follow {
+            mirror.desc.pos = [
+                desc.pos[0] + (spec.eye[0] - eye0[0]),
+                desc.pos[1] + (spec.eye[1] - eye0[1]),
+                desc.pos[2] + (spec.eye[2] - eye0[2]),
+            ];
+        }
         let ctl = mirror.step(fi);
         let scene_params = pack_frame_params(
             in_w,
@@ -3486,19 +3844,35 @@ fn main() {
             &vp,
         );
         let last = fi + 1 == total;
+        // --dump-present-every 命中帧(帧号含 warmup);缺省 None ⇒ 恒 false,
+        // rb.bgra 表达式 `a || last || false` 短路回旧值。
+        let dump_hit = dump_every.is_some_and(|n| fi % n == 0);
+        let debug_f32 = std::env::var("G35L_DEBUG_OUT_F32").map(|p| !p.is_empty()).unwrap_or(false);
         let rb = G35Rb {
             out: last,
             mv: last && mode == G35Mode::MvWitness,
-            scene: last && (mode == G35Mode::OcclusionWitness || mode == G35Mode::OitWitness),
+            scene: last
+                && (mode == G35Mode::OcclusionWitness || mode == G35Mode::OitWitness || debug_f32),
             winner: last && witness_mirror,
-            bgra: auto_move.is_some() || last,
+            bgra: auto_move.is_some() || last || dump_hit,
             acc: last && mode == G35Mode::OitWitness && oit == G35Oit::Wboit,
             sat: last && oit == G35Oit::Wboit,
             depth: last && mode == G35Mode::OitWitness,
         };
         let t_render = std::time::Instant::now();
         let rec = lane
-            .frame(j, &vp, &vp_j, exposure, fi == 0, &ctl, &mirror.desc, scene_params, rb)
+            .frame(
+                j,
+                &vp,
+                &vp_j,
+                spec.eye,
+                exposure,
+                fi == 0,
+                &ctl,
+                &mirror.desc,
+                scene_params,
+                rb,
+            )
             .unwrap_or_else(|e| fail(&format!("on 面帧 {fi}: {e}")));
         let render_el = t_render.elapsed().as_secs_f64() * 1000.0;
         if rec.validation_error_count != 0 {
@@ -3522,6 +3896,22 @@ fn main() {
                 .unwrap_or_else(|| fail(&format!("帧 {fi} auto-move 面缺 BGRA8 回读")));
             digest_seq.push(g35l_bgra_digest(out_w, out_h, px));
         }
+        // --dump-present-every 命中帧落盘:`<base>.f<帧号 4 位>`,w/h u32 LE 头 +
+        // BGRA8(g31_window_present 逐帧写盘段同布局);末帧 `<base>` 仍由下方
+        // last 分支照旧写(命中且末帧 ⇒ 两文件同内容,如实)。
+        if dump_hit {
+            let px = rec
+                .bgra8
+                .as_ref()
+                .unwrap_or_else(|| fail(&format!("帧 {fi} dump-present-every 命中帧缺 BGRA8 回读")));
+            let mut buf = Vec::with_capacity(8 + px.len());
+            buf.extend_from_slice(&out_w.to_le_bytes());
+            buf.extend_from_slice(&out_h.to_le_bytes());
+            buf.extend_from_slice(px);
+            let p = format!("{dump_raw_path}.f{fi:04}");
+            std::fs::write(&p, &buf)
+                .unwrap_or_else(|e| fail(&format!("--dump-present-every 写 {p}: {e}")));
+        }
         if last {
             let out_data = rec
                 .out_color
@@ -3531,6 +3921,29 @@ fn main() {
                 fail("末帧 TSR 输出非有限");
             }
             render_digest = frame_content_digest(out_w, out_h, 3, out_data);
+            // 调试面(环境变量门控,缺省不触):末帧 TSR f32 输出原样落盘
+            // (w/h u32 LE 头 + f32×3/px),供离线核对显示编码前的数值域。
+            if let Ok(p) = std::env::var("G35L_DEBUG_OUT_F32") {
+                if !p.is_empty() {
+                    let mut buf = Vec::with_capacity(8 + out_data.len() * 4);
+                    buf.extend_from_slice(&out_w.to_le_bytes());
+                    buf.extend_from_slice(&out_h.to_le_bytes());
+                    buf.extend_from_slice(&bytes_f32(out_data));
+                    std::fs::write(&p, &buf)
+                        .unwrap_or_else(|e| fail(&format!("G35L_DEBUG_OUT_F32 写 {p}: {e}")));
+                    eprintln!("{G35L_TAG}: debug out_color f32 → {p}");
+                    if let Some(sc) = rec.scene_color.as_ref() {
+                        let sp = format!("{p}.scene");
+                        let mut sb = Vec::with_capacity(8 + sc.len() * 4);
+                        sb.extend_from_slice(&in_w.to_le_bytes());
+                        sb.extend_from_slice(&in_h.to_le_bytes());
+                        sb.extend_from_slice(&bytes_f32(sc));
+                        std::fs::write(&sp, &sb)
+                            .unwrap_or_else(|e| fail(&format!("G35L_DEBUG_OUT_F32 写 {sp}: {e}")));
+                        eprintln!("{G35L_TAG}: debug scene_color f32 → {sp}");
+                    }
+                }
+            }
             let px = rec
                 .bgra8
                 .as_ref()
@@ -3675,6 +4088,8 @@ fn main() {
             out_w,
             out_h,
             cap,
+            // 见证影面 = 冻结标定发射(--emit-max 已与见证互斥),字面上界。
+            G35L_EMIT_MAX,
         );
         let mut mirror2 = G35HostMirror::new(
             cap,
@@ -3722,7 +4137,18 @@ fn main() {
                 ..G35Rb::default()
             };
             let rec = lane2
-                .frame(j, &vp, &vp_j, exposure, fi == 0, &ctl, &mirror2.desc, scene_params, rb)
+                .frame(
+                    j,
+                    &vp,
+                    &vp_j,
+                    spec.eye,
+                    exposure,
+                    fi == 0,
+                    &ctl,
+                    &mirror2.desc,
+                    scene_params,
+                    rb,
+                )
                 .unwrap_or_else(|e| fail(&format!("oit 见证 off 影面帧 {fi}: {e}")));
             if rec.validation_error_count != 0 {
                 fail(&format!("oit 见证 off 影面帧 {fi} validation ERROR ≠ 0"));
@@ -3815,7 +4241,7 @@ fn main() {
     let (r_mean, r_min, r_max) = g35l_stats(&render_ms);
     let (pg_mean, _, _) = g35l_stats(&particle_gpu_ms);
     let particle_stats_json = format!(
-        "{{\"n_final\":{},\"pids_issued\":{},\"args_last_host\":[{},{},{},{},{},{},{},{}],\"nseg_cap\":{},\"emit_max\":{G35L_EMIT_MAX},\"emit_schedule\":{}}}",
+        "{{\"n_final\":{},\"pids_issued\":{},\"args_last_host\":[{},{},{},{},{},{},{},{}],\"nseg_cap\":{},\"emit_max\":{emit_max},\"emit_schedule\":{}}}",
         last_ctl.n_next,
         mirror.pid_base,
         last_ctl.args_host[0],
@@ -3827,11 +4253,13 @@ fn main() {
         last_ctl.args_host[6],
         last_ctl.args_host[7],
         cap / SEG,
-        jstr(if witness_mirror {
-            "witness:frame0 单发射"
+        if witness_mirror {
+            jstr("witness:frame0 单发射")
+        } else if emit_max == G35L_EMIT_MAX {
+            jstr("min(64 + frame*17 % 192, cap - n_curr)")
         } else {
-            "min(64 + frame*17 % 192, cap - n_curr)"
-        }),
+            jstr(&format!("min((64 + frame*17 % 192)*{emit_max}/256, cap - n_curr)"))
+        },
     );
     let (og_mean, _, _) = g35l_stats(&oit_gpu_ms);
     let frame_ms_json = format!(
@@ -3866,7 +4294,15 @@ fn main() {
         )
     };
     // 展示面参数回显(全默认 = null;非默认 = 出图参数面如实登记,复跑可溯)。
-    let showcase_json = if !fx_touched && !emitter_touched && dump_raw_path.is_empty() {
+    let showcase_json = if !fx_touched
+        && !emitter_touched
+        && dump_raw_path.is_empty()
+        && ev100_override.is_none()
+        && dump_every.is_none()
+        && auto_move_amp == 1.0
+        && !emitter_follow
+        && emit_max == G35L_EMIT_MAX
+    {
         "null".to_owned()
     } else {
         let emitter_json = if emitter_touched {
@@ -3881,15 +4317,42 @@ fn main() {
         } else {
             "null".to_owned()
         };
+        let rain_json = if fx.rain_on() {
+            format!(
+                "{{\"shutter\":{},\"occlusion\":{},\"ray_tmin_m\":{},\"streak_max_px\":128,\"tsr_reactive\":true,\"note\":{}}}",
+                fx.rain_shutter,
+                fx.rain_occlusion,
+                G35L_RAIN_RAY_TMIN,
+                jstr("雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"),
+            )
+        } else {
+            "null".to_owned()
+        };
+        // 推轨短片面四键(缺省值如实回显:null / 1 / false / null / 256)。
+        let emitter_pos_final_json = if emitter_follow {
+            format!(
+                "[{},{},{}]",
+                mirror.desc.pos[0], mirror.desc.pos[1], mirror.desc.pos[2]
+            )
+        } else {
+            "null".to_owned()
+        };
         format!(
-            "{{\"dump_present_raw\":{},\"r_world\":{},\"splat_stretch\":{},\"particle_tint\":[{},{},{}],\"particle_alpha_scale\":{},\"emitter_override\":{}}}",
+            "{{\"dump_present_raw\":{},\"dump_present_every\":{},\"r_world\":{},\"splat_stretch\":{},\"particle_tint\":[{},{},{}],\"particle_alpha_scale\":{},\"rain\":{},\"ev100_override\":{},\"emitter_override\":{},\"auto_move_amp\":{},\"emitter_follow_camera\":{},\"emitter_pos_final\":{},\"emit_max\":{}}}",
             if dump_raw_path.is_empty() {
                 "null".to_owned()
             } else {
                 jstr(&dump_raw_path.replace('\\', "/"))
             },
+            dump_every.map_or("null".to_owned(), |n| format!("{n}")),
             fx.r_world, fx.stretch, fx.tint[0], fx.tint[1], fx.tint[2], fx.alpha_scale,
+            rain_json,
+            ev100_override.map_or("null".to_owned(), |v| format!("{v}")),
             emitter_json,
+            auto_move_amp,
+            emitter_follow,
+            emitter_pos_final_json,
+            emit_max,
         )
     };
     emit_evidence(
@@ -3913,6 +4376,7 @@ fn main() {
             seed,
             contract_path: &contract_path,
             contract_digest: &contract.digest,
+            gltf_path: &gltf_path,
             g10_json: &g10_json,
             spv: &spv,
             render_digest: &render_digest,
@@ -3952,6 +4416,9 @@ struct EvidenceCtx<'e> {
     seed: u64,
     contract_path: &'e str,
     contract_digest: &'e str,
+    /// 实际装配的 glTF 路径(缺省场景 = 共享体 default_gltf 解析结果;顶层
+    /// `gltf` 块登记路径 + sha256,读不到如实 MISSING)。
+    gltf_path: &'e str,
     g10_json: &'e str,
     spv: &'e G35SpvPaths,
     render_digest: &'e str,
@@ -4032,6 +4499,13 @@ fn emit_evidence(path: &str, c: &EvidenceCtx) {
         "\"contract\":{{\"path\":{},\"digest\":{}}},",
         jstr(&c.contract_path.replace('\\', "/")),
         jstr(c.contract_digest)
+    ));
+    // 装配 glTF 登记(推轨短片面复跑可溯:路径 = 实际装配路径,缺省场景为
+    // 共享体 default_gltf 解析结果;sha256 读不到 = MISSING)。
+    ev.push_str(&format!(
+        "\"gltf\":{{\"path\":{},\"sha256\":{}}},",
+        jstr(&c.gltf_path.replace('\\', "/")),
+        jstr(&g35l_file_sha(c.gltf_path))
     ));
     ev.push_str(&format!("\"g10_provenance\":{},", c.g10_json));
     ev.push_str(&format!(

@@ -131,3 +131,25 @@ artifacts/day_0903_water/**/*.raw.*
 artifacts/day_0903_water/**/*.mp4
 artifacts/day_0903_water/clip_frames/
 artifacts/day_0903_water/**/__pycache__/
+
+# day_0902_rain_night 雨夜街景展示面逐帧 presented 原始转储与媒体件不入库
+# (2026-09-02;定帧/探针 raw + dolly 短片 ≥240 帧 ×7.9MB ≈2GB,day_0831_site
+# 同律先例)。evidence json / contract / 派生脚本 / 账本 render_runs.jsonl /
+# REPORT 结论件保全入库;FBX→glTF 派生资产落 K:\rurix_g10_cache(git 零二进制)。
+artifacts/day_0902_rain_night/**/*.raw
+artifacts/day_0902_rain_night/**/*.raw.*
+artifacts/day_0902_rain_night/**/*.mp4
+artifacts/day_0902_rain_night/clip_frames/
+artifacts/day_0902_rain_night/**/__pycache__/
+# 全量 stdout/stderr 跑批日志(run_render.py 加性 log 字段,账本 render_runs.jsonl 保全 tail)
+artifacts/day_0902_rain_night/logs/
+# FBX2glTF 复现失败日志(652KB,根因未定,HANDOVER W-7 登记,不入库)
+artifacts/day_0902_rain_night/fbx2gltf_retry.log
+
+# day_0904_wet_street 湿街展示面逐帧 presented / 短片不入库(雨夜同律)
+artifacts/day_0904_wet_street/**/*.raw
+artifacts/day_0904_wet_street/**/*.raw.*
+artifacts/day_0904_wet_street/**/*.mp4
+artifacts/day_0904_wet_street/clip_frames/
+artifacts/day_0904_wet_street/**/__pycache__/
+artifacts/day_0904_wet_street/logs/

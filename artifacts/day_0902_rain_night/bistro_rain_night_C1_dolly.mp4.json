@@ -1,0 +1,18 @@
+{
+ "src": "H:/rurix/artifacts/day_0902_rain_night/clip_C1.raw",
+ "frames_total": 400,
+ "frames_kept": 300,
+ "warmup_skip": 100,
+ "fps": 30,
+ "crf": "21",
+ "resolution": [
+  1920,
+  1080
+ ],
+ "duration_s": 10.0,
+ "out": "H:/rurix/artifacts/day_0902_rain_night/bistro_rain_night_C1_dolly.mp4",
+ "out_bytes": 18526990,
+ "out_sha256": "sha256:91906ff283ec26dc6d6c3d1aa8b485040922c5ab9efc93cc4f23257b7908b57c",
+ "ffmpeg": "C:/Users/苍/AppData/Local/Programs/Python/Python312/Lib/site-packages/imageio_ffmpeg/binaries/ffmpeg-win-x86_64-v7.1.exe",
+ "note": "帧号含 warmup;PNG 帧目录与 mp4 不入库(.gitignore),本 JSON 为登记件"
+}

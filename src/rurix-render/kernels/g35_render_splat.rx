@@ -41,8 +41,31 @@
 // 零位运算(u64 域 <<;| 惯用法 = visbuffer_sw_u64 先例)。固定输入双跑
 // 位级一致:fetch_max 可交换幂等 + 平局由 slot 序全序裁决,与线程调度无关。
 //
-// ## 参数面(P_PARAMS_RENDER 64 f32 共享布局,单源 = bin/g35_particle_lane.rs
-// `pack_render_params` 头注;声明序 = 绑定序,SSBO 数 = 7)
+// ## 雨丝模式(展示面;params[61] > 0 启用,= 0 时下方冻结面逐字执行 ⇒
+// 默认面位级零漂移)
+// 冻结面的「竖直拉伸椭圆」把每帧运动量与丝长脱钩(9 m/s·1/60 s 在 3 m 处
+// ≈ 68 px/帧,椭圆半幅 ≤ 24 px ⇒ 短划线),且硬拒/软粒子基于上述 quirk 域
+// 无遮挡语义。雨丝模式改为**运动模糊胶囊**:
+// a. 遮挡(params[62] > 0.5):TLAS ray query 相机 eye(params[64..67))→
+//    粒子位置,方向 = pos − eye 未归一,t ∈ (tmin/|d|, 0.999) 任意命中 ⇒
+//    整粒子剔除(逐粒子一条射线;雨丝 ≈ 1 px 宽,逐粒子遮挡即逐像素精度;
+//    替代 quirk 域硬拒——本模式不读 scene_depth)。
+// b. 胶囊端点:首 = pos,尾 = pos − vel·dt·shutter(shutter = params[61],
+//    1.0 = 整帧曝光,与 resolve 粒子 MV 的 pos − vel·dt 同源);两端均经
+//    vp_j 投影,任一 w 门失效 ⇒ 剔除。屏幕段向量 s = 尾 − 首,长度上限
+//    128 px(超限按比例缩尾端,保方向——单粒子像素循环上界)。
+// c. 半径:rpx_true = r_world·0.5·ih·p11/d_view;r_core = clamp(rpx_true,
+//    0.5, 2.25);resolve tent 半径 = r_core + 0.75,本 kernel 赢家足迹半径
+//    r_mask = 该值 + 1.5 px 外扩(外圈 alpha = 0 仅承载 reactive = 1,吸收
+//    TSR resample 核/抖动的色扩散;见 d 段前注)。
+// d. 光栅:包围盒行序遍历,每行 x 中心 = 段上同行点(|s_y| ≤ 1e-6 时取首端
+//    并令跨度覆盖整盒),跨度 = r_mask·sqrt(1+(s_x/s_y)²)+1 并 clamp 到盒;
+//    逐像素精确判据 = 像素中心到线段距² ≤ r_mask²(u = clamp(投影参数,0,1))。
+//    代价上界 ≈ (|s_y|+2r+2)·min(2r·|s|/|s_y|+3, |s_x|+2r+2) ≤ ~900 次/粒子。
+// e. 键/打包与冻结面同式(反深度 24 位 | slot)。
+//
+// ## 参数面(P_PARAMS_RENDER 80 f32 共享布局,单源 = bin/g35_particle_lane.rs
+// `pack_render_params` 头注;声明序 = 绑定序,AS 数 = 1,SSBO 数 = 10)
 //   params[0]=iw [1]=ih [2]=r_world [3]=soft_range [4]=d_max(far)
 //   [5]=dt [6]=px_count [7]=p11(投影阵 [1][1] = f = 1/tan(fov_y/2))
 //   [8..24)=vp_j(本帧 jitter 等价投影,行主序 m[r][c] → [8+r*4+c])
@@ -50,21 +73,31 @@
 //   [40..56)=prev_vp_j(上帧 jitter 等价投影;本 kernel 不消费,resolve 面)
 //   [56]=stretch_y(雨丝竖直拉伸比,host 默认 1.0;<1.0 → 1.0 门 = 圆点
 //   零行为变化面——rpx·1.0 与 fdy/1.0 均 IEEE 精确 ⇒ 生产夹具位级零漂移;
-//   拉伸上限 24px 半幅防单粒子像素循环爆炸) [57..64)=resolve 消费面。
-//   SSBO 序:0 params(View f32×64) / 1 args(View u32×8,g35_indirect_args
-//   产物,读 [7] meta 槽) / 2 b_pos_x / 3 b_pos_y / 4 b_pos_z(View f32×cap,
-//   B 组压缩+发射后前缀) / 5 scene_depth(View f32×px,U_SCENE_DEPTH 语义) /
-//   6 winner(AtomicView u64×px;形状标注 2073600 = 1080p 生产面上界,
+//   拉伸上限 24px 半幅防单粒子像素循环爆炸) [57..61)=resolve 消费面。
+//   [61]=rain_shutter(0 = 冻结面;>0 = 雨丝模式,曝光占 dt 比)
+//   [62]=rain_occlusion(0/1,TLAS 遮挡) [63]=rain_inv_exposure(resolve 消费面)
+//   [64..67)=eye_xyz(相机世界位置;遮挡射线原点) [67]=ray_tmin(米)
+//   [68..80)=reserved(恒 0)。
+//   AS 序:0 tlas(场景 TLAS;仅雨丝模式 + rain_occlusion 消费)。
+//   SSBO 序:0 params(View f32×80) / 1 args(View u32×8,g35_indirect_args
+//   产物,读 [7] meta 槽) / 2 b_pos_x / 3 b_pos_y / 4 b_pos_z / 5 b_vel_x /
+//   6 b_vel_y / 7 b_vel_z(View f32×cap,B 组压缩+发射后前缀;vel 仅雨丝模式
+//   消费) / 8 scene_depth(View f32×px,U_SCENE_DEPTH 语义;仅冻结面消费) /
+//   9 winner(AtomicView u64×px;形状标注 2073600 = 1080p 生产面上界,
 //   SPIR-V 侧 runtime array 实际以绑定缓冲长度为准)。
 //   dispatch = DispatchSpec::Indirect{res=args,offset=0}(LocalSize 1,1,1)。
 #[numthreads(1, 1, 1)]
 kernel fn g35_render_splat(
+    tlas: AccelStruct,
     tc: ThreadCtx<1>,
     params: View<global, f32>,
     args: View<global, u32>,
     b_pos_x: View<global, f32>,
     b_pos_y: View<global, f32>,
     b_pos_z: View<global, f32>,
+    b_vel_x: View<global, f32>,
+    b_vel_y: View<global, f32>,
+    b_vel_z: View<global, f32>,
     scene_depth: View<global, f32>,
     winner: AtomicView<global, u64, (2073600,)>,
 ) {
@@ -81,101 +114,265 @@ kernel fn g35_render_splat(
         let px_ = b_pos_x[s];
         let py_ = b_pos_y[s];
         let pz_ = b_pos_z[s];
-        // ── ① 本帧 jitter 等价投影(vp_j 行主序;w 门 = 近平面/相机后剔除)──
-        let cx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
-        let cy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
-        let cw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
-        if cw > 0.000001 {
-            // ── ② 屏幕中心/半径(NDC→像素,uv 原点左上;半径经视深投影)──
-            let ndx = cx / cw;
-            let ndy = cy / cw;
-            let cxf = (ndx + 1.0) * 0.5 * iwf - 0.5;
-            let cyf = (1.0 - ndy) * 0.5 * ihf - 0.5;
-            // 视深 = 未抖 vp 行 3 齐次 w(RH 前向距离;depth_key24 消费域)。
-            let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
-            if d_view > 0.000001 {
-                let mut rpx = r_world * 0.5 * ihf * p11 / d_view;
-                if rpx > 3.0 {
-                    rpx = 3.0;
-                }
-                if rpx < 0.5 {
-                    rpx = 0.5;
-                }
-                // 雨丝竖直拉伸(屏幕域:重力主导粒子世界竖直下落,相机零 roll
-                // 下屏幕竖直 ≈ 世界竖直投影向)。stretch = 1.0 时 rpy == rpx、
-                // fdy2 == fdy(IEEE 精确)⇒ 默认面与冻结圆点形位级一致。
-                let stretch = params[56].max(1.0);
-                let mut rpy = rpx * stretch;
-                if rpy > 24.0 {
-                    rpy = 24.0;
-                }
-                // 屏内 clamp 包围盒(整盒离屏 ⇒ x1f < x0f 判空;负域先判后转)。
-                let mut x0f = (cxf - rpx).floor();
-                let mut x1f = (cxf + rpx).floor();
-                let mut y0f = (cyf - rpy).floor();
-                let mut y1f = (cyf + rpy).floor();
-                if x0f < 0.0 {
-                    x0f = 0.0;
-                }
-                if y0f < 0.0 {
-                    y0f = 0.0;
-                }
-                if x1f > iwf - 1.0 {
-                    x1f = iwf - 1.0;
-                }
-                if y1f > ihf - 1.0 {
-                    y1f = ihf - 1.0;
-                }
-                if x1f >= x0f && y1f >= y0f {
-                    // ── ③ 生产字面深度域 d_p(未抖 vp 行 0/1;|w|≤1e-8 → 1.0
-                    //    门与母版 ④ 段逐字同式——同域拒绝判据)──
-                    let big: f32 = 1e30;
-                    let qz = ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
-                    let qw = ((params[28] * px_ + params[29] * py_) + params[30] * pz_) + params[31];
-                    let qw_abs = qw.max(0.0 - qw);
-                    let gate_w = ((qw_abs - 0.00000001) * big).min(1.0).max(0.0);
-                    let qw_safe = qw + (1.0 - gate_w);
-                    let d_p = gate_w * (qz / qw_safe) + (1.0 - gate_w);
-                    // ── ⑤ 赢家键(反深度 24 位;host depth_key24 同式)──
-                    let mut t = d_view / d_max;
-                    if t < 0.0 {
-                        t = 0.0;
+        let rain_shutter = params[61];
+        if rain_shutter > 0.0 {
+            // ══ 雨丝模式(运动模糊胶囊 + TLAS 逐粒子遮挡;头注 a..e)══
+            // ── a. 遮挡射线 eye → pos(未归一方向,t 域 = 距离占比)──
+            let mut visible: f32 = 1.0;
+            if params[62] > 0.5 {
+                let ex = params[64];
+                let ey = params[65];
+                let ez = params[66];
+                let ox = px_ - ex;
+                let oy = py_ - ey;
+                let oz = pz_ - ez;
+                let dist2 = (ox * ox + oy * oy) + oz * oz;
+                if dist2 > 0.000001 {
+                    let tmin = params[67] / dist2.sqrt();
+                    let mut rq = ray_query_initialize(tlas, (ex, ey, ez), tmin, (ox, oy, oz), 0.999);
+                    while rq.proceed() {
                     }
-                    if t > 1.0 {
-                        t = 1.0;
+                    if rq.has_committed() {
+                        visible = 0.0;
                     }
-                    let dk = (t * 16777215.0).floor() as u32;
-                    let key = 16777215u32 - dk;
-                    let slot32 = s as u32;
-                    let packed = ((key as u64) << 40u64) | (slot32 as u64);
-                    let rq2 = rpx * rpx;
-                    // ── ④ 逐像素:硬拒(同域)→ 圆形 mask → fetch_max ──
-                    let x0 = x0f as usize;
-                    let x1 = x1f as usize;
-                    let y0 = y0f as usize;
-                    let y1 = y1f as usize;
-                    let mut y = y0;
-                    while y <= y1 {
-                        let mut x = x0;
-                        while x <= x1 {
-                            let i = y * iw + x;
-                            if i < iw * ih {
-                                if d_p > scene_depth[i] {
-                                    // 硬拒:粒子在存储域序后(同域判据,头注登记)。
-                                } else {
-                                    let fdx = (x as f32) - cxf;
-                                    let fdy = (y as f32) - cyf;
-                                    // 椭圆 mask(竖直半轴 = rpx·stretch);stretch = 1.0
-                                    // 时 fdy2 位级 == fdy ⇒ 圆形冻结形零漂移。
-                                    let fdy2 = fdy / stretch;
-                                    if fdx * fdx + fdy2 * fdy2 <= rq2 {
-                                        let _old = winner.fetch_max(i, packed, Scope::Gpu);
-                                    }
+                }
+            }
+            if visible > 0.5 {
+                // ── b. 首尾端点投影(首 = 本帧 pos,尾 = pos − vel·dt·shutter)──
+                let k = params[5] * rain_shutter;
+                let qx = px_ - b_vel_x[s] * k;
+                let qy = py_ - b_vel_y[s] * k;
+                let qz = pz_ - b_vel_z[s] * k;
+                let cx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+                let cy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+                let cw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+                let tx = ((params[8] * qx + params[9] * qy) + params[10] * qz) + params[11];
+                let ty = ((params[12] * qx + params[13] * qy) + params[14] * qz) + params[15];
+                let tw = ((params[20] * qx + params[21] * qy) + params[22] * qz) + params[23];
+                let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+                if cw > 0.000001 && tw > 0.000001 && d_view > 0.000001 {
+                    let ax = (cx / cw + 1.0) * 0.5 * iwf - 0.5;
+                    let ay = (1.0 - cy / cw) * 0.5 * ihf - 0.5;
+                    let bx = (tx / tw + 1.0) * 0.5 * iwf - 0.5;
+                    let by = (1.0 - ty / tw) * 0.5 * ihf - 0.5;
+                    // ── c. 半径(核心 clamp + 软边;resolve tent 半径同式)──
+                    let mut r_core = r_world * 0.5 * ihf * p11 / d_view;
+                    if r_core < 0.5 {
+                        r_core = 0.5;
+                    }
+                    if r_core > 2.25 {
+                        r_core = 2.25;
+                    }
+                    // 赢家足迹 = tent 半径 r_mask 外扩 1.5 px:外圈像素 resolve 剖面
+                    // alpha = 0 只写 reactive = 1——覆盖 TSR resample Catmull-Rom
+                    // 核(±2 tap)+ 抖动(±0.5 px)把雨丝色扩散到的邻像素,否则该圈
+                    // 像素 reactive = 0 而当前帧含雨丝亮色 ⇒ 3×3 YCoCg AABB 宽、
+                    // 历史被钳至盒角 ⇒ 色域外假色(rain_v2_probe 实测)。
+                    let r_mask = r_core + 0.75 + 1.5;
+                    let rq2 = r_mask * r_mask;
+                    // 段向量(尾 − 首),长度上限 128 px(保方向缩尾端)。
+                    let mut sx = bx - ax;
+                    let mut sy = by - ay;
+                    let seg_len = (sx * sx + sy * sy).sqrt();
+                    if seg_len > 128.0 {
+                        let sc = 128.0 / seg_len;
+                        sx = sx * sc;
+                        sy = sy * sc;
+                    }
+                    let len2 = sx * sx + sy * sy;
+                    let bx2 = ax + sx;
+                    let by2 = ay + sy;
+                    // 屏内 clamp 包围盒(整盒离屏 ⇒ 判空直落)。
+                    let mut x0f = (ax.min(bx2) - r_mask).floor();
+                    let mut x1f = (ax.max(bx2) + r_mask).floor();
+                    let mut y0f = (ay.min(by2) - r_mask).floor();
+                    let mut y1f = (ay.max(by2) + r_mask).floor();
+                    if x0f < 0.0 {
+                        x0f = 0.0;
+                    }
+                    if y0f < 0.0 {
+                        y0f = 0.0;
+                    }
+                    if x1f > iwf - 1.0 {
+                        x1f = iwf - 1.0;
+                    }
+                    if y1f > ihf - 1.0 {
+                        y1f = ihf - 1.0;
+                    }
+                    if x1f >= x0f && y1f >= y0f {
+                        // ── e. 赢家键(反深度 24 位;冻结面同式)──
+                        let mut t = d_view / d_max;
+                        if t < 0.0 {
+                            t = 0.0;
+                        }
+                        if t > 1.0 {
+                            t = 1.0;
+                        }
+                        let dk = (t * 16777215.0).floor() as u32;
+                        let key = 16777215u32 - dk;
+                        let slot32 = s as u32;
+                        let packed = ((key as u64) << 40u64) | (slot32 as u64);
+                        // ── d. 行序光栅(每行跨度 = 段同行点 ± r_mask·sqrt(1+slope²)+1)──
+                        let ady = sy.max(0.0 - sy);
+                        let y0 = y0f as usize;
+                        let y1 = y1f as usize;
+                        let mut y = y0;
+                        while y <= y1 {
+                            let yf = y as f32;
+                            let mut span = iwf;
+                            let mut tt = 0.0;
+                            if ady > 0.000001 {
+                                let slope = sx / sy;
+                                span = r_mask * (1.0 + slope * slope).sqrt() + 1.0;
+                                tt = (yf - ay) / sy;
+                                if tt < 0.0 {
+                                    tt = 0.0;
+                                }
+                                if tt > 1.0 {
+                                    tt = 1.0;
                                 }
                             }
-                            x = x + 1usize;
+                            let xc = ax + sx * tt;
+                            let mut xs0f = (xc - span).floor();
+                            let mut xs1f = (xc + span).floor();
+                            if xs0f < x0f {
+                                xs0f = x0f;
+                            }
+                            if xs1f > x1f {
+                                xs1f = x1f;
+                            }
+                            if xs1f >= xs0f {
+                                let xs0 = xs0f as usize;
+                                let xs1 = xs1f as usize;
+                                let mut x = xs0;
+                                while x <= xs1 {
+                                    let i = y * iw + x;
+                                    if i < iw * ih {
+                                        let fx = (x as f32) - ax;
+                                        let fy = yf - ay;
+                                        // 像素中心到线段最近点(u ∈ [0,1];零长段退化为圆)。
+                                        let mut u = 0.0;
+                                        if len2 > 0.000001 {
+                                            u = (fx * sx + fy * sy) / len2;
+                                            if u < 0.0 {
+                                                u = 0.0;
+                                            }
+                                            if u > 1.0 {
+                                                u = 1.0;
+                                            }
+                                        }
+                                        let ddx = fx - sx * u;
+                                        let ddy = fy - sy * u;
+                                        if ddx * ddx + ddy * ddy <= rq2 {
+                                            let _old = winner.fetch_max(i, packed, Scope::Gpu);
+                                        }
+                                    }
+                                    x = x + 1usize;
+                                }
+                            }
+                            y = y + 1usize;
                         }
-                        y = y + 1usize;
+                    }
+                }
+            }
+        } else {
+            // ══ 冻结面(逐字;头注 1..5)══
+            // ── ① 本帧 jitter 等价投影(vp_j 行主序;w 门 = 近平面/相机后剔除)──
+            let cx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+            let cy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+            let cw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+            if cw > 0.000001 {
+                // ── ② 屏幕中心/半径(NDC→像素,uv 原点左上;半径经视深投影)──
+                let ndx = cx / cw;
+                let ndy = cy / cw;
+                let cxf = (ndx + 1.0) * 0.5 * iwf - 0.5;
+                let cyf = (1.0 - ndy) * 0.5 * ihf - 0.5;
+                // 视深 = 未抖 vp 行 3 齐次 w(RH 前向距离;depth_key24 消费域)。
+                let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+                if d_view > 0.000001 {
+                    let mut rpx = r_world * 0.5 * ihf * p11 / d_view;
+                    if rpx > 3.0 {
+                        rpx = 3.0;
+                    }
+                    if rpx < 0.5 {
+                        rpx = 0.5;
+                    }
+                    // 雨丝竖直拉伸(屏幕域:重力主导粒子世界竖直下落,相机零 roll
+                    // 下屏幕竖直 ≈ 世界竖直投影向)。stretch = 1.0 时 rpy == rpx、
+                    // fdy2 == fdy(IEEE 精确)⇒ 默认面与冻结圆点形位级一致。
+                    let stretch = params[56].max(1.0);
+                    let mut rpy = rpx * stretch;
+                    if rpy > 24.0 {
+                        rpy = 24.0;
+                    }
+                    // 屏内 clamp 包围盒(整盒离屏 ⇒ x1f < x0f 判空;负域先判后转)。
+                    let mut x0f = (cxf - rpx).floor();
+                    let mut x1f = (cxf + rpx).floor();
+                    let mut y0f = (cyf - rpy).floor();
+                    let mut y1f = (cyf + rpy).floor();
+                    if x0f < 0.0 {
+                        x0f = 0.0;
+                    }
+                    if y0f < 0.0 {
+                        y0f = 0.0;
+                    }
+                    if x1f > iwf - 1.0 {
+                        x1f = iwf - 1.0;
+                    }
+                    if y1f > ihf - 1.0 {
+                        y1f = ihf - 1.0;
+                    }
+                    if x1f >= x0f && y1f >= y0f {
+                        // ── ③ 生产字面深度域 d_p(未抖 vp 行 0/1;|w|≤1e-8 → 1.0
+                        //    门与母版 ④ 段逐字同式——同域拒绝判据)──
+                        let big: f32 = 1e30;
+                        let qz = ((params[24] * px_ + params[25] * py_) + params[26] * pz_) + params[27];
+                        let qw = ((params[28] * px_ + params[29] * py_) + params[30] * pz_) + params[31];
+                        let qw_abs = qw.max(0.0 - qw);
+                        let gate_w = ((qw_abs - 0.00000001) * big).min(1.0).max(0.0);
+                        let qw_safe = qw + (1.0 - gate_w);
+                        let d_p = gate_w * (qz / qw_safe) + (1.0 - gate_w);
+                        // ── ⑤ 赢家键(反深度 24 位;host depth_key24 同式)──
+                        let mut t = d_view / d_max;
+                        if t < 0.0 {
+                            t = 0.0;
+                        }
+                        if t > 1.0 {
+                            t = 1.0;
+                        }
+                        let dk = (t * 16777215.0).floor() as u32;
+                        let key = 16777215u32 - dk;
+                        let slot32 = s as u32;
+                        let packed = ((key as u64) << 40u64) | (slot32 as u64);
+                        let rq2 = rpx * rpx;
+                        // ── ④ 逐像素:硬拒(同域)→ 圆形 mask → fetch_max ──
+                        let x0 = x0f as usize;
+                        let x1 = x1f as usize;
+                        let y0 = y0f as usize;
+                        let y1 = y1f as usize;
+                        let mut y = y0;
+                        while y <= y1 {
+                            let mut x = x0;
+                            while x <= x1 {
+                                let i = y * iw + x;
+                                if i < iw * ih {
+                                    if d_p > scene_depth[i] {
+                                        // 硬拒:粒子在存储域序后(同域判据,头注登记)。
+                                    } else {
+                                        let fdx = (x as f32) - cxf;
+                                        let fdy = (y as f32) - cyf;
+                                        // 椭圆 mask(竖直半轴 = rpx·stretch);stretch = 1.0
+                                        // 时 fdy2 位级 == fdy ⇒ 圆形冻结形零漂移。
+                                        let fdy2 = fdy / stretch;
+                                        if fdx * fdx + fdy2 * fdy2 <= rq2 {
+                                            let _old = winner.fetch_max(i, packed, Scope::Gpu);
+                                        }
+                                    }
+                                }
+                                x = x + 1usize;
+                            }
+                            y = y + 1usize;
+                        }
                     }
                 }
             }

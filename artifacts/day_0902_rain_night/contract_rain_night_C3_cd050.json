@@ -1,0 +1,507 @@
+{
+ "schema": "rurix.g13.ue_upscale_parity_contract.v1",
+ "contract_id": "g13_ue_upscale_parity",
+ "version": 1,
+ "tier_sequence": [
+  50,
+  67,
+  100
+ ],
+ "frame_count": 32,
+ "seed": 7312026601,
+ "calibration_seed": 7312026602,
+ "noise_probe_tier": 67,
+ "rurix_backends": [
+  "tsr_device",
+  "dlss_sr",
+  "fsr_3_1_5"
+ ],
+ "ue_dlss_quality_map": {
+  "50": "Performance",
+  "67": "Quality",
+  "100": "DLAA"
+ },
+ "rendering_policy": {
+  "tonemap": "off",
+  "denoiser": "off",
+  "ue_temporal_upscaler": "dlss_plugin",
+  "jitter": "halton_static"
+ },
+ "scenes": [
+  {
+   "scene_id": "cornell-box",
+   "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+   "gltf_product_digest": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa8e",
+   "camera": {
+    "position": [
+     278.0,
+     273.0,
+     -800.0
+    ],
+    "orientation_quat": [
+     -0.0,
+     0.0,
+     1.0,
+     -0.0
+    ],
+    "fov_y_deg": 39.31,
+    "near": 10.0,
+    "far": 3000.0,
+    "resolution": {
+     "w": 512,
+     "h": 512
+    }
+   },
+   "exposure": {
+    "mode": "manual",
+    "ev100": 0.0
+   },
+   "lighting": {
+    "quad_lights": [
+     {
+      "p00": [
+       213.0,
+       548.7,
+       227.0
+      ],
+      "e1": [
+       130.0,
+       0.0,
+       0.0
+      ],
+      "e2": [
+       0.0,
+       0.0,
+       105.0
+      ],
+      "le_linear_rgb": [
+       10.0,
+       9.5,
+       8.5
+      ]
+     }
+    ],
+    "point_lights": [],
+    "emissive_materials": [],
+    "sun_intensity_lux": 0.0,
+    "sky_intensity": 0.0
+   },
+   "material_policy": {
+    "texture_mean_albedo": false,
+    "white_tex_to_white": true
+   }
+  },
+  {
+   "scene_id": "bistro-interior",
+   "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+   "gltf_product_digest": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c",
+   "camera": {
+    "position": [
+     -14.0,
+     2.023,
+     -3.0
+    ],
+    "orientation_quat": [
+     0.7833948061679513,
+     0.05458071002414811,
+     -0.6176259666035162,
+     0.04303125770193521
+    ],
+    "fov_y_deg": 52.0,
+    "near": 0.05,
+    "far": 500.0,
+    "resolution": {
+     "w": 1920,
+     "h": 1080
+    }
+   },
+   "exposure": {
+    "mode": "manual",
+    "ev100": -7.0
+   },
+   "lighting": {
+    "quad_lights": [],
+    "point_lights": [
+     {
+      "id": "SL152",
+      "position": [
+       -7.427,
+       6.679,
+       -7.2
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.5
+     },
+     {
+      "id": "LANT23",
+      "position": [
+       -2.203,
+       3.876,
+       -7.696
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.175
+     },
+     {
+      "id": "LANT24",
+      "position": [
+       -0.667,
+       3.825,
+       -11.731
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.175
+     },
+     {
+      "id": "LANT22",
+      "position": [
+       2.579,
+       3.883,
+       4.085
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.175
+     },
+     {
+      "id": "LANT21",
+      "position": [
+       7.195,
+       3.866,
+       5.913
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.175
+     },
+     {
+      "id": "LANT25",
+      "position": [
+       11.457,
+       3.846,
+       5.887
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.175
+     },
+     {
+      "id": "SL136",
+      "position": [
+       13.876,
+       7.164,
+       -32.628
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.5
+     },
+     {
+      "id": "SL137",
+      "position": [
+       27.755,
+       7.049,
+       -55.542
+      ],
+      "color_linear_rgb": [
+       1.0,
+       0.72,
+       0.42
+      ],
+      "intensity_cd": 0.5
+     }
+    ],
+    "emissive_materials": [
+     {
+      "material_name": "Paris_StringLights_01_Orange_Color_Emissive",
+      "material_index": 1,
+      "le_linear_rgb": [
+       0.01953125,
+       0.0034765624999999996,
+       0.00013671875
+      ],
+      "area_m2": 0.452
+     },
+     {
+      "material_name": "Paris_StringLights_01_Blue_Color_Emissive",
+      "material_index": 2,
+      "le_linear_rgb": [
+       0.0,
+       0.00033203125,
+       0.01953125
+      ],
+      "area_m2": 0.52
+     },
+     {
+      "material_name": "Paris_StringLights_01_White_Color_Emissive",
+      "material_index": 3,
+      "le_linear_rgb": [
+       0.01953125,
+       0.01953125,
+       0.01953125
+      ],
+      "area_m2": 0.63
+     },
+     {
+      "material_name": "Paris_StringLights_01_Pink_Color_Emissive",
+      "material_index": 4,
+      "le_linear_rgb": [
+       0.01953125,
+       1.953125e-05,
+       0.011035156249999999
+      ],
+      "area_m2": 0.379
+     },
+     {
+      "material_name": "Paris_StringLights_01_Red_Color_Emissive",
+      "material_index": 5,
+      "le_linear_rgb": [
+       0.01953125,
+       0.0,
+       0.0
+      ],
+      "area_m2": 0.316
+     },
+     {
+      "material_name": "Paris_StringLights_01_Green_Color_Emissive",
+      "material_index": 6,
+      "le_linear_rgb": [
+       0.0,
+       0.01953125,
+       3.90625e-05
+      ],
+      "area_m2": 0.734
+     },
+     {
+      "material_name": "Emissive_StreetLight",
+      "material_index": 12,
+      "le_linear_rgb": [
+       0.03125,
+       0.00884375,
+       0.00196875
+      ],
+      "area_m2": 47.17
+     },
+     {
+      "material_name": "Spotlight_Glass_Emissive",
+      "material_index": 13,
+      "le_linear_rgb": [
+       0.015625,
+       0.015625,
+       0.015625
+      ],
+      "area_m2": 1.894
+     },
+     {
+      "material_name": "Shopsign_Pharmacy_Emissive",
+      "material_index": 38,
+      "le_linear_rgb": [
+       0.002646292892156863,
+       0.00390625,
+       0.002646292892156863
+      ],
+      "area_m2": 2.182
+     },
+     {
+      "material_name": "Shopsign_Book_Store_Emissive",
+      "material_index": 39,
+      "le_linear_rgb": [
+       0.00390625,
+       0.002513555270522388,
+       0.0025186567164179104
+      ],
+      "area_m2": 1.406
+     }
+    ],
+    "sun_intensity_lux": 0.0,
+    "sky_intensity": 0.0
+   },
+   "material_policy": {
+    "texture_mean_albedo": true,
+    "white_tex_to_white": false
+   }
+  }
+ ],
+ "provenance": {
+  "frozen_by": "ci/g13_ue_upscale_parity_smoke.py（g13.p0.m_c.ue_upscale_parity，G13.4 波；spec RXS-0405 L1 字段闭集）",
+  "frozen_at": "2026-08-19",
+  "scene_source": "M133 清单双场景闭集（milestones/g10/g10_corpus_scene_manifest.json revision 2，digest sha256:d96b4d2f… 转引只读）；gltf_product_digest 与 G12.4 契约同源转引（cornell_box.gltf generated / BistroInterior.gltf CC-BY-4.0 派生面，G12.4 provenance 口径继承）",
+  "camera_source": "逐场景相机位姿值沿用 G10.5 取景校准登记值（milestones/g10/corpus/camera_*.json；G10.5/G11.5b/G12.4 锁定契约面 0-byte 不消费不承接——本契约独立冻结）；分辨率 = G10.5 出图画幅（cornell-box 512×512 / bistro-interior 1920×1080 输出分辨率；内部分辨率 = 输出 × tier%：cornell 256×256/343×343/512×512，bistro 960×540/1286×723/1920×1080——双臂同取 floor(tier%×输出) 同一取整口径；UE DLSS 臂实际内部分辨率以插件 NGX 窗口为准（实测 tier67 bistro = 1281×721，ScaleX=0.667969，名义档对拍口径见 tier_note））",
+  "tier_note": "tier_sequence=[50,67,100]（渲染比例 %）↔ UE DLSS 质量枚举映射 50→Performance / 67→Quality / 100→DLAA（DLSS 插件质量档内部渲染比例名义值面对齐；ue_dlss_quality_map = 契约闭集，DLSS 实际内部比例以插件实现为准——名义档对拍不追求比例字面相等，对拍锚 = 同输出分辨率同档位名义面）；Rurix 臂 tier% 内部分辨率 Halton jitter 32 帧静态收敛序列（RXS-0405 L3）",
+  "lighting_note": "灯面同 G12.4 契约逐字转引（cornell 天花 quad 面光 Le=[10,9.5,8.5]；bistro 4 点光 + 4 emissive 材质面光）；sun/sky = 0.0 显式登记（室内双场景无方向光/天光链接口面）；deferred 臂灯面物理单计数纪律偏差 = G12.4 lighting_note 同型登记（双通道有意同构不冒充物理精确，正确性锚 = M96 冻结面）",
+  "seed_note": "seed=7312026601（固定 seed 位级确定性协议 RXS-0357 L2/RXS-0400 继承）；calibration_seed=7312026602（≠seed；容差标定腿双 seed 方差底实测面，M166/G12.4 同程序纪律）",
+  "exposure_note": "ev100：cornell-box=0.0 / bistro-interior=−4.0（G12.4 同值转引——灯面量级下画面可判读区间实测标定值；度量面经 ×2^(−ev100) 派生尺度链对齐消费，RXS-0392 口径继承）",
+  "assisted_by": "Kimi-K3（G13.4 UE 对拍波）",
+  "showcase_note": "day_0902_rain_night 借壳展示契约：几何 = ORCA BistroExterior（CC-BY-4.0）经 FBX2glTF v0.9.7 无纹理臂 + fix_exterior_textures.py URI 回接派生（K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\）；scene_id 字面 bistro-interior 仅为共享体 parse_contract 场景闭集所留的借壳，evidence 的 scene 标签与 G10 语料文件名因此失真；m133_manifest_digest 沿冻结值（清单语义未变）；相机 / 点光 / emissive 由 derive_rain_night_contract.py 从 exterior_scene_facts.json 派生（世界坐标 = 1.6 × glTF 局部）；无日光/无天光（sun/sky = 0，车道不消费）；点光位 = 灯罩闭合盒外侧逃逸测试最优位（radius 恒 0、阴影射线无半径截断）；emissive 只可见不投光。2026-09-03。",
+  "showcase_params": {
+   "camera_id": "C3",
+   "camera_desc": "广场 (−14,·,−3) 望 ENE bistro 西立面（Bistro 招牌 + 吊灯笼 + 彩灯串）；含视点净空与树冠占比检查",
+   "eye": [
+    -14.0,
+    2.023,
+    -3.0
+   ],
+   "target": [
+    -1.5,
+    3.823,
+    -6.0
+   ],
+   "up": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "fov_y_deg": 52.0,
+   "ev100": -7.0,
+   "lamp_cd": 0.5,
+   "lamp_cd_derivation": null,
+   "lamp_k": 14,
+   "lantern_cd_ratio": 0.35,
+   "lamp_color_linear_rgb": [
+    1.0,
+    0.72,
+    0.42
+   ],
+   "le_scale": 1.0,
+   "emissive_le_rule": "Le = display 目标亮度 × 2^ev100 × le_scale；色向 = emissive DDS 线性均值方向（店招轻度去饱和）",
+   "emissive_notes": [
+    "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 4.0 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 2.0 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 0.5 × 2^(-7) × le_scale 1",
+    "emissive DDS 线性均值方向；目标 display 线性 0.5 × 2^(-7) × le_scale 1"
+   ],
+   "point_light_sources": [
+    {
+     "id": "SL152",
+     "kind": "streetlight",
+     "distance_m": 9.37,
+     "rule": "side_glass_bottom_y_r0.7_az225",
+     "escape": 0.918,
+     "glass_centroid": [
+      -6.932,
+      6.934,
+      -6.705
+     ]
+    },
+    {
+     "id": "LANT23",
+     "kind": "lantern",
+     "distance_m": 13.295,
+     "rule": "side_glass_centroid_y_r0.5_az180",
+     "escape": 0.459,
+     "glass_centroid": [
+      -1.701,
+      3.876,
+      -7.697
+     ]
+    },
+    {
+     "id": "LANT24",
+     "kind": "lantern",
+     "distance_m": 16.627,
+     "rule": "side_glass_centroid_y_r0.7_az180",
+     "escape": 0.377,
+     "glass_centroid": [
+      0.034,
+      3.825,
+      -11.733
+     ]
+    },
+    {
+     "id": "LANT22",
+     "kind": "lantern",
+     "distance_m": 17.861,
+     "rule": "side_glass_centroid_y_r0.7_az90",
+     "escape": 0.459,
+     "glass_centroid": [
+      2.578,
+      3.883,
+      3.384
+     ]
+    },
+    {
+     "id": "LANT21",
+     "kind": "lantern",
+     "distance_m": 22.805,
+     "rule": "side_glass_centroid_y_r0.7_az90",
+     "escape": 0.475,
+     "glass_centroid": [
+      7.195,
+      3.866,
+      5.213
+     ]
+    },
+    {
+     "id": "LANT25",
+     "kind": "lantern",
+     "distance_m": 27.262,
+     "rule": "side_glass_centroid_y_r0.7_az270",
+     "escape": 0.475,
+     "glass_centroid": [
+      11.455,
+      3.846,
+      6.586
+     ]
+    },
+    {
+     "id": "SL136",
+     "kind": "streetlight",
+     "distance_m": 40.989,
+     "rule": "side_glass_centroid_y_r0.7_az225",
+     "escape": 0.721,
+     "glass_centroid": [
+      14.371,
+      7.164,
+      -32.133
+     ]
+    },
+    {
+     "id": "SL137",
+     "kind": "streetlight",
+     "distance_m": 67.225,
+     "rule": "side_glass_centroid_y_r0.7_az225",
+     "escape": 0.77,
+     "glass_centroid": [
+      28.25,
+      7.049,
+      -55.047
+     ]
+    }
+   ],
+   "gltf": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+   "facts": "exterior_scene_facts.json",
+   "emitter_suggestion_cmdline": "--emitter-pos -2.331,10.323,-5.800 --emitter-spread 17.700,1.500,24.112 --emitter-vel 0.4,-9.0,0.2 --emitter-vel-spread 0.3,0.5,0.3 --emitter-gravity -3 --emitter-life 1.659",
+   "emitter_life_s": 1.659
+  }
+ }
+}

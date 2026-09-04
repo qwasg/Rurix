@@ -1,0 +1,65 @@
+{
+ "camera": {
+  "position": [
+   22.0,
+   2.028,
+   -52.0
+  ],
+  "orientation_quat": [
+   0.2646884705385812,
+   0.003555508905826911,
+   0.9642404294762917,
+   -0.012952454738150753
+  ],
+  "fov_y_deg": 52.0,
+  "near": 0.05,
+  "far": 500.0,
+  "resolution": {
+   "w": 1920,
+   "h": 1080
+  }
+ },
+ "lighting": {
+  "sun": {
+   "direction": [
+    0.0,
+    -1.0,
+    0.0
+   ],
+   "intensity_lux": 0.0,
+   "color_linear_rgb": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "sky": {
+   "intensity": 0.0,
+   "cubemap_id": null
+  },
+  "exposure": {
+   "mode": "manual",
+   "ev100": -7.0
+  }
+ },
+ "time": {
+  "fixed_dt_s": 0.016666666666666666,
+  "warmup_frames": 10,
+  "capture_frame_index": -1,
+  "random_seed": 42,
+  "jitter": {
+   "sequence": "halton_2_3",
+   "index_base": 0,
+   "scale": 1.0
+  }
+ },
+ "post": {
+  "view_transform": "aces13",
+  "bloom": false,
+  "vignette": false,
+  "motion_blur": false,
+  "dof": false
+ },
+ "gltf": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+ "note": "借壳登记：文件名按 scene_id 派生规则沿用 bistro_interior（共享体场景闭集所留），实体 = BistroExterior 雨夜展示面（day_0902_rain_night，机位 C1）；本文件只被渲染 bin 以 sha 形式登记进 evidence g10_provenance，不裁决"
+}

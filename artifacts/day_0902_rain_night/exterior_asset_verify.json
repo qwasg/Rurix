@@ -1,0 +1,5271 @@
+{
+  "schema": "rurix.day0902.exterior_asset_verify.v1",
+  "generated_at_utc": "2026-09-03T08:36:31Z",
+  "tool": "artifacts/day_0902_rain_night/fix_exterior_textures.py",
+  "asset": "Amazon Lumberyard Bistro v5_2(ORCA,CC-BY-4.0)BistroExterior",
+  "run": {
+    "mode": "verify-only",
+    "argv": [
+      "--verify-only"
+    ],
+    "src": "H:\\rurix\\.tmp\\g10_conv_ext\\BistroExterior.gltf",
+    "textures": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\extracted\\Bistro_v5_2\\Textures",
+    "out": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior",
+    "wall_s": 0.45
+  },
+  "ok": true,
+  "note": "来源 = FBX2glTF v0.9.7 无纹理臂(工具找不到贴图时以 1×1 PNG data-URI 占位,几何/材质/动画数据完整)+ 本脚本按 images[].name(缺失则经 textures[].source 反查 textures[].name)把 uri 回接为 Textures\\<name>.dds,贴图字节自原始 DDS 原样拷贝、未做任何转码;images[] 重建为 Interior 同形 {name: <n>.dds, uri: <n>.dds}。8/15 有纹理臂(工具找到 Textures 目录)在写 .gltf 时报 'Couldn't open file for writing',K:/H: 双盘、有无扩展名、--fbx-temp-dir 四臂同失败,写盘失败根因未定(见 milestones/g10/g10_asset_license_registry.json)。",
+  "source": {
+    "gltf": "H:\\rurix\\.tmp\\g10_conv_ext\\BistroExterior.gltf",
+    "gltf_bytes": 4559863,
+    "gltf_sha256": "sha256:e053d059d38691697b6050838c9b3514e9d6a9e69ec98e5933ebdb48c2c9775b",
+    "generator": "FBX2glTF v0.9.7",
+    "buffer_uri": "buffer.bin",
+    "buffer_uri_same_as_interior": true,
+    "buffer_bytes": 134582892,
+    "buffer_sha256": "sha256:31d0fae4490373c125553b029f0f01f9cf1948f7c1819ca2580e8792daee43bd"
+  },
+  "missing_textures": [],
+  "images_shape": {
+    "policy": "images[i] 重建为 Interior 同形 {name: <n>.dds, uri: <n>.dds};textures[]/buffers[] 原样不动",
+    "image_keys": [
+      "name",
+      "uri"
+    ],
+    "dropped_keys": {},
+    "data_uri_removed": 274,
+    "source_image_name_had_dds_suffix": 0,
+    "interior_reference": {
+      "path": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf",
+      "present": true,
+      "images": 144,
+      "image_key_sets": [
+        "name,uri"
+      ],
+      "images_name_eq_uri": true,
+      "images_name_dds_suffix": true,
+      "textures_name_plus_dds_eq_image_name": true,
+      "texture_key_sets": [
+        "name,sampler,source"
+      ],
+      "buffer_key_sets": [
+        "byteLength,uri"
+      ],
+      "buffer_uri": [
+        "buffer.bin"
+      ]
+    }
+  },
+  "copy": {
+    "mode": "verify-only(未写任何文件)",
+    "expected_files": 275,
+    "identical_size": 275,
+    "missing_or_size_mismatch": []
+  },
+  "output": {
+    "dir": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior",
+    "gltf": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\BistroExterior.gltf",
+    "gltf_bytes": 4537956,
+    "gltf_sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c",
+    "buffer": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\buffer.bin",
+    "buffer_bytes": 134582892,
+    "buffer_sha256": "sha256:31d0fae4490373c125553b029f0f01f9cf1948f7c1819ca2580e8792daee43bd",
+    "file_count": 276,
+    "total_bytes": 1101085696,
+    "by_ext": {
+      ".bin": 1,
+      ".dds": 274,
+      ".gltf": 1
+    },
+    "extra_entries": [],
+    "buffer_sha256_equals_source": true
+  },
+  "stats": {
+    "nodes": 1300,
+    "meshes": 1296,
+    "primitives": 1591,
+    "materials": 132,
+    "textures": 274,
+    "images": 274,
+    "accessors": 7966,
+    "bufferViews": 7966,
+    "animations": 1,
+    "cameras": 1,
+    "triangles": 2832120,
+    "generator": "FBX2glTF v0.9.7",
+    "extensionsUsed": null,
+    "extensionsRequired": null
+  },
+  "fourcc": {
+    "by_role": {
+      "baseColorTexture": {
+        "DXT1": 96,
+        "DXT5": 36
+      },
+      "emissiveTexture": {
+        "DXT1": 10
+      },
+      "normalTexture": {
+        "ATI2": 132
+      }
+    },
+    "all": {
+      "ATI2": 132,
+      "DXT1": 106,
+      "DXT5": 36
+    },
+    "dx10_count": 0,
+    "mip_count_distribution": {
+      "0": 20,
+      "5": 25,
+      "7": 8,
+      "12": 221
+    },
+    "size_distribution": {
+      "2048x2048": 221,
+      "16x16": 25,
+      "1x1": 20,
+      "64x64": 8
+    }
+  },
+  "emissive_materials": [
+    {
+      "material_index": 1,
+      "name": "Paris_StringLights_01_Orange_Color_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Paris_StringLights_01_Orange_Color_Emissive_Emissive",
+      "uri": "Paris_StringLights_01_Orange_Color_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 2,
+      "name": "Paris_StringLights_01_Blue_Color_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Paris_StringLights_01_Blue_Color_Emissive_Emissive",
+      "uri": "Paris_StringLights_01_Blue_Color_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 3,
+      "name": "Paris_StringLights_01_White_Color_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Paris_StringLights_01_White_Color_Emissive_Emissive",
+      "uri": "Paris_StringLights_01_White_Color_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 4,
+      "name": "Paris_StringLights_01_Pink_Color_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Paris_StringLights_01_Pink_Color_Emissive_Emissive",
+      "uri": "Paris_StringLights_01_Pink_Color_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 5,
+      "name": "Paris_StringLights_01_Red_Color_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Paris_StringLights_01_Red_Color_Emissive_Emissive",
+      "uri": "Paris_StringLights_01_Red_Color_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 6,
+      "name": "Paris_StringLights_01_Green_Color_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Paris_StringLights_01_Green_Color_Emissive_Emissive",
+      "uri": "Paris_StringLights_01_Green_Color_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 12,
+      "name": "Emissive_StreetLight",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Emissive_StreetLight_Emissive",
+      "uri": "Emissive_StreetLight_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 13,
+      "name": "Spotlight_Glass_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Spotlight_Glass_Emissive_Emissive",
+      "uri": "Spotlight_Glass_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 38,
+      "name": "Shopsign_Pharmacy_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Shopsign_Pharmacy_Emissive_Emissive",
+      "uri": "Shopsign_Pharmacy_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    },
+    {
+      "material_index": 39,
+      "name": "Shopsign_Book_Store_Emissive",
+      "emissiveFactor": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "emissive_texture": "Shopsign_Book_Store_Emissive_Emissive",
+      "uri": "Shopsign_Book_Store_Emissive_Emissive.dds",
+      "fourcc": "DXT1",
+      "dxgi_format": null
+    }
+  ],
+  "images": [
+    {
+      "index": 0,
+      "name": "Stringlights_Normal.dds",
+      "uri": "Stringlights_Normal.dds",
+      "texture_name": "Stringlights_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 1,
+      "name": "Stringlights_BaseColor.dds",
+      "uri": "Stringlights_BaseColor.dds",
+      "texture_name": "Stringlights_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 2,
+      "name": "Paris_StringLights_01_Orange_Color_Emissive_Normal.dds",
+      "uri": "Paris_StringLights_01_Orange_Color_Emissive_Normal.dds",
+      "texture_name": "Paris_StringLights_01_Orange_Color_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 3,
+      "name": "Paris_StringLights_01_Orange_Color_Emissive_Emissive.dds",
+      "uri": "Paris_StringLights_01_Orange_Color_Emissive_Emissive.dds",
+      "texture_name": "Paris_StringLights_01_Orange_Color_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 4,
+      "name": "Paris_StringLights_01_Orange_Color_Emissive_BaseColor.dds",
+      "uri": "Paris_StringLights_01_Orange_Color_Emissive_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_Orange_Color_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 5,
+      "name": "Paris_StringLights_01_Blue_Color_Emissive_Normal.dds",
+      "uri": "Paris_StringLights_01_Blue_Color_Emissive_Normal.dds",
+      "texture_name": "Paris_StringLights_01_Blue_Color_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 6,
+      "name": "Paris_StringLights_01_Blue_Color_Emissive_Emissive.dds",
+      "uri": "Paris_StringLights_01_Blue_Color_Emissive_Emissive.dds",
+      "texture_name": "Paris_StringLights_01_Blue_Color_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 7,
+      "name": "Paris_StringLights_01_Blue_Color_Emissive_BaseColor.dds",
+      "uri": "Paris_StringLights_01_Blue_Color_Emissive_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_Blue_Color_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 8,
+      "name": "Paris_StringLights_01_White_Color_Emissive_Normal.dds",
+      "uri": "Paris_StringLights_01_White_Color_Emissive_Normal.dds",
+      "texture_name": "Paris_StringLights_01_White_Color_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 9,
+      "name": "Paris_StringLights_01_White_Color_Emissive_Emissive.dds",
+      "uri": "Paris_StringLights_01_White_Color_Emissive_Emissive.dds",
+      "texture_name": "Paris_StringLights_01_White_Color_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 10,
+      "name": "Paris_StringLights_01_White_Color_Emissive_BaseColor.dds",
+      "uri": "Paris_StringLights_01_White_Color_Emissive_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_White_Color_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 11,
+      "name": "Paris_StringLights_01_Pink_Color_Emissive_Normal.dds",
+      "uri": "Paris_StringLights_01_Pink_Color_Emissive_Normal.dds",
+      "texture_name": "Paris_StringLights_01_Pink_Color_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 12,
+      "name": "Paris_StringLights_01_Pink_Color_Emissive_Emissive.dds",
+      "uri": "Paris_StringLights_01_Pink_Color_Emissive_Emissive.dds",
+      "texture_name": "Paris_StringLights_01_Pink_Color_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 13,
+      "name": "Paris_StringLights_01_Pink_Color_Emissive_BaseColor.dds",
+      "uri": "Paris_StringLights_01_Pink_Color_Emissive_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_Pink_Color_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 14,
+      "name": "Paris_StringLights_01_Red_Color_Emissive_Normal.dds",
+      "uri": "Paris_StringLights_01_Red_Color_Emissive_Normal.dds",
+      "texture_name": "Paris_StringLights_01_Red_Color_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 15,
+      "name": "Paris_StringLights_01_Red_Color_Emissive_Emissive.dds",
+      "uri": "Paris_StringLights_01_Red_Color_Emissive_Emissive.dds",
+      "texture_name": "Paris_StringLights_01_Red_Color_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 16,
+      "name": "Paris_StringLights_01_Red_Color_Emissive_BaseColor.dds",
+      "uri": "Paris_StringLights_01_Red_Color_Emissive_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_Red_Color_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 17,
+      "name": "Paris_StringLights_01_Green_Color_Emissive_Normal.dds",
+      "uri": "Paris_StringLights_01_Green_Color_Emissive_Normal.dds",
+      "texture_name": "Paris_StringLights_01_Green_Color_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 18,
+      "name": "Paris_StringLights_01_Green_Color_Emissive_Emissive.dds",
+      "uri": "Paris_StringLights_01_Green_Color_Emissive_Emissive.dds",
+      "texture_name": "Paris_StringLights_01_Green_Color_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 19,
+      "name": "Paris_StringLights_01_Green_Color_Emissive_BaseColor.dds",
+      "uri": "Paris_StringLights_01_Green_Color_Emissive_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_Green_Color_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 20,
+      "name": "MASTER_Bistro_Main_Door_Normal.dds",
+      "uri": "MASTER_Bistro_Main_Door_Normal.dds",
+      "texture_name": "MASTER_Bistro_Main_Door_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 21,
+      "name": "MASTER_Bistro_Main_Door_BaseColor.dds",
+      "uri": "MASTER_Bistro_Main_Door_BaseColor.dds",
+      "texture_name": "MASTER_Bistro_Main_Door_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 22,
+      "name": "Pavement_Curbstones_Normal.dds",
+      "uri": "Pavement_Curbstones_Normal.dds",
+      "texture_name": "Pavement_Curbstones_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 23,
+      "name": "Pavement_Curbstones_BaseColor.dds",
+      "uri": "Pavement_Curbstones_BaseColor.dds",
+      "texture_name": "Pavement_Curbstones_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 24,
+      "name": "Pavement_Manhole_Cover_Normal.dds",
+      "uri": "Pavement_Manhole_Cover_Normal.dds",
+      "texture_name": "Pavement_Manhole_Cover_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 25,
+      "name": "Pavement_Manhole_Cover_BaseColor.dds",
+      "uri": "Pavement_Manhole_Cover_BaseColor.dds",
+      "texture_name": "Pavement_Manhole_Cover_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 26,
+      "name": "Pavement_Cobblestone_Wet_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Cobblestone_Wet_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Cobblestone_Wet_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 27,
+      "name": "Pavement_Cobblestone_Wet_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Cobblestone_Wet_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Cobblestone_Wet_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 28,
+      "name": "MASTER_Focus_Normal.dds",
+      "uri": "MASTER_Focus_Normal.dds",
+      "texture_name": "MASTER_Focus_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 29,
+      "name": "MASTER_Focus_BaseColor.dds",
+      "uri": "MASTER_Focus_BaseColor.dds",
+      "texture_name": "MASTER_Focus_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 30,
+      "name": "Emissive_StreetLight_Normal.dds",
+      "uri": "Emissive_StreetLight_Normal.dds",
+      "texture_name": "Emissive_StreetLight_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 31,
+      "name": "Emissive_StreetLight_Emissive.dds",
+      "uri": "Emissive_StreetLight_Emissive.dds",
+      "texture_name": "Emissive_StreetLight_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 32,
+      "name": "Emissive_StreetLight_BaseColor.dds",
+      "uri": "Emissive_StreetLight_BaseColor.dds",
+      "texture_name": "Emissive_StreetLight_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 33,
+      "name": "Spotlight_Glass_Emissive_Normal.dds",
+      "uri": "Spotlight_Glass_Emissive_Normal.dds",
+      "texture_name": "Spotlight_Glass_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 34,
+      "name": "Spotlight_Glass_Emissive_Emissive.dds",
+      "uri": "Spotlight_Glass_Emissive_Emissive.dds",
+      "texture_name": "Spotlight_Glass_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2872,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 64,
+      "height": 64,
+      "mip_count": 7,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 35,
+      "name": "Spotlight_Glass_Emissive_BaseColor.dds",
+      "uri": "Spotlight_Glass_Emissive_BaseColor.dds",
+      "texture_name": "Spotlight_Glass_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 36,
+      "name": "LanternEmissive_Normal.dds",
+      "uri": "LanternEmissive_Normal.dds",
+      "texture_name": "LanternEmissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 37,
+      "name": "LanternEmissive_BaseColor.dds",
+      "uri": "LanternEmissive_BaseColor.dds",
+      "texture_name": "LanternEmissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 38,
+      "name": "Trashcan_Normal.dds",
+      "uri": "Trashcan_Normal.dds",
+      "texture_name": "Trashcan_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 39,
+      "name": "Trashcan_BaseColor.dds",
+      "uri": "Trashcan_BaseColor.dds",
+      "texture_name": "Trashcan_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 40,
+      "name": "Banner_Metal_Normal.dds",
+      "uri": "Banner_Metal_Normal.dds",
+      "texture_name": "Banner_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 41,
+      "name": "Banner_Metal_BaseColor.dds",
+      "uri": "Banner_Metal_BaseColor.dds",
+      "texture_name": "Banner_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 42,
+      "name": "Spotlight_Main_Normal.dds",
+      "uri": "Spotlight_Main_Normal.dds",
+      "texture_name": "Spotlight_Main_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 43,
+      "name": "Spotlight_Main_BaseColor.dds",
+      "uri": "Spotlight_Main_BaseColor.dds",
+      "texture_name": "Spotlight_Main_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 44,
+      "name": "Spotlight_Emissive_Normal.dds",
+      "uri": "Spotlight_Emissive_Normal.dds",
+      "texture_name": "Spotlight_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 45,
+      "name": "Spotlight_Emissive_BaseColor.dds",
+      "uri": "Spotlight_Emissive_BaseColor.dds",
+      "texture_name": "Spotlight_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 46,
+      "name": "Paris_TrafficSign_A_Normal.dds",
+      "uri": "Paris_TrafficSign_A_Normal.dds",
+      "texture_name": "Paris_TrafficSign_A_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 47,
+      "name": "Paris_TrafficSign_A_BaseColor.dds",
+      "uri": "Paris_TrafficSign_A_BaseColor.dds",
+      "texture_name": "Paris_TrafficSign_A_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 48,
+      "name": "Paris_Table_Terrace_Normal.dds",
+      "uri": "Paris_Table_Terrace_Normal.dds",
+      "texture_name": "Paris_Table_Terrace_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 49,
+      "name": "Paris_Table_Terrace_BaseColor.dds",
+      "uri": "Paris_Table_Terrace_BaseColor.dds",
+      "texture_name": "Paris_Table_Terrace_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 50,
+      "name": "Paris_StreetSign_01_Normal.dds",
+      "uri": "Paris_StreetSign_01_Normal.dds",
+      "texture_name": "Paris_StreetSign_01_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 51,
+      "name": "Paris_StreetSign_01_BaseColor.dds",
+      "uri": "Paris_StreetSign_01_BaseColor.dds",
+      "texture_name": "Paris_StreetSign_01_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 52,
+      "name": "Paris_StreetPivot_Normal.dds",
+      "uri": "Paris_StreetPivot_Normal.dds",
+      "texture_name": "Paris_StreetPivot_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 53,
+      "name": "Paris_StreetPivot_BaseColor.dds",
+      "uri": "Paris_StreetPivot_BaseColor.dds",
+      "texture_name": "Paris_StreetPivot_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 54,
+      "name": "Streetlight_Metal_Normal.dds",
+      "uri": "Streetlight_Metal_Normal.dds",
+      "texture_name": "Streetlight_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 55,
+      "name": "Streetlight_Metal_BaseColor.dds",
+      "uri": "Streetlight_Metal_BaseColor.dds",
+      "texture_name": "Streetlight_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 56,
+      "name": "Paris_StringLights_01_White_Color_Normal.dds",
+      "uri": "Paris_StringLights_01_White_Color_Normal.dds",
+      "texture_name": "Paris_StringLights_01_White_Color_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 57,
+      "name": "Paris_StringLights_01_White_Color_BaseColor.dds",
+      "uri": "Paris_StringLights_01_White_Color_BaseColor.dds",
+      "texture_name": "Paris_StringLights_01_White_Color_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 58,
+      "name": "Streetlight_Support_Bulb_Normal.dds",
+      "uri": "Streetlight_Support_Bulb_Normal.dds",
+      "texture_name": "Streetlight_Support_Bulb_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 59,
+      "name": "Streetlight_Support_Bulb_BaseColor.dds",
+      "uri": "Streetlight_Support_Bulb_BaseColor.dds",
+      "texture_name": "Streetlight_Support_Bulb_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 60,
+      "name": "Streetlight_Chains_Normal.dds",
+      "uri": "Streetlight_Chains_Normal.dds",
+      "texture_name": "Streetlight_Chains_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 61,
+      "name": "Streetlight_Chains_BaseColor.dds",
+      "uri": "Streetlight_Chains_BaseColor.dds",
+      "texture_name": "Streetlight_Chains_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 62,
+      "name": "Concrete3_Normal.dds",
+      "uri": "Concrete3_Normal.dds",
+      "texture_name": "Concrete3_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 63,
+      "name": "Concrete3_BaseColor.dds",
+      "uri": "Concrete3_BaseColor.dds",
+      "texture_name": "Concrete3_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 64,
+      "name": "MASTER_Brick_Small_Red_BLENDSHADER_Normal.dds",
+      "uri": "MASTER_Brick_Small_Red_BLENDSHADER_Normal.dds",
+      "texture_name": "MASTER_Brick_Small_Red_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 65,
+      "name": "MASTER_Brick_Small_Red_BLENDSHADER_BaseColor.dds",
+      "uri": "MASTER_Brick_Small_Red_BLENDSHADER_BaseColor.dds",
+      "texture_name": "MASTER_Brick_Small_Red_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 66,
+      "name": "Pavement_Ground_Wet_Normal.dds",
+      "uri": "Pavement_Ground_Wet_Normal.dds",
+      "texture_name": "Pavement_Ground_Wet_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 67,
+      "name": "Pavement_Ground_Wet_BaseColor.dds",
+      "uri": "Pavement_Ground_Wet_BaseColor.dds",
+      "texture_name": "Pavement_Ground_Wet_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 68,
+      "name": "Pavement_Cobble_Leaves_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Cobble_Leaves_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Cobble_Leaves_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 69,
+      "name": "Pavement_Cobble_Leaves_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Cobble_Leaves_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Cobble_Leaves_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 70,
+      "name": "Pavement_Cobblestone_01_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Cobblestone_01_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Cobblestone_01_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 71,
+      "name": "Pavement_Cobblestone_01_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Cobblestone_01_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Cobblestone_01_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 72,
+      "name": "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 73,
+      "name": "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Cobblestone_Wet_Leaves_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 74,
+      "name": "Pavement_Cobblestone_Small_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Cobblestone_Small_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Cobblestone_Small_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 75,
+      "name": "Pavement_Cobblestone_Small_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Cobblestone_Small_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Cobblestone_Small_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 76,
+      "name": "Pavement_Cobblestone_Big_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Cobblestone_Big_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Cobblestone_Big_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 77,
+      "name": "Pavement_Cobblestone_Big_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Cobblestone_Big_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Cobblestone_Big_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 78,
+      "name": "Pavement_Brick_BLENDSHADER_Normal.dds",
+      "uri": "Pavement_Brick_BLENDSHADER_Normal.dds",
+      "texture_name": "Pavement_Brick_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 79,
+      "name": "Pavement_Brick_BLENDSHADER_BaseColor.dds",
+      "uri": "Pavement_Brick_BLENDSHADER_BaseColor.dds",
+      "texture_name": "Pavement_Brick_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 80,
+      "name": "Pavement_Cobblestone_02_Normal.dds",
+      "uri": "Pavement_Cobblestone_02_Normal.dds",
+      "texture_name": "Pavement_Cobblestone_02_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 81,
+      "name": "Pavement_Cobblestone_02_BaseColor.dds",
+      "uri": "Pavement_Cobblestone_02_BaseColor.dds",
+      "texture_name": "Pavement_Cobblestone_02_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 82,
+      "name": "Sidewalkbarrier_Normal.dds",
+      "uri": "Sidewalkbarrier_Normal.dds",
+      "texture_name": "Sidewalkbarrier_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 83,
+      "name": "Sidewalkbarrier_BaseColor.dds",
+      "uri": "Sidewalkbarrier_BaseColor.dds",
+      "texture_name": "Sidewalkbarrier_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 84,
+      "name": "Shopsign_Pharmacy_Emissive_Normal.dds",
+      "uri": "Shopsign_Pharmacy_Emissive_Normal.dds",
+      "texture_name": "Shopsign_Pharmacy_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 85,
+      "name": "Shopsign_Pharmacy_Emissive_Emissive.dds",
+      "uri": "Shopsign_Pharmacy_Emissive_Emissive.dds",
+      "texture_name": "Shopsign_Pharmacy_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 86,
+      "name": "Shopsign_Pharmacy_Emissive_BaseColor.dds",
+      "uri": "Shopsign_Pharmacy_Emissive_BaseColor.dds",
+      "texture_name": "Shopsign_Pharmacy_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 87,
+      "name": "Shopsign_Book_Store_Emissive_Normal.dds",
+      "uri": "Shopsign_Book_Store_Emissive_Normal.dds",
+      "texture_name": "Shopsign_Book_Store_Emissive_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 88,
+      "name": "Shopsign_Book_Store_Emissive_Emissive.dds",
+      "uri": "Shopsign_Book_Store_Emissive_Emissive.dds",
+      "texture_name": "Shopsign_Book_Store_Emissive_Emissive",
+      "roles": [
+        "emissiveTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 89,
+      "name": "Shopsign_Book_Store_Emissive_BaseColor.dds",
+      "uri": "Shopsign_Book_Store_Emissive_BaseColor.dds",
+      "texture_name": "Shopsign_Book_Store_Emissive_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 90,
+      "name": "Antenna_Metal_Normal.dds",
+      "uri": "Antenna_Metal_Normal.dds",
+      "texture_name": "Antenna_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 91,
+      "name": "Antenna_Metal_BaseColor.dds",
+      "uri": "Antenna_Metal_BaseColor.dds",
+      "texture_name": "Antenna_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 92,
+      "name": "Shopsign_Bakery_Normal.dds",
+      "uri": "Shopsign_Bakery_Normal.dds",
+      "texture_name": "Shopsign_Bakery_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 93,
+      "name": "Shopsign_Bakery_BaseColor.dds",
+      "uri": "Shopsign_Bakery_BaseColor.dds",
+      "texture_name": "Shopsign_Bakery_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 94,
+      "name": "MASTER_Metal_Normal.dds",
+      "uri": "MASTER_Metal_Normal.dds",
+      "texture_name": "MASTER_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 95,
+      "name": "MASTER_Metal_BaseColor.dds",
+      "uri": "MASTER_Metal_BaseColor.dds",
+      "texture_name": "MASTER_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 96,
+      "name": "Shopsign_Ties_Shop_Normal.dds",
+      "uri": "Shopsign_Ties_Shop_Normal.dds",
+      "texture_name": "Shopsign_Ties_Shop_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 97,
+      "name": "Shopsign_Ties_Shop_BaseColor.dds",
+      "uri": "Shopsign_Ties_Shop_BaseColor.dds",
+      "texture_name": "Shopsign_Ties_Shop_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 98,
+      "name": "Plantpots_Normal.dds",
+      "uri": "Plantpots_Normal.dds",
+      "texture_name": "Plantpots_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 99,
+      "name": "Plantpots_BaseColor.dds",
+      "uri": "Plantpots_BaseColor.dds",
+      "texture_name": "Plantpots_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 100,
+      "name": "NapkinHolder_Normal.dds",
+      "uri": "NapkinHolder_Normal.dds",
+      "texture_name": "NapkinHolder_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 101,
+      "name": "NapkinHolder_BaseColor.dds",
+      "uri": "NapkinHolder_BaseColor.dds",
+      "texture_name": "NapkinHolder_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 102,
+      "name": "MenuSign_02_Mesh_Normal.dds",
+      "uri": "MenuSign_02_Mesh_Normal.dds",
+      "texture_name": "MenuSign_02_Mesh_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 103,
+      "name": "MenuSign_02_Mesh_BaseColor.dds",
+      "uri": "MenuSign_02_Mesh_BaseColor.dds",
+      "texture_name": "MenuSign_02_Mesh_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 104,
+      "name": "MenuSign_02_Glass_Normal.dds",
+      "uri": "MenuSign_02_Glass_Normal.dds",
+      "texture_name": "MenuSign_02_Glass_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 105,
+      "name": "MenuSign_02_Glass_BaseColor.dds",
+      "uri": "MenuSign_02_Glass_BaseColor.dds",
+      "texture_name": "MenuSign_02_Glass_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 106,
+      "name": "MenuSign_01_Normal.dds",
+      "uri": "MenuSign_01_Normal.dds",
+      "texture_name": "MenuSign_01_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 107,
+      "name": "MenuSign_01_BaseColor.dds",
+      "uri": "MenuSign_01_BaseColor.dds",
+      "texture_name": "MenuSign_01_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 108,
+      "name": "Balcony_Concrete_Normal.dds",
+      "uri": "Balcony_Concrete_Normal.dds",
+      "texture_name": "Balcony_Concrete_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 109,
+      "name": "Balcony_Concrete_BaseColor.dds",
+      "uri": "Balcony_Concrete_BaseColor.dds",
+      "texture_name": "Balcony_Concrete_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 110,
+      "name": "Balcony_Trims_Normal.dds",
+      "uri": "Balcony_Trims_Normal.dds",
+      "texture_name": "Balcony_Trims_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 111,
+      "name": "Balcony_Trims_BaseColor.dds",
+      "uri": "Balcony_Trims_BaseColor.dds",
+      "texture_name": "Balcony_Trims_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 112,
+      "name": "Balcony_Ornaments_Normal.dds",
+      "uri": "Balcony_Ornaments_Normal.dds",
+      "texture_name": "Balcony_Ornaments_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 113,
+      "name": "Balcony_Ornaments_BaseColor.dds",
+      "uri": "Balcony_Ornaments_BaseColor.dds",
+      "texture_name": "Balcony_Ornaments_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 114,
+      "name": "Balcony_Green_Wood_Normal.dds",
+      "uri": "Balcony_Green_Wood_Normal.dds",
+      "texture_name": "Balcony_Green_Wood_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 115,
+      "name": "Balcony_Green_Wood_BaseColor.dds",
+      "uri": "Balcony_Green_Wood_BaseColor.dds",
+      "texture_name": "Balcony_Green_Wood_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 116,
+      "name": "MASTER_Glass_Dirty_MASKED_Normal.dds",
+      "uri": "MASTER_Glass_Dirty_MASKED_Normal.dds",
+      "texture_name": "MASTER_Glass_Dirty_MASKED_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 117,
+      "name": "MASTER_Glass_Dirty_MASKED_BaseColor.dds",
+      "uri": "MASTER_Glass_Dirty_MASKED_BaseColor.dds",
+      "texture_name": "MASTER_Glass_Dirty_MASKED_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 118,
+      "name": "Paris_LiquorBottle_01_Glass_Wine_Normal.dds",
+      "uri": "Paris_LiquorBottle_01_Glass_Wine_Normal.dds",
+      "texture_name": "Paris_LiquorBottle_01_Glass_Wine_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 119,
+      "name": "Paris_LiquorBottle_01_Glass_Wine_BaseColor.dds",
+      "uri": "Paris_LiquorBottle_01_Glass_Wine_BaseColor.dds",
+      "texture_name": "Paris_LiquorBottle_01_Glass_Wine_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 120,
+      "name": "Paris_LiquorBottle_01_Caps_Normal.dds",
+      "uri": "Paris_LiquorBottle_01_Caps_Normal.dds",
+      "texture_name": "Paris_LiquorBottle_01_Caps_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 121,
+      "name": "Paris_LiquorBottle_01_Caps_BaseColor.dds",
+      "uri": "Paris_LiquorBottle_01_Caps_BaseColor.dds",
+      "texture_name": "Paris_LiquorBottle_01_Caps_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 122,
+      "name": "Paris_LiquorBottle_01_Labels_Normal.dds",
+      "uri": "Paris_LiquorBottle_01_Labels_Normal.dds",
+      "texture_name": "Paris_LiquorBottle_01_Labels_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 123,
+      "name": "Paris_LiquorBottle_01_Labels_BaseColor.dds",
+      "uri": "Paris_LiquorBottle_01_Labels_BaseColor.dds",
+      "texture_name": "Paris_LiquorBottle_01_Labels_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 124,
+      "name": "Foliage_Paris_Flowers_Normal.dds",
+      "uri": "Foliage_Paris_Flowers_Normal.dds",
+      "texture_name": "Foliage_Paris_Flowers_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 125,
+      "name": "Foliage_Paris_Flowers_BaseColor.dds",
+      "uri": "Foliage_Paris_Flowers_BaseColor.dds",
+      "texture_name": "Foliage_Paris_Flowers_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 126,
+      "name": "Foliage_Flowers_Normal.dds",
+      "uri": "Foliage_Flowers_Normal.dds",
+      "texture_name": "Foliage_Flowers_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 127,
+      "name": "Foliage_Flowers_BaseColor.dds",
+      "uri": "Foliage_Flowers_BaseColor.dds",
+      "texture_name": "Foliage_Flowers_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 128,
+      "name": "ElectricBox_Normal.dds",
+      "uri": "ElectricBox_Normal.dds",
+      "texture_name": "ElectricBox_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 129,
+      "name": "ElectricBox_BaseColor.dds",
+      "uri": "ElectricBox_BaseColor.dds",
+      "texture_name": "ElectricBox_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 130,
+      "name": "Concrete_Normal.dds",
+      "uri": "Concrete_Normal.dds",
+      "texture_name": "Concrete_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 131,
+      "name": "Concrete_BaseColor.dds",
+      "uri": "Concrete_BaseColor.dds",
+      "texture_name": "Concrete_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 132,
+      "name": "Concrete_Striped_Normal.dds",
+      "uri": "Concrete_Striped_Normal.dds",
+      "texture_name": "Concrete_Striped_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 133,
+      "name": "Concrete_Striped_BaseColor.dds",
+      "uri": "Concrete_Striped_BaseColor.dds",
+      "texture_name": "Concrete_Striped_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 134,
+      "name": "Concrete2_Normal.dds",
+      "uri": "Concrete2_Normal.dds",
+      "texture_name": "Concrete2_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 135,
+      "name": "Concrete2_BaseColor.dds",
+      "uri": "Concrete2_BaseColor.dds",
+      "texture_name": "Concrete2_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 136,
+      "name": "MASTER_Black_Metal_Normal.dds",
+      "uri": "MASTER_Black_Metal_Normal.dds",
+      "texture_name": "MASTER_Black_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 137,
+      "name": "MASTER_Black_Metal_BaseColor.dds",
+      "uri": "MASTER_Black_Metal_BaseColor.dds",
+      "texture_name": "MASTER_Black_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 138,
+      "name": "Chimneys_Metal_Normal.dds",
+      "uri": "Chimneys_Metal_Normal.dds",
+      "texture_name": "Chimneys_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 139,
+      "name": "Chimneys_Metal_BaseColor.dds",
+      "uri": "Chimneys_Metal_BaseColor.dds",
+      "texture_name": "Chimneys_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 140,
+      "name": "Plaster_Normal.dds",
+      "uri": "Plaster_Normal.dds",
+      "texture_name": "Plaster_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 141,
+      "name": "Plaster_BaseColor.dds",
+      "uri": "Plaster_BaseColor.dds",
+      "texture_name": "Plaster_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 142,
+      "name": "Paris_Chair_01_Normal.dds",
+      "uri": "Paris_Chair_01_Normal.dds",
+      "texture_name": "Paris_Chair_01_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 143,
+      "name": "Paris_Chair_01_BaseColor.dds",
+      "uri": "Paris_Chair_01_BaseColor.dds",
+      "texture_name": "Paris_Chair_01_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 144,
+      "name": "MASTER_Grain_Metal_Normal.dds",
+      "uri": "MASTER_Grain_Metal_Normal.dds",
+      "texture_name": "MASTER_Grain_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 145,
+      "name": "MASTER_Grain_Metal_BaseColor.dds",
+      "uri": "MASTER_Grain_Metal_BaseColor.dds",
+      "texture_name": "MASTER_Grain_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 146,
+      "name": "MASTER_Curtains_Normal.dds",
+      "uri": "MASTER_Curtains_Normal.dds",
+      "texture_name": "MASTER_Curtains_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 147,
+      "name": "MASTER_Curtains_BaseColor.dds",
+      "uri": "MASTER_Curtains_BaseColor.dds",
+      "texture_name": "MASTER_Curtains_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 148,
+      "name": "MASTER_Concrete_Plaster_Normal.dds",
+      "uri": "MASTER_Concrete_Plaster_Normal.dds",
+      "texture_name": "MASTER_Concrete_Plaster_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 149,
+      "name": "MASTER_Concrete_Plaster_BaseColor.dds",
+      "uri": "MASTER_Concrete_Plaster_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_Plaster_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 150,
+      "name": "MASTER_Roofing_Shingle_Grey_Normal.dds",
+      "uri": "MASTER_Roofing_Shingle_Grey_Normal.dds",
+      "texture_name": "MASTER_Roofing_Shingle_Grey_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 151,
+      "name": "MASTER_Roofing_Shingle_Grey_BaseColor.dds",
+      "uri": "MASTER_Roofing_Shingle_Grey_BaseColor.dds",
+      "texture_name": "MASTER_Roofing_Shingle_Grey_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 152,
+      "name": "MASTER_Wood_Painted_Green_Normal.dds",
+      "uri": "MASTER_Wood_Painted_Green_Normal.dds",
+      "texture_name": "MASTER_Wood_Painted_Green_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 153,
+      "name": "MASTER_Wood_Painted_Green_BaseColor.dds",
+      "uri": "MASTER_Wood_Painted_Green_BaseColor.dds",
+      "texture_name": "MASTER_Wood_Painted_Green_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 154,
+      "name": "MASTER_Room_Interior_Normal.dds",
+      "uri": "MASTER_Room_Interior_Normal.dds",
+      "texture_name": "MASTER_Room_Interior_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 155,
+      "name": "MASTER_Room_Interior_BaseColor.dds",
+      "uri": "MASTER_Room_Interior_BaseColor.dds",
+      "texture_name": "MASTER_Room_Interior_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 156,
+      "name": "MASTER_Brick_Large_Beige_BLENDSHADER_Normal.dds",
+      "uri": "MASTER_Brick_Large_Beige_BLENDSHADER_Normal.dds",
+      "texture_name": "MASTER_Brick_Large_Beige_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 157,
+      "name": "MASTER_Brick_Large_Beige_BLENDSHADER_BaseColor.dds",
+      "uri": "MASTER_Brick_Large_Beige_BLENDSHADER_BaseColor.dds",
+      "texture_name": "MASTER_Brick_Large_Beige_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 158,
+      "name": "MASTER_Doors_Normal.dds",
+      "uri": "MASTER_Doors_Normal.dds",
+      "texture_name": "MASTER_Doors_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 159,
+      "name": "MASTER_Doors_BaseColor.dds",
+      "uri": "MASTER_Doors_BaseColor.dds",
+      "texture_name": "MASTER_Doors_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 160,
+      "name": "MASTER_Concrete_Normal.dds",
+      "uri": "MASTER_Concrete_Normal.dds",
+      "texture_name": "MASTER_Concrete_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 161,
+      "name": "MASTER_Concrete_BaseColor.dds",
+      "uri": "MASTER_Concrete_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 162,
+      "name": "MASTER_Forge_Metal_Normal.dds",
+      "uri": "MASTER_Forge_Metal_Normal.dds",
+      "texture_name": "MASTER_Forge_Metal_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 163,
+      "name": "MASTER_Forge_Metal_BaseColor.dds",
+      "uri": "MASTER_Forge_Metal_BaseColor.dds",
+      "texture_name": "MASTER_Forge_Metal_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 164,
+      "name": "MASTER_Wood_Brown_Normal.dds",
+      "uri": "MASTER_Wood_Brown_Normal.dds",
+      "texture_name": "MASTER_Wood_Brown_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 165,
+      "name": "MASTER_Wood_Brown_BaseColor.dds",
+      "uri": "MASTER_Wood_Brown_BaseColor.dds",
+      "texture_name": "MASTER_Wood_Brown_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 166,
+      "name": "MASTER_Concrete_Grooved_Normal.dds",
+      "uri": "MASTER_Concrete_Grooved_Normal.dds",
+      "texture_name": "MASTER_Concrete_Grooved_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 167,
+      "name": "MASTER_Concrete_Grooved_BaseColor.dds",
+      "uri": "MASTER_Concrete_Grooved_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_Grooved_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 168,
+      "name": "MASTER_Concrete_Smooth_Normal.dds",
+      "uri": "MASTER_Concrete_Smooth_Normal.dds",
+      "texture_name": "MASTER_Concrete_Smooth_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 169,
+      "name": "MASTER_Concrete_Smooth_BaseColor.dds",
+      "uri": "MASTER_Concrete_Smooth_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_Smooth_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 170,
+      "name": "MASTER_Concrete_Plaster1_BLENDSHADER_Normal.dds",
+      "uri": "MASTER_Concrete_Plaster1_BLENDSHADER_Normal.dds",
+      "texture_name": "MASTER_Concrete_Plaster1_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 171,
+      "name": "MASTER_Concrete_Plaster1_BLENDSHADER_BaseColor.dds",
+      "uri": "MASTER_Concrete_Plaster1_BLENDSHADER_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_Plaster1_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 172,
+      "name": "MASTER_Plastic_Normal.dds",
+      "uri": "MASTER_Plastic_Normal.dds",
+      "texture_name": "MASTER_Plastic_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 173,
+      "name": "MASTER_Plastic_BaseColor.dds",
+      "uri": "MASTER_Plastic_BaseColor.dds",
+      "texture_name": "MASTER_Plastic_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 174,
+      "name": "MASTER_Frosted_Glass_Normal.dds",
+      "uri": "MASTER_Frosted_Glass_Normal.dds",
+      "texture_name": "MASTER_Frosted_Glass_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 175,
+      "name": "MASTER_Frosted_Glass_BaseColor.dds",
+      "uri": "MASTER_Frosted_Glass_BaseColor.dds",
+      "texture_name": "MASTER_Frosted_Glass_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 176,
+      "name": "MASTER_Awning_Fabric_Red_Normal.dds",
+      "uri": "MASTER_Awning_Fabric_Red_Normal.dds",
+      "texture_name": "MASTER_Awning_Fabric_Red_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 177,
+      "name": "MASTER_Awning_Fabric_Red_BaseColor.dds",
+      "uri": "MASTER_Awning_Fabric_Red_BaseColor.dds",
+      "texture_name": "MASTER_Awning_Fabric_Red_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 178,
+      "name": "MASTER_Boulangerie_Normal.dds",
+      "uri": "MASTER_Boulangerie_Normal.dds",
+      "texture_name": "MASTER_Boulangerie_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 179,
+      "name": "MASTER_Boulangerie_BaseColor.dds",
+      "uri": "MASTER_Boulangerie_BaseColor.dds",
+      "texture_name": "MASTER_Boulangerie_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 180,
+      "name": "MASTER_Awning_Beams_Normal.dds",
+      "uri": "MASTER_Awning_Beams_Normal.dds",
+      "texture_name": "MASTER_Awning_Beams_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 181,
+      "name": "MASTER_Awning_Beams_BaseColor.dds",
+      "uri": "MASTER_Awning_Beams_BaseColor.dds",
+      "texture_name": "MASTER_Awning_Beams_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 182,
+      "name": "MASTER_Roofing_Metal_01_Normal.dds",
+      "uri": "MASTER_Roofing_Metal_01_Normal.dds",
+      "texture_name": "MASTER_Roofing_Metal_01_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 183,
+      "name": "MASTER_Roofing_Metal_01_BaseColor.dds",
+      "uri": "MASTER_Roofing_Metal_01_BaseColor.dds",
+      "texture_name": "MASTER_Roofing_Metal_01_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 184,
+      "name": "MASTER_Details_Dark_Normal.dds",
+      "uri": "MASTER_Details_Dark_Normal.dds",
+      "texture_name": "MASTER_Details_Dark_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 185,
+      "name": "MASTER_Details_Dark_BaseColor.dds",
+      "uri": "MASTER_Details_Dark_BaseColor.dds",
+      "texture_name": "MASTER_Details_Dark_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 186,
+      "name": "MASTER_Rollup_Door_Normal.dds",
+      "uri": "MASTER_Rollup_Door_Normal.dds",
+      "texture_name": "MASTER_Rollup_Door_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 187,
+      "name": "MASTER_Rollup_Door_BaseColor.dds",
+      "uri": "MASTER_Rollup_Door_BaseColor.dds",
+      "texture_name": "MASTER_Rollup_Door_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 188,
+      "name": "MASTER_Building_Details_Normal.dds",
+      "uri": "MASTER_Building_Details_Normal.dds",
+      "texture_name": "MASTER_Building_Details_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 189,
+      "name": "MASTER_Building_Details_BaseColor.dds",
+      "uri": "MASTER_Building_Details_BaseColor.dds",
+      "texture_name": "MASTER_Building_Details_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 190,
+      "name": "MASTER_Wood_Painted_Cyan_Normal.dds",
+      "uri": "MASTER_Wood_Painted_Cyan_Normal.dds",
+      "texture_name": "MASTER_Wood_Painted_Cyan_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 191,
+      "name": "MASTER_Wood_Painted_Cyan_BaseColor.dds",
+      "uri": "MASTER_Wood_Painted_Cyan_BaseColor.dds",
+      "texture_name": "MASTER_Wood_Painted_Cyan_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 192,
+      "name": "MASTER_Glass_Dirty_Normal.dds",
+      "uri": "MASTER_Glass_Dirty_Normal.dds",
+      "texture_name": "MASTER_Glass_Dirty_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 193,
+      "name": "MASTER_Glass_Dirty_BaseColor.dds",
+      "uri": "MASTER_Glass_Dirty_BaseColor.dds",
+      "texture_name": "MASTER_Glass_Dirty_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 194,
+      "name": "MASTER_Awning_Fabric_Cyan_Normal.dds",
+      "uri": "MASTER_Awning_Fabric_Cyan_Normal.dds",
+      "texture_name": "MASTER_Awning_Fabric_Cyan_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 195,
+      "name": "MASTER_Awning_Fabric_Cyan_BaseColor.dds",
+      "uri": "MASTER_Awning_Fabric_Cyan_BaseColor.dds",
+      "texture_name": "MASTER_Awning_Fabric_Cyan_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 196,
+      "name": "MASTER_Wood_Painted3_Normal.dds",
+      "uri": "MASTER_Wood_Painted3_Normal.dds",
+      "texture_name": "MASTER_Wood_Painted3_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 197,
+      "name": "MASTER_Wood_Painted3_BaseColor.dds",
+      "uri": "MASTER_Wood_Painted3_BaseColor.dds",
+      "texture_name": "MASTER_Wood_Painted3_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 198,
+      "name": "MASTER_Bronze_BLENDSHADER_Normal.dds",
+      "uri": "MASTER_Bronze_BLENDSHADER_Normal.dds",
+      "texture_name": "MASTER_Bronze_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 199,
+      "name": "MASTER_Bronze_BLENDSHADER_BaseColor.dds",
+      "uri": "MASTER_Bronze_BLENDSHADER_BaseColor.dds",
+      "texture_name": "MASTER_Bronze_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 200,
+      "name": "MASTER_Wood_Painted_Green_BLENDSHADER_Normal.dds",
+      "uri": "MASTER_Wood_Painted_Green_BLENDSHADER_Normal.dds",
+      "texture_name": "MASTER_Wood_Painted_Green_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 201,
+      "name": "MASTER_Wood_Painted_Green_BLENDSHADER_BaseColor.dds",
+      "uri": "MASTER_Wood_Painted_Green_BLENDSHADER_BaseColor.dds",
+      "texture_name": "MASTER_Wood_Painted_Green_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 202,
+      "name": "MASTER_Concrete_Smooth_BLENDSHADER_Normal.dds",
+      "uri": "MASTER_Concrete_Smooth_BLENDSHADER_Normal.dds",
+      "texture_name": "MASTER_Concrete_Smooth_BLENDSHADER_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 203,
+      "name": "MASTER_Concrete_Smooth_BLENDSHADER_BaseColor.dds",
+      "uri": "MASTER_Concrete_Smooth_BLENDSHADER_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_Smooth_BLENDSHADER_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 204,
+      "name": "MASTER_Book_Covers_Normal.dds",
+      "uri": "MASTER_Book_Covers_Normal.dds",
+      "texture_name": "MASTER_Book_Covers_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 205,
+      "name": "MASTER_Book_Covers_BaseColor.dds",
+      "uri": "MASTER_Book_Covers_BaseColor.dds",
+      "texture_name": "MASTER_Book_Covers_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 206,
+      "name": "MASTER_Concrete_White_Normal.dds",
+      "uri": "MASTER_Concrete_White_Normal.dds",
+      "texture_name": "MASTER_Concrete_White_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 207,
+      "name": "MASTER_Concrete_White_BaseColor.dds",
+      "uri": "MASTER_Concrete_White_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_White_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 208,
+      "name": "MASTER_Brick_Small_Red_Normal.dds",
+      "uri": "MASTER_Brick_Small_Red_Normal.dds",
+      "texture_name": "MASTER_Brick_Small_Red_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 209,
+      "name": "MASTER_Brick_Small_Red_BaseColor.dds",
+      "uri": "MASTER_Brick_Small_Red_BaseColor.dds",
+      "texture_name": "MASTER_Brick_Small_Red_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 210,
+      "name": "MASTER_Brick_Large_White_Normal.dds",
+      "uri": "MASTER_Brick_Large_White_Normal.dds",
+      "texture_name": "MASTER_Brick_Large_White_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 211,
+      "name": "MASTER_Brick_Large_White_BaseColor.dds",
+      "uri": "MASTER_Brick_Large_White_BaseColor.dds",
+      "texture_name": "MASTER_Brick_Large_White_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 212,
+      "name": "MASTER_Light_Bulb_Normal.dds",
+      "uri": "MASTER_Light_Bulb_Normal.dds",
+      "texture_name": "MASTER_Light_Bulb_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 213,
+      "name": "MASTER_Light_Bulb_BaseColor.dds",
+      "uri": "MASTER_Light_Bulb_BaseColor.dds",
+      "texture_name": "MASTER_Light_Bulb_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 214,
+      "name": "MASTER_Glass_Exterior_Normal.dds",
+      "uri": "MASTER_Glass_Exterior_Normal.dds",
+      "texture_name": "MASTER_Glass_Exterior_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 215,
+      "name": "MASTER_Glass_Exterior_BaseColor.dds",
+      "uri": "MASTER_Glass_Exterior_BaseColor.dds",
+      "texture_name": "MASTER_Glass_Exterior_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 216,
+      "name": "MASTER_Side_Letters_Normal.dds",
+      "uri": "MASTER_Side_Letters_Normal.dds",
+      "texture_name": "MASTER_Side_Letters_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 217,
+      "name": "MASTER_Side_Letters_BaseColor.dds",
+      "uri": "MASTER_Side_Letters_BaseColor.dds",
+      "texture_name": "MASTER_Side_Letters_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 218,
+      "name": "MASTER_Concrete1_Normal.dds",
+      "uri": "MASTER_Concrete1_Normal.dds",
+      "texture_name": "MASTER_Concrete1_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 219,
+      "name": "MASTER_Concrete1_BaseColor.dds",
+      "uri": "MASTER_Concrete1_BaseColor.dds",
+      "texture_name": "MASTER_Concrete1_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 220,
+      "name": "MASTER_Focus_Ornament_Normal.dds",
+      "uri": "MASTER_Focus_Ornament_Normal.dds",
+      "texture_name": "MASTER_Focus_Ornament_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 221,
+      "name": "MASTER_Focus_Ornament_BaseColor.dds",
+      "uri": "MASTER_Focus_Ornament_BaseColor.dds",
+      "texture_name": "MASTER_Focus_Ornament_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 222,
+      "name": "MASTER_Metal_Pipe_Normal.dds",
+      "uri": "MASTER_Metal_Pipe_Normal.dds",
+      "texture_name": "MASTER_Metal_Pipe_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 223,
+      "name": "MASTER_Metal_Pipe_BaseColor.dds",
+      "uri": "MASTER_Metal_Pipe_BaseColor.dds",
+      "texture_name": "MASTER_Metal_Pipe_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 224,
+      "name": "MASTER_Wood_Polished_Normal.dds",
+      "uri": "MASTER_Wood_Polished_Normal.dds",
+      "texture_name": "MASTER_Wood_Polished_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 225,
+      "name": "MASTER_Wood_Polished_BaseColor.dds",
+      "uri": "MASTER_Wood_Polished_BaseColor.dds",
+      "texture_name": "MASTER_Wood_Polished_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 226,
+      "name": "MASTER_Concrete_Yellow_Normal.dds",
+      "uri": "MASTER_Concrete_Yellow_Normal.dds",
+      "texture_name": "MASTER_Concrete_Yellow_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 227,
+      "name": "MASTER_Concrete_Yellow_BaseColor.dds",
+      "uri": "MASTER_Concrete_Yellow_BaseColor.dds",
+      "texture_name": "MASTER_Concrete_Yellow_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 228,
+      "name": "MASTER_Roofing_Shingle_Green_Normal.dds",
+      "uri": "MASTER_Roofing_Shingle_Green_Normal.dds",
+      "texture_name": "MASTER_Roofing_Shingle_Green_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 229,
+      "name": "MASTER_Roofing_Shingle_Green_BaseColor.dds",
+      "uri": "MASTER_Roofing_Shingle_Green_BaseColor.dds",
+      "texture_name": "MASTER_Roofing_Shingle_Green_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 230,
+      "name": "MASTER_Trim_Cornice_Normal.dds",
+      "uri": "MASTER_Trim_Cornice_Normal.dds",
+      "texture_name": "MASTER_Trim_Cornice_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 231,
+      "name": "MASTER_Trim_Cornice_BaseColor.dds",
+      "uri": "MASTER_Trim_Cornice_BaseColor.dds",
+      "texture_name": "MASTER_Trim_Cornice_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 232,
+      "name": "Bollards_Normal.dds",
+      "uri": "Bollards_Normal.dds",
+      "texture_name": "Bollards_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 233,
+      "name": "Bollards_BaseColor.dds",
+      "uri": "Bollards_BaseColor.dds",
+      "texture_name": "Bollards_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 234,
+      "name": "Bistro_Sign_Main_Normal.dds",
+      "uri": "Bistro_Sign_Main_Normal.dds",
+      "texture_name": "Bistro_Sign_Main_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 235,
+      "name": "Bistro_Sign_Main_BaseColor.dds",
+      "uri": "Bistro_Sign_Main_BaseColor.dds",
+      "texture_name": "Bistro_Sign_Main_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 236,
+      "name": "Bistro_Sign_Letters_Normal.dds",
+      "uri": "Bistro_Sign_Letters_Normal.dds",
+      "texture_name": "Bistro_Sign_Letters_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 237,
+      "name": "Bistro_Sign_Letters_BaseColor.dds",
+      "uri": "Bistro_Sign_Letters_BaseColor.dds",
+      "texture_name": "Bistro_Sign_Letters_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 238,
+      "name": "Awnings_Hotel_Fabric_Normal.dds",
+      "uri": "Awnings_Hotel_Fabric_Normal.dds",
+      "texture_name": "Awnings_Hotel_Fabric_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 239,
+      "name": "Awnings_Hotel_Fabric_BaseColor.dds",
+      "uri": "Awnings_Hotel_Fabric_BaseColor.dds",
+      "texture_name": "Awnings_Hotel_Fabric_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 240,
+      "name": "Awnings_Fabric_Normal.dds",
+      "uri": "Awnings_Fabric_Normal.dds",
+      "texture_name": "Awnings_Fabric_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 241,
+      "name": "Awnings_Fabric_BaseColor.dds",
+      "uri": "Awnings_Fabric_BaseColor.dds",
+      "texture_name": "Awnings_Fabric_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 242,
+      "name": "Awnings_Beams_Normal.dds",
+      "uri": "Awnings_Beams_Normal.dds",
+      "texture_name": "Awnings_Beams_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 243,
+      "name": "Awnings_Beams_BaseColor.dds",
+      "uri": "Awnings_Beams_BaseColor.dds",
+      "texture_name": "Awnings_Beams_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 244,
+      "name": "Ashtray_Normal.dds",
+      "uri": "Ashtray_Normal.dds",
+      "texture_name": "Ashtray_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 245,
+      "name": "Ashtray_BaseColor.dds",
+      "uri": "Ashtray_BaseColor.dds",
+      "texture_name": "Ashtray_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 246,
+      "name": "Antenna_Plastic_Blue_Normal.dds",
+      "uri": "Antenna_Plastic_Blue_Normal.dds",
+      "texture_name": "Antenna_Plastic_Blue_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 247,
+      "name": "Antenna_Plastic_Blue_BaseColor.dds",
+      "uri": "Antenna_Plastic_Blue_BaseColor.dds",
+      "texture_name": "Antenna_Plastic_Blue_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 248,
+      "name": "Antenna_Plastic_Normal.dds",
+      "uri": "Antenna_Plastic_Normal.dds",
+      "texture_name": "Antenna_Plastic_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 249,
+      "name": "Antenna_Plastic_BaseColor.dds",
+      "uri": "Antenna_Plastic_BaseColor.dds",
+      "texture_name": "Antenna_Plastic_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 250,
+      "name": "Foliage_Linde_Tree_Large_Trunk_Normal.dds",
+      "uri": "Foliage_Linde_Tree_Large_Trunk_Normal.dds",
+      "texture_name": "Foliage_Linde_Tree_Large_Trunk_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 251,
+      "name": "Foliage_Linde_Tree_Large_Trunk_BaseColor.dds",
+      "uri": "Foliage_Linde_Tree_Large_Trunk_BaseColor.dds",
+      "texture_name": "Foliage_Linde_Tree_Large_Trunk_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 252,
+      "name": "Foliage_Linde_Tree_Large_Orange_Leaves_Normal.dds",
+      "uri": "Foliage_Linde_Tree_Large_Orange_Leaves_Normal.dds",
+      "texture_name": "Foliage_Linde_Tree_Large_Orange_Leaves_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 253,
+      "name": "Foliage_Linde_Tree_Large_Orange_Leaves_BaseColor.dds",
+      "uri": "Foliage_Linde_Tree_Large_Orange_Leaves_BaseColor.dds",
+      "texture_name": "Foliage_Linde_Tree_Large_Orange_Leaves_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 254,
+      "name": "Foliage_Linde_Tree_Large_Green_Leaves_Normal.dds",
+      "uri": "Foliage_Linde_Tree_Large_Green_Leaves_Normal.dds",
+      "texture_name": "Foliage_Linde_Tree_Large_Green_Leaves_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 255,
+      "name": "Foliage_Linde_Tree_Large_Green_Leaves_BaseColor.dds",
+      "uri": "Foliage_Linde_Tree_Large_Green_Leaves_BaseColor.dds",
+      "texture_name": "Foliage_Linde_Tree_Large_Green_Leaves_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 256,
+      "name": "Foliage_Ivy_branches_Normal.dds",
+      "uri": "Foliage_Ivy_branches_Normal.dds",
+      "texture_name": "Foliage_Ivy_branches_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 257,
+      "name": "Foliage_Ivy_branches_BaseColor.dds",
+      "uri": "Foliage_Ivy_branches_BaseColor.dds",
+      "texture_name": "Foliage_Ivy_branches_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 258,
+      "name": "Foliage_Ivy_leaf_a_Normal.dds",
+      "uri": "Foliage_Ivy_leaf_a_Normal.dds",
+      "texture_name": "Foliage_Ivy_leaf_a_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 259,
+      "name": "Foliage_Ivy_leaf_a_BaseColor.dds",
+      "uri": "Foliage_Ivy_leaf_a_BaseColor.dds",
+      "texture_name": "Foliage_Ivy_leaf_a_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 260,
+      "name": "Foliage_Bux_Hedges46_Normal.dds",
+      "uri": "Foliage_Bux_Hedges46_Normal.dds",
+      "texture_name": "Foliage_Bux_Hedges46_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 261,
+      "name": "Foliage_Bux_Hedges46_BaseColor.dds",
+      "uri": "Foliage_Bux_Hedges46_BaseColor.dds",
+      "texture_name": "Foliage_Bux_Hedges46_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 262,
+      "name": "Vespa_Normal.dds",
+      "uri": "Vespa_Normal.dds",
+      "texture_name": "Vespa_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 263,
+      "name": "Vespa_BaseColor.dds",
+      "uri": "Vespa_BaseColor.dds",
+      "texture_name": "Vespa_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 264,
+      "name": "Vespa_Odometer_Normal.dds",
+      "uri": "Vespa_Odometer_Normal.dds",
+      "texture_name": "Vespa_Odometer_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 265,
+      "name": "Vespa_Odometer_BaseColor.dds",
+      "uri": "Vespa_Odometer_BaseColor.dds",
+      "texture_name": "Vespa_Odometer_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 266,
+      "name": "Vespa_Odometer_Glass_Normal.dds",
+      "uri": "Vespa_Odometer_Glass_Normal.dds",
+      "texture_name": "Vespa_Odometer_Glass_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 267,
+      "name": "Vespa_Odometer_Glass_BaseColor.dds",
+      "uri": "Vespa_Odometer_Glass_BaseColor.dds",
+      "texture_name": "Vespa_Odometer_Glass_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 268,
+      "name": "Foliage_Leaves_Normal.dds",
+      "uri": "Foliage_Leaves_Normal.dds",
+      "texture_name": "Foliage_Leaves_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 269,
+      "name": "Foliage_Leaves_BaseColor.dds",
+      "uri": "Foliage_Leaves_BaseColor.dds",
+      "texture_name": "Foliage_Leaves_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 270,
+      "name": "Foliage_Trunk_Normal.dds",
+      "uri": "Foliage_Trunk_Normal.dds",
+      "texture_name": "Foliage_Trunk_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 144,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 1,
+      "height": 1,
+      "mip_count": 0,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 271,
+      "name": "Foliage_Trunk_BaseColor.dds",
+      "uri": "Foliage_Trunk_BaseColor.dds",
+      "texture_name": "Foliage_Trunk_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 2796344,
+      "fourcc": "DXT1",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 272,
+      "name": "Vespa_Headlight_Normal.dds",
+      "uri": "Vespa_Headlight_Normal.dds",
+      "texture_name": "Vespa_Headlight_Normal",
+      "roles": [
+        "normalTexture"
+      ],
+      "bytes": 5592560,
+      "fourcc": "ATI2",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 2048,
+      "height": 2048,
+      "mip_count": 12,
+      "same_bytes_as_textures_dir": true
+    },
+    {
+      "index": 273,
+      "name": "Vespa_Headlight_BaseColor.dds",
+      "uri": "Vespa_Headlight_BaseColor.dds",
+      "texture_name": "Vespa_Headlight_BaseColor",
+      "roles": [
+        "baseColorTexture"
+      ],
+      "bytes": 496,
+      "fourcc": "DXT5",
+      "dxgi_format": null,
+      "dxgi_name": null,
+      "width": 16,
+      "height": 16,
+      "mip_count": 5,
+      "same_bytes_as_textures_dir": true
+    }
+  ],
+  "checks": [
+    {
+      "id": "src_exists",
+      "desc": "源 glTF 存在",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "src": "H:\\rurix\\.tmp\\g10_conv_ext\\BistroExterior.gltf"
+      }
+    },
+    {
+      "id": "textures_dir_exists",
+      "desc": "贴图目录存在",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "textures": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\extracted\\Bistro_v5_2\\Textures"
+      }
+    },
+    {
+      "id": "out_dir_guard",
+      "desc": "输出目录不在 extracted 树内(G10 digest 覆盖面)、不等于源目录/贴图目录",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "out": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior",
+        "extracted_root": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\extracted"
+      }
+    },
+    {
+      "id": "source_json_roundtrip",
+      "desc": "源 glTF 以 indent=4/ensure_ascii=False 往返字节一致(输出沿用同一序列化风格)",
+      "hard": false,
+      "pass": true,
+      "detail": null
+    },
+    {
+      "id": "source_image_count",
+      "desc": "源 images 数 == 274",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "images": 274
+      }
+    },
+    {
+      "id": "texture_mapping",
+      "desc": "每个 image 均能按名在 Textures 目录找到 <name>.dds(缺失清单为空)",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "missing_count": 0,
+        "missing": [],
+        "name_origin": {
+          "images[].name": 274
+        },
+        "had_data_uri": 274,
+        "case_exact": 274
+      }
+    },
+    {
+      "id": "texture_name_case_exact",
+      "desc": "贴图文件名与目录列表大小写精确一致(跨平台卫生)",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "case_inexact": []
+      }
+    },
+    {
+      "id": "interior_reference",
+      "desc": "Interior 参照 glTF 在位并与硬编码形状常量一致(缺位则跳过)",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "path": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf",
+        "present": true,
+        "images": 144,
+        "image_key_sets": [
+          "name,uri"
+        ],
+        "images_name_eq_uri": true,
+        "images_name_dds_suffix": true,
+        "textures_name_plus_dds_eq_image_name": true,
+        "texture_key_sets": [
+          "name,sampler,source"
+        ],
+        "buffer_key_sets": [
+          "byteLength,uri"
+        ],
+        "buffer_uri": [
+          "buffer.bin"
+        ]
+      }
+    },
+    {
+      "id": "source_buffer",
+      "desc": "源 buffers 恰一个、uri 外链、文件存在且字节数 == byteLength",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "count": 1,
+        "uri": "buffer.bin",
+        "byteLength": 134582892,
+        "bytes": 134582892
+      }
+    },
+    {
+      "id": "out_gltf_exists",
+      "desc": "输出 glTF 存在(--verify-only 需先有产物)",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "out_gltf": "K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\BistroExterior.gltf"
+      }
+    },
+    {
+      "id": "gltf_unchanged",
+      "desc": "输出 glTF 字节 == 由源重建的字节(幂等;不一致即陈旧或被改动)",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "out_bytes": 4537956,
+        "rebuilt_bytes": 4537956
+      }
+    },
+    {
+      "id": "assets_same_size_as_source",
+      "desc": "输出目录 275 个资产文件(buffer + DDS)与源逐个同字节数",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "identical_size": 275,
+        "mismatch": []
+      }
+    },
+    {
+      "id": "buffers",
+      "desc": "buffers 恰一个且 uri 为外链、文件存在、字节数 == byteLength",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "count": 1,
+        "uri": "buffer.bin",
+        "external": true,
+        "exists": true,
+        "bytes": 134582892,
+        "byteLength": 134582892,
+        "keys": [
+          "byteLength",
+          "uri"
+        ],
+        "uri_same_as_interior": true
+      }
+    },
+    {
+      "id": "accessors",
+      "desc": "全部 accessor 无 sparse 且有 bufferView;bufferView/accessor 范围不越界",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "accessors": 7966,
+        "bufferViews": 7966,
+        "sparse": [],
+        "no_bufferView": [],
+        "accessor_out_of_range": [],
+        "bufferView_out_of_range": []
+      }
+    },
+    {
+      "id": "primitives",
+      "desc": "全部 primitive mode == 4(缺省即 4)且有 indices 与 attributes.POSITION",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "primitives": 1591,
+        "bad_mode": [],
+        "no_indices": [],
+        "no_POSITION": [],
+        "indices_count_not_multiple_of_3": [],
+        "no_material": 0
+      }
+    },
+    {
+      "id": "triangles",
+      "desc": "三角总数(Σ indices.count/3)== 2,832,120",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "triangles": 2832120,
+        "expected": 2832120
+      }
+    },
+    {
+      "id": "image_count",
+      "desc": "images 数 == 274",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "images": 274,
+        "textures": 274
+      }
+    },
+    {
+      "id": "images_exist",
+      "desc": "274/274 images[].uri 为纯相对 .dds 文件名且文件存在(glTF 所在目录.join(uri))",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "bad_uri": [],
+        "missing": [],
+        "missing_count": 0
+      }
+    },
+    {
+      "id": "dds_headers",
+      "desc": "全部被引用 DDS 头合规(magic 'DDS ' + header.size 124 + ddspf.size 32)",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "errors": []
+      }
+    },
+    {
+      "id": "dds_same_size_as_textures_dir",
+      "desc": "输出目录每张 DDS 与 Textures 源同字节数(原样拷贝)",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "mismatch": []
+      }
+    },
+    {
+      "id": "images_all_referenced",
+      "desc": "每个 image 至少被一个材质槽位引用",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "unreferenced": []
+      }
+    },
+    {
+      "id": "images_shape_interior",
+      "desc": "images[] 键集合 == Interior 形状 {name, uri} 且 name == uri",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "key_sets": [
+          "name,uri"
+        ]
+      }
+    },
+    {
+      "id": "textures_shape_interior",
+      "desc": "textures[] 键集合 == Interior 形状 {name, sampler, source}",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "key_sets": [
+          "name,sampler,source"
+        ]
+      }
+    },
+    {
+      "id": "buffers_shape_interior",
+      "desc": "buffers[0] 键集合 == Interior 形状 {byteLength, uri} 且 uri == 'buffer.bin'",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "uri": "buffer.bin"
+      }
+    },
+    {
+      "id": "basecolor_fourcc",
+      "desc": "每个材质 baseColorTexture 对应 DDS fourCC ∈ {DXT1, DXT5}",
+      "hard": true,
+      "pass": true,
+      "detail": {
+        "materials_with_baseColorTexture": 132,
+        "bad": [],
+        "materials_without_baseColorTexture": []
+      }
+    },
+    {
+      "id": "emissive_indices",
+      "desc": "emissive 材质下标与预期 1–6/12/13/38/39 一致(登记)",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "actual": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          12,
+          13,
+          38,
+          39
+        ],
+        "expected": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          12,
+          13,
+          38,
+          39
+        ]
+      }
+    },
+    {
+      "id": "emissive_fourcc",
+      "desc": "emissive 贴图 fourCC 全部 ∈ {DXT1, DXT5}(登记,非硬门)",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "fourcc": {
+          "DXT1": 10
+        }
+      }
+    },
+    {
+      "id": "normal_fourcc",
+      "desc": "normal 贴图 fourCC 分布(预期 ATI2,仅登记)",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "fourcc": {
+          "ATI2": 132
+        }
+      }
+    },
+    {
+      "id": "out_dir_no_extra",
+      "desc": "输出目录仅含 glTF + buffer + 被引用 DDS(无多余条目)",
+      "hard": false,
+      "pass": true,
+      "detail": {
+        "extra": []
+      }
+    }
+  ],
+  "failures": []
+}

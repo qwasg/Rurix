@@ -1,0 +1,1060 @@
+{
+ "schema": "rurix.day0902.deliverables.v1",
+ "runs": {
+  "regress_off_anchor": {
+   "ledger_tag": "regress_off_anchor",
+   "rc": 0,
+   "wall_s": 65.55,
+   "presented": null,
+   "render_digest": "sha256:c1d28ad73783cc3c054ae0ce372b042a23d01df5491394cb38de7725e83b6c02",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 160,
+   "warmup": 10,
+   "tier": 100,
+   "trajectory": null,
+   "frame_ms": {
+    "total_wall_ms": 1021.37,
+    "frames_total": 170
+   },
+   "particles": {
+    "n_final": null,
+    "pids_issued": null,
+    "emit_max": null
+   },
+   "showcase": null,
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+    "sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665"
+   },
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "regress_on_a": {
+   "ledger_tag": "regress_on_a",
+   "rc": 0,
+   "wall_s": 67.51,
+   "presented": "sha256:92c870e9abc39c4b0504c4adf286401198a94d694f1f8a0d4e065817bf6389b1",
+   "render_digest": "sha256:4857b6d4a953e95e3ae57a4acc6692b6a6e9179f11daf300d9921e0ede6f9e01",
+   "digest_seq_sha": "sha256:7cf143b43715f677be164bda64c1e784d37663f35fa8e0bc00025c518d5e8994",
+   "digest_seq_n": 54,
+   "frames": 48,
+   "warmup": 6,
+   "tier": 100,
+   "trajectory": "orbit",
+   "frame_ms": {
+    "real_render_frame_ms": 6.634762,
+    "render_min_ms": 5.8875,
+    "render_max_ms": 17.7119,
+    "particle_gpu_mean_ms": 2.367051,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 48
+   },
+   "particles": {
+    "n_final": 8194,
+    "pids_issued": 8391,
+    "emit_max": 256
+   },
+   "showcase": null,
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+    "sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665"
+   },
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "regress_on_b": {
+   "ledger_tag": "regress_on_b",
+   "rc": 0,
+   "wall_s": 65.66,
+   "presented": "sha256:92c870e9abc39c4b0504c4adf286401198a94d694f1f8a0d4e065817bf6389b1",
+   "render_digest": "sha256:4857b6d4a953e95e3ae57a4acc6692b6a6e9179f11daf300d9921e0ede6f9e01",
+   "digest_seq_sha": "sha256:7cf143b43715f677be164bda64c1e784d37663f35fa8e0bc00025c518d5e8994",
+   "digest_seq_n": 54,
+   "frames": 48,
+   "warmup": 6,
+   "tier": 100,
+   "trajectory": "orbit",
+   "frame_ms": {
+    "real_render_frame_ms": 6.712673,
+    "render_min_ms": 6.0248,
+    "render_max_ms": 17.5727,
+    "particle_gpu_mean_ms": 2.293774,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 48
+   },
+   "particles": {
+    "n_final": 8194,
+    "pids_issued": 8391,
+    "emit_max": 256
+   },
+   "showcase": null,
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+    "sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665"
+   },
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "regress_on_baseline_exe": {
+   "ledger_tag": "regress_on_baseline_exe",
+   "rc": 0,
+   "wall_s": 64.7,
+   "presented": "sha256:92c870e9abc39c4b0504c4adf286401198a94d694f1f8a0d4e065817bf6389b1",
+   "render_digest": "sha256:4857b6d4a953e95e3ae57a4acc6692b6a6e9179f11daf300d9921e0ede6f9e01",
+   "digest_seq_sha": "sha256:7cf143b43715f677be164bda64c1e784d37663f35fa8e0bc00025c518d5e8994",
+   "digest_seq_n": 54,
+   "frames": 48,
+   "warmup": 6,
+   "tier": 100,
+   "trajectory": "orbit",
+   "frame_ms": {
+    "real_render_frame_ms": 6.746373,
+    "render_min_ms": 6.0359,
+    "render_max_ms": 16.155,
+    "particle_gpu_mean_ms": 2.318128,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 48
+   },
+   "particles": {
+    "n_final": 8194,
+    "pids_issued": 8391,
+    "emit_max": 256
+   },
+   "showcase": null,
+   "gltf": null,
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "rb_proof_a": {
+   "ledger_tag": "rb_proof_a",
+   "rc": 0,
+   "wall_s": 64.44,
+   "presented": "sha256:84a561909349b641f940f65c2692aa7600d688c75766f9ad0d086c801dd02237",
+   "render_digest": "sha256:4af9d7d05a671586798b98b93619330cda41e69227c72a8f33d039439f471767",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 30,
+   "warmup": 6,
+   "tier": 100,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 5.02605,
+    "render_min_ms": 4.1657,
+    "render_max_ms": 17.8053,
+    "particle_gpu_mean_ms": 2.273465,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 30
+   },
+   "particles": {
+    "n_final": 5526,
+    "pids_issued": 5526,
+    "emit_max": 256
+   },
+   "showcase": null,
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+    "sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665"
+   },
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "rb_proof_b": {
+   "ledger_tag": "rb_proof_b",
+   "rc": 0,
+   "wall_s": 64.95,
+   "presented": "sha256:84a561909349b641f940f65c2692aa7600d688c75766f9ad0d086c801dd02237",
+   "render_digest": "sha256:4af9d7d05a671586798b98b93619330cda41e69227c72a8f33d039439f471767",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 30,
+   "warmup": 6,
+   "tier": 100,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 6.788793,
+    "render_min_ms": 5.8681,
+    "render_max_ms": 17.1808,
+    "particle_gpu_mean_ms": 2.231751,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 30
+   },
+   "particles": {
+    "n_final": 5526,
+    "pids_issued": 5526,
+    "emit_max": 256
+   },
+   "showcase": {
+    "dump_present_raw": ".tmp/rb_b.raw",
+    "dump_present_every": 1,
+    "r_world": 0.02,
+    "splat_stretch": 1,
+    "particle_tint": [
+     1,
+     1,
+     1
+    ],
+    "particle_alpha_scale": 1,
+    "rain": null,
+    "ev100_override": null,
+    "emitter_override": null,
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 256
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior/BistroInterior.gltf",
+    "sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665"
+   },
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "ext_load_smoke": {
+   "ledger_tag": "ext_load_smoke",
+   "rc": 0,
+   "wall_s": 60.95,
+   "presented": "sha256:a14a18405d7e4c7cfccce66682333f4f663b1be1e19cb883b2a8c5b36d30317f",
+   "render_digest": "sha256:d0da5d9c2b601cde8d695176e424f0360cba1075e1cc4b6f0d0ad7a21668bffa",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 4,
+   "warmup": 2,
+   "tier": 50,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 6.305225,
+    "render_min_ms": 1.7012,
+    "render_max_ms": 19.8627,
+    "particle_gpu_mean_ms": 0.658496,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 4
+   },
+   "particles": {
+    "n_final": 639,
+    "pids_issued": 639,
+    "emit_max": 256
+   },
+   "showcase": null,
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "milestones/g13/g13_ue_upscale_parity_contract.json",
+    "digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f"
+   }
+  },
+  "probe_cam_C1": {
+   "ledger_tag": "probe_cam_C1",
+   "rc": 0,
+   "wall_s": 51.2,
+   "presented": "sha256:1e8cc9cf5854bbe59ecd9cd684a71170ddd523f4b2a9f6bc14d7296c6d76fe72",
+   "render_digest": "sha256:f19420378372becc7b53edff1863587007e7f7168863a115cc9e6d6b30f0ea55",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 12,
+   "warmup": 4,
+   "tier": 50,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 5.338767,
+    "render_min_ms": 2.7409,
+    "render_max_ms": 22.7458,
+    "particle_gpu_mean_ms": 0.684411,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 12
+   },
+   "particles": {
+    "n_final": 4592,
+    "pids_issued": 4592,
+    "emit_max": 512
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/probe_cam_C1.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.42,
+     0.46,
+     0.55
+    ],
+    "particle_alpha_scale": 0.5,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      15.874,
+      10.328,
+      -41.682
+     ],
+     "spread": [
+      25.276,
+      1.5,
+      22.245
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 512
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C1.json",
+    "digest": "sha256:d31fa2b85d72b4c3a04e9f9ca2d6a1038ffd0687454c3286c904911379095f84"
+   }
+  },
+  "probe_cam_C1_cd040": {
+   "ledger_tag": "probe_cam_C1_cd040",
+   "rc": 0,
+   "wall_s": 51.44,
+   "presented": "sha256:b110efc167662f18c6f35976b5bd460e0fed7889b9a25b33b04ff67a9ee82a83",
+   "render_digest": "sha256:02384535a87cd40fed98158a4172fdc27d03575851138773545f0a2014718681",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 24,
+   "warmup": 72,
+   "tier": 50,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 3.470633,
+    "render_min_ms": 2.3425,
+    "render_max_ms": 13.8638,
+    "particle_gpu_mean_ms": 0.718856,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 24
+   },
+   "particles": {
+    "n_final": 23920,
+    "pids_issued": 30240,
+    "emit_max": 512
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/probe_cam_C1_cd040.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.42,
+     0.46,
+     0.55
+    ],
+    "particle_alpha_scale": 0.5,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      15.874,
+      10.328,
+      -41.682
+     ],
+     "spread": [
+      25.276,
+      1.5,
+      22.245
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 512
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C1_cd040.json",
+    "digest": "sha256:65289557c81eaf6f1a74a2fc115200358fc201008f43bdc4df20883ba4744f18"
+   }
+  },
+  "probe_C1_cd050_t100_compact": {
+   "ledger_tag": "probe_C1_cd050_t100_compact",
+   "rc": 0,
+   "wall_s": 51.94,
+   "presented": "sha256:bb134f4958fb5bd42f879059140526a5a0f12df39624db95c68f707718ef1516",
+   "render_digest": "sha256:5eabbb6908c6bf9ca884e02ac06e86028345680905498d013bc693e86feec81a",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 24,
+   "warmup": 100,
+   "tier": 100,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 8.282587,
+    "render_min_ms": 6.2277,
+    "render_max_ms": 27.1955,
+    "particle_gpu_mean_ms": 2.339115,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 24
+   },
+   "particles": {
+    "n_final": 30255,
+    "pids_issued": 49194,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/probe_C1_cd050_t100_compact.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.42,
+     0.46,
+     0.55
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      17.916,
+      10.328,
+      -45.121
+     ],
+     "spread": [
+      14.757,
+      1.5,
+      12.659
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C1_cd050.json",
+    "digest": "sha256:5a5e8f70e823d6a104b11f93f81bc94b385e42b97b868109f2f624d425cc5f75"
+   }
+  },
+  "probe_C2_cd050_t50": {
+   "ledger_tag": "probe_C2_cd050_t50",
+   "rc": 0,
+   "wall_s": 51.55,
+   "presented": "sha256:ef7f85715112e7c8060b9ed760368478f73b9a38d3ac89c747e8150b8b1a4d29",
+   "render_digest": "sha256:6585c5011f12661ef437256a8b0297c054db6534ec86cfd5c9c63e40c30f2f6a",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 24,
+   "warmup": 100,
+   "tier": 50,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 3.612113,
+    "render_min_ms": 2.4584,
+    "render_max_ms": 24.6138,
+    "particle_gpu_mean_ms": 0.781803,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 24
+   },
+   "particles": {
+    "n_final": 30255,
+    "pids_issued": 49194,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/probe_C2_cd050_t50.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.4,
+     0.44,
+     0.52
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      6.492,
+      10.304,
+      -30.62
+     ],
+     "spread": [
+      15.417,
+      1.5,
+      13.587
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C2_cd050.json",
+    "digest": "sha256:37eea8257bc0faaf64bb8082d810fb3764bcb98f0ec3a0789252add6edb3e681"
+   }
+  },
+  "probe_C3_cd050_t50": {
+   "ledger_tag": "probe_C3_cd050_t50",
+   "rc": 0,
+   "wall_s": 51.56,
+   "presented": "sha256:0746e55d368c2b1448c73332fe6102e4a7cae3c3cc075dca7874f16bbc8dfeac",
+   "render_digest": "sha256:11fc7c6ea053daa6847764808b54465f0080e683f68623155adce865bf4804fa",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 24,
+   "warmup": 100,
+   "tier": 50,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 4.085388,
+    "render_min_ms": 2.9826,
+    "render_max_ms": 26.3967,
+    "particle_gpu_mean_ms": 0.811329,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 24
+   },
+   "particles": {
+    "n_final": 30255,
+    "pids_issued": 49194,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/probe_C3_cd050_t50.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.4,
+     0.44,
+     0.52
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      -6.221,
+      10.323,
+      -4.867
+     ],
+     "spread": [
+      9.842,
+      1.5,
+      14.281
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C3_cd050.json",
+    "digest": "sha256:3409f255592b9e131ab959f8d6a2bc67640f9678dc958dd71f284bfabc79f21e"
+   }
+  },
+  "bistro_rain_night_C2": {
+   "ledger_tag": "still_C2_final",
+   "rc": 0,
+   "wall_s": 52.41,
+   "presented": "sha256:7a5ec1bc48b49fb06dd5c3c2353fb05ed113fb56b06161f3e8f92367bfff0ced",
+   "render_digest": "sha256:7c927ab3c9584700fa886ab787470b42fd8d762a825ed4d74b0548912c91e7ae",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 96,
+   "warmup": 100,
+   "tier": 100,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 6.366528,
+    "render_min_ms": 4.8295,
+    "render_max_ms": 22.3648,
+    "particle_gpu_mean_ms": 2.29466,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 96
+   },
+   "particles": {
+    "n_final": 29607,
+    "pids_issued": 77406,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/bistro_rain_night_C2.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.4,
+     0.44,
+     0.52
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      6.492,
+      10.304,
+      -30.62
+     ],
+     "spread": [
+      15.417,
+      1.5,
+      13.587
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C2_cd050.json",
+    "digest": "sha256:37eea8257bc0faaf64bb8082d810fb3764bcb98f0ec3a0789252add6edb3e681"
+   }
+  },
+  "bistro_rain_night_C1": {
+   "ledger_tag": "still_C1_final",
+   "rc": 0,
+   "wall_s": 52.61,
+   "presented": "sha256:0985ebb84663188e63761c0131d7b6eade53dc4d4647ab4d32bed1120c400dc5",
+   "render_digest": "sha256:480128b7d05c5395cdc1dafe54ec86982be16e9253ad595bff0e78fc2845354a",
+   "digest_seq_sha": null,
+   "digest_seq_n": 0,
+   "frames": 96,
+   "warmup": 100,
+   "tier": 100,
+   "trajectory": null,
+   "frame_ms": {
+    "real_render_frame_ms": 7.483558,
+    "render_min_ms": 6.1611,
+    "render_max_ms": 27.2367,
+    "particle_gpu_mean_ms": 2.341967,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 96
+   },
+   "particles": {
+    "n_final": 29607,
+    "pids_issued": 77406,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/bistro_rain_night_C1.raw",
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.4,
+     0.44,
+     0.52
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      17.916,
+      10.328,
+      -45.121
+     ],
+     "spread": [
+      14.757,
+      1.5,
+      12.659
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 1,
+    "emitter_follow_camera": false,
+    "emitter_pos_final": null,
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C1_cd050.json",
+    "digest": "sha256:5a5e8f70e823d6a104b11f93f81bc94b385e42b97b868109f2f624d425cc5f75"
+   }
+  },
+  "clip_C1_dolly_a": {
+   "ledger_tag": "clip_C1_dolly_a",
+   "rc": 0,
+   "wall_s": 71.95,
+   "presented": "sha256:be90966dfea357ee59a97c0e898a4f4de58f7405edbffae333915e23ae01009b",
+   "render_digest": "sha256:313dcfdf8c310f6726161f8d3d3ed09363c851596b39f89890869d1a9d85d4c5",
+   "digest_seq_sha": "sha256:90dc0c300677b4b329fae8a26a944bc297ce6b15d39bfb672769f7c1192d541e",
+   "digest_seq_n": 400,
+   "frames": 300,
+   "warmup": 100,
+   "tier": 100,
+   "trajectory": "dolly-forward",
+   "frame_ms": {
+    "real_render_frame_ms": 27.568679,
+    "render_min_ms": 9.7147,
+    "render_max_ms": 58.5473,
+    "particle_gpu_mean_ms": 4.211853,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 300
+   },
+   "particles": {
+    "n_final": 29663,
+    "pids_issued": 158760,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": "artifacts/day_0902_rain_night/clip_C1.raw",
+    "dump_present_every": 1,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.4,
+     0.44,
+     0.52
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      17.916,
+      10.328,
+      -45.121
+     ],
+     "spread": [
+      14.757,
+      1.5,
+      12.659
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 8,
+    "emitter_follow_camera": true,
+    "emitter_pos_final": [
+     13.841902,
+     10.328,
+     -38.259357
+    ],
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C1_cd050.json",
+    "digest": "sha256:5a5e8f70e823d6a104b11f93f81bc94b385e42b97b868109f2f624d425cc5f75"
+   }
+  },
+  "clip_C1_dolly_b": {
+   "ledger_tag": "clip_C1_dolly_b",
+   "rc": 0,
+   "wall_s": 69.08,
+   "presented": "sha256:be90966dfea357ee59a97c0e898a4f4de58f7405edbffae333915e23ae01009b",
+   "render_digest": "sha256:313dcfdf8c310f6726161f8d3d3ed09363c851596b39f89890869d1a9d85d4c5",
+   "digest_seq_sha": "sha256:90dc0c300677b4b329fae8a26a944bc297ce6b15d39bfb672769f7c1192d541e",
+   "digest_seq_n": 400,
+   "frames": 300,
+   "warmup": 100,
+   "tier": 100,
+   "trajectory": "dolly-forward",
+   "frame_ms": {
+    "real_render_frame_ms": 23.580734,
+    "render_min_ms": 8.8591,
+    "render_max_ms": 57.3396,
+    "particle_gpu_mean_ms": 3.797842,
+    "oit_gpu_mean_ms": 0.0,
+    "frames_measured": 300
+   },
+   "particles": {
+    "n_final": 29663,
+    "pids_issued": 158760,
+    "emit_max": 640
+   },
+   "showcase": {
+    "dump_present_raw": null,
+    "dump_present_every": null,
+    "r_world": 0.0015,
+    "splat_stretch": 1,
+    "particle_tint": [
+     0.4,
+     0.44,
+     0.52
+    ],
+    "particle_alpha_scale": 0.45,
+    "rain": {
+     "shutter": 1,
+     "occlusion": true,
+     "ray_tmin_m": 0.02,
+     "streak_max_px": 128,
+     "tsr_reactive": true,
+     "note": "雨丝模式:splat = 运动模糊胶囊(首 pos → 尾 pos − vel·dt·shutter,tent 半径 clamp(rpx,0.5,2.25)+0.75,赢家足迹外扩 1.5 px)+ TLAS 逐粒子遮挡射线(eye → pos);resolve = tint(display 域绝对色 × 1/exposure)+ tent 剖面 × 亚像素覆盖峰值 × 末段淡出,赢家足迹写 U_REACTIVE = 1 且 has_reactive = 1 ⇒ TSR 取当前帧;不读 quirk 深度域"
+    },
+    "ev100_override": null,
+    "emitter_override": {
+     "pos": [
+      17.916,
+      10.328,
+      -45.121
+     ],
+     "spread": [
+      14.757,
+      1.5,
+      12.659
+     ],
+     "vel_base": [
+      0.4,
+      -9,
+      0.2
+     ],
+     "vel_spread": [
+      0.3,
+      0.5,
+      0.3
+     ],
+     "life_base": 1.659,
+     "gravity_y": -3
+    },
+    "auto_move_amp": 8,
+    "emitter_follow_camera": true,
+    "emitter_pos_final": [
+     13.841902,
+     10.328,
+     -38.259357
+    ],
+    "emit_max": 640
+   },
+   "gltf": {
+    "path": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+    "sha256": "sha256:d830984b7469ad4b1cf25386f4efa24e9d3d7ce1e987d189f46fcb6178f2a67c"
+   },
+   "contract": {
+    "path": "artifacts/day_0902_rain_night/contract_rain_night_C1_cd050.json",
+    "digest": "sha256:5a5e8f70e823d6a104b11f93f81bc94b385e42b97b868109f2f624d425cc5f75"
+   }
+  }
+ },
+ "files": {
+  "bistro_rain_night_C2.png": {
+   "bytes": 1284669,
+   "sha256": "sha256:403edaf8c2089a7dad0c66a17d7c4831b70d5866d1f2289958756dcbaeefdfa5"
+  },
+  "bistro_rain_night_C1.png": {
+   "bytes": 1076613,
+   "sha256": "sha256:7de8afefd46b89d2fb3eb19786219c6c80344159b7501c03a2db8b83b4d19b83"
+  },
+  "bistro_rain_night_C1_dolly.mp4": {
+   "bytes": 18526990,
+   "sha256": "sha256:91906ff283ec26dc6d6c3d1aa8b485040922c5ab9efc93cc4f23257b7908b57c"
+  },
+  "probe_C3_cd050_t50.png": {
+   "bytes": 1095452,
+   "sha256": "sha256:cccf6d41dd1233788ae7521274981a937be4ccbbfbe0e6342e23cacc0f79d3b1"
+  },
+  "contract_rain_night_C1_cd050.json": {
+   "bytes": 14146,
+   "sha256": "sha256:c3d308b6d6e5e89fe2ea40f63e3a2b668aea402e7976a6784dc110fd328f812c"
+  },
+  "contract_rain_night_C2_cd050.json": {
+   "bytes": 12279,
+   "sha256": "sha256:addeac00fcdb989feae8291a50ae4ca12fa5e647a51d1d0700bcc8a8c7a6ce55"
+  },
+  "contract_rain_night_C3_cd050.json": {
+   "bytes": 14128,
+   "sha256": "sha256:6c51710613c82578cc18340192344ff544494cf7ec9e2883d9db4d1ed74613be"
+  },
+  "exterior_scene_facts.json": {
+   "bytes": 315514,
+   "sha256": "sha256:8aeaeb539bde591db5ad3039dfd864ac876eed4fea8c0597122ebead572485ec"
+  },
+  "exterior_asset_verify.json": {
+   "bytes": 144637,
+   "sha256": "sha256:d0329960e29ead14c2004e52b2882c22a5a18a22cd41e5a1979d3c160da43643"
+  },
+  "contracts_index.json": {
+   "bytes": 3950,
+   "sha256": "sha256:418555df6f27c2981fa02658060d1bed69573ed21eef4e1d449cf934f3536c3d"
+  }
+ },
+ "ledger_records": 27,
+ "note": "由 summarize_runs.py 从 evidence json + render_runs.jsonl 汇总;raw/帧/mp4 二进制不入库,sha256 登记于此"
+}

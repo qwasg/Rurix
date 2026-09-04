@@ -28,20 +28,52 @@
 // 无 shared / 无原子(winner 只读);u64 域仅 & 掩码(visbuffer 先例);
 // f32/u32 域零位运算。逐像素独立单写者 ⇒ 固定输入双跑位级一致。
 //
-// ## 参数面(P_PARAMS_RENDER 64 f32 共享布局,单源 = bin/g35_particle_lane.rs
-// `pack_render_params` 头注;声明序 = 绑定序,SSBO 数 = 13)
-//   params[0]=iw [1]=ih [2]=r_world(本 kernel 不消费) [3]=soft_range
-//   [4]=d_max(不消费) [5]=dt [6]=px_count [7]=p11(不消费)
-//   [8..24)=vp_j [24..40)=vp(未抖;行 0/1 = 生产字面深度域)
+// ## 雨丝模式(展示面;params[61] > 0 启用,= 0 时上述冻结面逐字执行且
+// **不写 reactive**(host 该面 has_reactive = 0,缓冲不被消费)⇒ 默认面位级
+// 零漂移)
+// 冻结面在雨天出图上的三处失真与修法:
+// - **TSR 彩色噪点**:粒子色 8.0×暖白进 TSR 后,历史色在 YCoCg 3×3 AABB 内
+//   逐分量独立钳制,组合点落到 RGB 色域外再被 max(0) 截断 ⇒ 雨丝像素出现
+//   R=0/G=255 类假色(day_0831_site rain_probe 实测)。修法:本模式对赢家
+//   像素写 reactive[i] = 1.0(host 同步 has_reactive = 1)⇒ TSR alpha = 1,
+//   该像素恒取当前帧(YCoCg 往返数值恒等),历史钳制不再参与。
+// - **火焰调色板**(暖白→橙红随寿命变色)与 8.0 发光系数不符合雨滴(非
+//   发光、折射环境光):本模式色 = tint_rgb 作 **display 域**绝对色(1.0 =
+//   显示白;0 → 1.0 门)× params[63] = 1/exposure 换回 scene-linear(场景
+//   exposure 差异被抵消,展示参数跨场景可复用),无寿命变色;寿命淡出仅末
+//   12.5%(fade = clamp((1−t)·8)),雨滴下落中亮度恒定,消亡时短促淡出。
+// - **quirk 域软粒子**产生上半截消失的「倒水滴」形(soft 实为像素相对粒子
+//   中心的屏幕竖直偏移函数):本模式不读 scene_depth,遮挡归 splat 的 TLAS
+//   逐粒子射线。
+// 覆盖模型:与 splat 同式重建胶囊(首 = pos,尾 = pos − vel·dt·shutter,
+// r_core = clamp(rpx_true,0.5,2.25),r_mask = r_core + 0.75,段长上限 128),
+// dist = 像素中心到线段距;profile = clamp(1 − dist/r_mask, 0, 1)(tent,
+// 宽向积分 = r_mask);peak = min(1, 2·rpx_true/r_mask)(真覆盖 = 雨滴直径
+// 像素数 ⇒ 远处雨滴按亚像素覆盖自然减淡);alpha = alpha_scale·peak·
+// profile·fade。splat 赢家足迹 = r_mask + 1.5 px 外扩,外圈像素 profile = 0
+// ⇒ alpha = 0 色不变,但仍写 reactive = 1(吸收 TSR resample 核/抖动的雨丝
+// 色扩散,否则该圈像素历史钳制出假色)。粒子 MV 覆写与冻结面同式
+// (reactive = 1 下对赢家像素无效,保留供 MV 见证同源)。
+//
+// ## 参数面(P_PARAMS_RENDER 80 f32 共享布局,单源 = bin/g35_particle_lane.rs
+// `pack_render_params` 头注;声明序 = 绑定序,SSBO 数 = 14)
+//   params[0]=iw [1]=ih [2]=r_world(冻结面不消费;雨丝模式 rpx_true 源)
+//   [3]=soft_range [4]=d_max(不消费) [5]=dt [6]=px_count [7]=p11(冻结面不
+//   消费;雨丝模式 rpx_true 源)
+//   [8..24)=vp_j [24..40)=vp(未抖;行 0/1 = 生产字面深度域,行 3 = 视深)
 //   [40..56)=prev_vp_j [56]=stretch_y(splat 消费面,本 kernel 不读)
 //   [57..60)=tint_rgb(展示面调色乘子;0 → 1.0 门 = 默认零行为变化面,
-//   ×1.0 IEEE 精确 ⇒ 生产夹具位级零漂移) [60]=alpha_scale(同 0 → 1.0 门)
-//   [61..64)=reserved(恒 0)。
-//   SSBO 序:0 params(View f32×64) / 1 vis(View u64×px,splat 赢家) /
+//   ×1.0 IEEE 精确 ⇒ 生产夹具位级零漂移;雨丝模式 = 绝对色) [60]=alpha_scale
+//   (同 0 → 1.0 门) [61]=rain_shutter(0 = 冻结面) [62]=rain_occlusion(splat
+//   消费面) [63]=rain_inv_exposure(雨丝模式 = 1/exposure,雨滴色 display→
+//   scene-linear 换算;0 → 1.0 门) [64..67)=eye_xyz [67]=ray_tmin(本 kernel
+//   不读) [68..80)=reserved。
+//   SSBO 序:0 params(View f32×80) / 1 vis(View u64×px,splat 赢家) /
 //   2 b_pos_x / 3 b_pos_y / 4 b_pos_z / 5 b_vel_x / 6 b_vel_y / 7 b_vel_z /
 //   8 b_age / 9 b_life(View f32×cap) / 10 scene_depth(View f32×px) /
 //   11 scene_color(ViewMut f32×3px,U_SCENE_COLOR) / 12 mv_out(ViewMut
-//   f32×2px,U_MV_OUT)。
+//   f32×2px,U_MV_OUT) / 13 reactive(ViewMut f32×px,U_REACTIVE;仅雨丝模式
+//   逐像素写 0/1,冻结面不触)。
 //   dispatch = [px_count, 1, 1](LocalSize 1,1,1;百万工作组既证形态)。
 #[numthreads(1, 1, 1)]
 kernel fn g35_render_resolve(
@@ -59,12 +91,162 @@ kernel fn g35_render_resolve(
     scene_depth: View<global, f32>,
     scene_color: ViewMut<global, f32>,
     mv_out: ViewMut<global, f32>,
+    reactive: ViewMut<global, f32>,
 ) {
     let i = tc.global_id();
     let px_count = params[6] as usize;
     if i < px_count {
         let winner = vis[i];
-        if winner != 0u64 {
+        let rain_shutter = params[61];
+        if rain_shutter > 0.0 {
+            // ══ 雨丝模式(头注「雨丝模式」节)══
+            let mut react = 0.0;
+            if winner != 0u64 {
+                let slot = (winner & 16777215u64) as usize;
+                let px_ = b_pos_x[slot];
+                let py_ = b_pos_y[slot];
+                let pz_ = b_pos_z[slot];
+                let vx_ = b_vel_x[slot];
+                let vy_ = b_vel_y[slot];
+                let vz_ = b_vel_z[slot];
+                let age = b_age[slot];
+                let life = b_life[slot];
+                let iw = params[0] as usize;
+                let iwf = params[0];
+                let ihf = params[1];
+                let dt = params[5];
+                // ── 胶囊重建(splat b/c 段同式)──
+                let k = dt * rain_shutter;
+                let qx = px_ - vx_ * k;
+                let qy = py_ - vy_ * k;
+                let qz = pz_ - vz_ * k;
+                let ccx = ((params[8] * px_ + params[9] * py_) + params[10] * pz_) + params[11];
+                let ccy = ((params[12] * px_ + params[13] * py_) + params[14] * pz_) + params[15];
+                let ccw = ((params[20] * px_ + params[21] * py_) + params[22] * pz_) + params[23];
+                let tx = ((params[8] * qx + params[9] * qy) + params[10] * qz) + params[11];
+                let ty = ((params[12] * qx + params[13] * qy) + params[14] * qz) + params[15];
+                let tw = ((params[20] * qx + params[21] * qy) + params[22] * qz) + params[23];
+                let d_view = ((params[36] * px_ + params[37] * py_) + params[38] * pz_) + params[39];
+                if ccw > 0.000001 && tw > 0.000001 && d_view > 0.000001 {
+                    let ax = (ccx / ccw + 1.0) * 0.5 * iwf - 0.5;
+                    let ay = (1.0 - ccy / ccw) * 0.5 * ihf - 0.5;
+                    let bx = (tx / tw + 1.0) * 0.5 * iwf - 0.5;
+                    let by = (1.0 - ty / tw) * 0.5 * ihf - 0.5;
+                    let rpx_true = params[2] * 0.5 * ihf * params[7] / d_view;
+                    let mut r_core = rpx_true;
+                    if r_core < 0.5 {
+                        r_core = 0.5;
+                    }
+                    if r_core > 2.25 {
+                        r_core = 2.25;
+                    }
+                    let r_mask = r_core + 0.75;
+                    let mut sx = bx - ax;
+                    let mut sy = by - ay;
+                    let seg_len = (sx * sx + sy * sy).sqrt();
+                    if seg_len > 128.0 {
+                        let sc = 128.0 / seg_len;
+                        sx = sx * sc;
+                        sy = sy * sc;
+                    }
+                    let len2 = sx * sx + sy * sy;
+                    // ── 像素中心到线段距 → tent 剖面 ──
+                    let fx = ((i % iw) as f32) - ax;
+                    let fy = ((i / iw) as f32) - ay;
+                    let mut u = 0.0;
+                    if len2 > 0.000001 {
+                        u = (fx * sx + fy * sy) / len2;
+                        if u < 0.0 {
+                            u = 0.0;
+                        }
+                        if u > 1.0 {
+                            u = 1.0;
+                        }
+                    }
+                    let ddx = fx - sx * u;
+                    let ddy = fy - sy * u;
+                    let dist = (ddx * ddx + ddy * ddy).sqrt();
+                    let mut profile = 1.0 - dist / r_mask;
+                    if profile < 0.0 {
+                        profile = 0.0;
+                    }
+                    if profile > 1.0 {
+                        profile = 1.0;
+                    }
+                    // ── 亚像素覆盖峰值 + 寿命末段淡出 ──
+                    let mut peak = 2.0 * rpx_true / r_mask;
+                    if peak > 1.0 {
+                        peak = 1.0;
+                    }
+                    let mut t = age / life.max(0.000001);
+                    if t < 0.0 {
+                        t = 0.0;
+                    }
+                    if t > 1.0 {
+                        t = 1.0;
+                    }
+                    let mut fade = (1.0 - t) * 8.0;
+                    if fade > 1.0 {
+                        fade = 1.0;
+                    }
+                    if fade < 0.0 {
+                        fade = 0.0;
+                    }
+                    let mut alpha_scale = params[60];
+                    if alpha_scale == 0.0 {
+                        alpha_scale = 1.0;
+                    }
+                    let alpha = alpha_scale * peak * profile * fade;
+                    // ── 雨滴色 = tint(display 域绝对色,1.0 = 显示白)× 1/exposure
+                    //    (params[63],host 雨丝模式打包;0 → 1.0 门)→ scene-linear ──
+                    let mut inv_exposure = params[63];
+                    if inv_exposure == 0.0 {
+                        inv_exposure = 1.0;
+                    }
+                    let mut col_r = params[57];
+                    let mut col_g = params[58];
+                    let mut col_b = params[59];
+                    if col_r == 0.0 {
+                        col_r = 1.0;
+                    }
+                    if col_g == 0.0 {
+                        col_g = 1.0;
+                    }
+                    if col_b == 0.0 {
+                        col_b = 1.0;
+                    }
+                    col_r = col_r * inv_exposure;
+                    col_g = col_g * inv_exposure;
+                    col_b = col_b * inv_exposure;
+                    scene_color[i * 3] = scene_color[i * 3] * (1.0 - alpha) + col_r * alpha;
+                    scene_color[i * 3 + 1] = scene_color[i * 3 + 1] * (1.0 - alpha) + col_g * alpha;
+                    scene_color[i * 3 + 2] = scene_color[i * 3 + 2] * (1.0 - alpha) + col_b * alpha;
+                    // ── 粒子 MV(冻结面 ⑤ 段同式)──
+                    let ppx = px_ - vx_ * dt;
+                    let ppy = py_ - vy_ * dt;
+                    let ppz = pz_ - vz_ * dt;
+                    let pcx = ((params[40] * ppx + params[41] * ppy) + params[42] * ppz) + params[43];
+                    let pcy = ((params[44] * ppx + params[45] * ppy) + params[46] * ppz) + params[47];
+                    let pcw = ((params[52] * ppx + params[53] * ppy) + params[54] * ppz) + params[55];
+                    let mut mvx = 0.0;
+                    let mut mvy = 0.0;
+                    if pcw > 0.00000001 {
+                        let cur_u = 0.5 * (ccx / ccw + 1.0);
+                        let cur_v = 0.5 * (1.0 - ccy / ccw);
+                        let prev_u = 0.5 * (pcx / pcw + 1.0);
+                        let prev_v = 0.5 * (1.0 - pcy / pcw);
+                        mvx = prev_u - cur_u;
+                        mvy = prev_v - cur_v;
+                    }
+                    mv_out[i * 2] = mvx;
+                    mv_out[i * 2 + 1] = mvy;
+                    // 赢家足迹整体 responsive(TSR 取当前帧,历史钳制不参与)。
+                    react = 1.0;
+                }
+            }
+            reactive[i] = react;
+        } else if winner != 0u64 {
+            // ══ 冻结面(逐字;头注 1..5)══
             let slot = (winner & 16777215u64) as usize;
             let px_ = b_pos_x[slot];
             let py_ = b_pos_y[slot];
