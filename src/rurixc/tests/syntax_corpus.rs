@@ -12,8 +12,11 @@ use rurixc::lexer::lex;
 use rurixc::parser::parse;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{assert_spec_anchor, conformance_dir};
+
 fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/syntax")
+    conformance_dir("syntax")
 }
 
 fn collect_rx_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -89,11 +92,6 @@ fn corpus_files_carry_spec_anchor() {
     // traceability 锚定注释(spec/README.md §2;M1.4 矩阵工具收割)
     for file in corpus() {
         let src = fs::read_to_string(&file).expect("读取样例失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            file.display()
-        );
+        assert_spec_anchor(&src, &file);
     }
 }

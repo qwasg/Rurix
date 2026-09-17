@@ -4,14 +4,17 @@
 //! `py -3 ci/hello_smoke.py desugar-smoke`,对齐步骤 12 形态)。
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{assert_spec_anchor, conformance_dir};
+
 fn corpus() -> Vec<PathBuf> {
-    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/desugar");
+    let dir = conformance_dir("desugar");
     let mut files: Vec<PathBuf> = fs::read_dir(&dir)
         .expect("读取 conformance/desugar 失败")
         .filter_map(|e| {
@@ -58,11 +61,6 @@ fn desugar_corpus_full_pipeline_diagnostic_free() {
 fn desugar_corpus_files_carry_spec_anchor() {
     for file in corpus() {
         let src = fs::read_to_string(&file).expect("读取样例失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            file.display()
-        );
+        assert_spec_anchor(&src, &file);
     }
 }

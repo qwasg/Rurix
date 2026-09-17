@@ -6,37 +6,17 @@
 //! 0 诊断且能产 device IR。libdevice bc 链接 + ptxas 真跑由
 //! `libdevice_link_mapping.rs` 覆盖(缺工具链 SKIP)。
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
-fn libdevice_dir(sub: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../conformance/libdevice")
-        .join(sub)
-}
+mod common;
+use common::{assert_spec_anchor, conformance_dir, read_source, rx_files};
 
-fn rx_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if !root.is_dir() {
-        return out;
-    }
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(d) = stack.pop() {
-        for e in fs::read_dir(&d).unwrap_or_else(|e| panic!("读取 {} 失败: {e}", d.display())) {
-            let p = e.expect("读取目录项失败").path();
-            if p.is_dir() {
-                stack.push(p);
-            } else if p.extension().is_some_and(|x| x == "rx") {
-                out.push(p);
-            }
-        }
-    }
-    out.sort();
-    out
+fn libdevice_dir(sub: &str) -> PathBuf {
+    conformance_dir("libdevice").join(sub)
 }
 
 /// 全管线(typeck → coloring → patterns → consteval → device codegen);返回诊断码。
@@ -63,7 +43,7 @@ fn accept_corpus_is_diagnostic_free() {
     let files = rx_files(&libdevice_dir("accept"));
     assert!(!files.is_empty(), "libdevice accept 正例集为空");
     for f in files {
-        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let src = read_source(&f);
         let stem = f.file_stem().unwrap().to_string_lossy().into_owned();
         let codes = run_pipeline(&src, &stem);
         assert!(
@@ -77,12 +57,7 @@ fn accept_corpus_is_diagnostic_free() {
 #[test]
 fn corpus_files_carry_spec_anchor() {
     for f in rx_files(&libdevice_dir("accept")) {
-        let src = fs::read_to_string(&f).expect("读取样例失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            f.display()
-        );
+        let src = read_source(&f);
+        assert_spec_anchor(&src, &f);
     }
 }

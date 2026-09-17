@@ -10,37 +10,17 @@
 //! 批准后落地),本语料只覆盖 safe
 //! 层 scope 类型契约,不涉映射真跑(映射真跑随承接 PR + Compute Sanitizer,G-M5-4)。
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
-fn atomics_dir(sub: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../conformance/atomics")
-        .join(sub)
-}
+mod common;
+use common::{assert_spec_anchor, conformance_dir, expect_error_code, read_source, rx_files};
 
-fn rx_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if !root.is_dir() {
-        return out;
-    }
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(d) = stack.pop() {
-        for e in fs::read_dir(&d).unwrap_or_else(|e| panic!("读取 {} 失败: {e}", d.display())) {
-            let p = e.expect("读取目录项失败").path();
-            if p.is_dir() {
-                stack.push(p);
-            } else if p.extension().is_some_and(|x| x == "rx") {
-                out.push(p);
-            }
-        }
-    }
-    out.sort();
-    out
+fn atomics_dir(sub: &str) -> PathBuf {
+    conformance_dir("atomics").join(sub)
 }
 
 /// resolve → typeck(scoped atomics scope 类型契约,RX3010)。scope 误用在 typeck
@@ -60,7 +40,7 @@ fn accept_corpus_is_diagnostic_free() {
     let files = rx_files(&atomics_dir("accept"));
     assert!(!files.is_empty(), "atomics accept 正例集为空");
     for f in files {
-        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let src = read_source(&f);
         let codes = run_pipeline(&src);
         assert!(
             codes.is_empty(),
@@ -75,14 +55,8 @@ fn reject_corpus_all_intercepted() {
     let files = rx_files(&atomics_dir("reject"));
     assert!(!files.is_empty(), "atomics reject 反例集为空");
     for f in files {
-        let src = fs::read_to_string(&f).expect("读取样例失败");
-        let expected: u16 = src
-            .lines()
-            .find_map(|l| l.trim().strip_prefix("//@ expect-error: RX"))
-            .unwrap_or_else(|| panic!("{} 缺 //@ expect-error: RX#### 头", f.display()))
-            .trim()
-            .parse()
-            .expect("expect-error 码格式非法");
+        let src = read_source(&f);
+        let expected: u16 = expect_error_code(&src, &f);
         let codes = run_pipeline(&src);
         assert!(
             !codes.is_empty(),
@@ -114,13 +88,8 @@ fn reject_has_expected_categories() {
 fn corpus_files_carry_spec_anchor() {
     for sub in ["accept", "reject"] {
         for f in rx_files(&atomics_dir(sub)) {
-            let src = fs::read_to_string(&f).expect("读取样例失败");
-            let first = src.lines().next().unwrap_or("");
-            assert!(
-                first.starts_with("//@ spec: RXS-"),
-                "{} 缺条款锚定头(//@ spec: RXS-####)",
-                f.display()
-            );
+            let src = read_source(&f);
+            assert_spec_anchor(&src, &f);
         }
     }
 }

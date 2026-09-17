@@ -25,6 +25,9 @@ use rurixc::query::QueryCtx;
 use rurixc::source_map::SourceMap;
 use rurixc::span::Edition;
 
+mod common;
+use common::{assert_spec_anchor, conformance_dir, expect_error_code, rx_files};
+
 /// reject 预设类别(目录即类别;根文件 = `<类别>/main.rx`,环/辅助文件不作根)。
 /// gpu 语料四类(MS1.2):elem_infer(RX2010,RXS-0190)/ gpu_in_kernel(RX3015,
 /// RXS-0189)/ launch_arg_subset(RX6024,RXS-0191)/ buffer_move(move 后再用,
@@ -50,29 +53,7 @@ const REJECT_CATEGORIES: [&str; 10] = [
 ];
 
 fn host_orch_dir(sub: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../conformance/host_orch")
-        .join(sub)
-}
-
-fn rx_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if !root.is_dir() {
-        return out;
-    }
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(d) = stack.pop() {
-        for e in fs::read_dir(&d).unwrap_or_else(|e| panic!("读取 {} 失败: {e}", d.display())) {
-            let p = e.expect("读取目录项失败").path();
-            if p.is_dir() {
-                stack.push(p);
-            } else if p.extension().is_some_and(|x| x == "rx") {
-                out.push(p);
-            }
-        }
-    }
-    out.sort();
-    out
+    conformance_dir("host_orch").join(sub)
 }
 
 /// 镜像 driver 管线跑一个根文件(装配 + 全量静态检查 + MIR/codegen IR)。
@@ -185,13 +166,7 @@ fn reject_corpus_all_intercepted() {
         let root = host_orch_dir("reject").join(cat).join("main.rx");
         let src = fs::read_to_string(&root)
             .unwrap_or_else(|e| panic!("缺 reject 根文件 {}: {e}", root.display()));
-        let expected: u16 = src
-            .lines()
-            .find_map(|l| l.trim().strip_prefix("//@ expect-error: RX"))
-            .unwrap_or_else(|| panic!("{} 缺 //@ expect-error: RX#### 头", root.display()))
-            .trim()
-            .parse()
-            .expect("expect-error 码格式非法");
+        let expected: u16 = expect_error_code(&src, &root);
         let (codes, _) = run_root(&root);
         assert!(
             !codes.is_empty(),
@@ -472,12 +447,7 @@ fn corpus_files_carry_spec_anchor() {
     for sub in ["accept", "reject"] {
         for f in rx_files(&host_orch_dir(sub)) {
             let src = fs::read_to_string(&f).expect("读取语料失败");
-            let first = src.lines().next().unwrap_or("");
-            assert!(
-                first.starts_with("//@ spec: RXS-"),
-                "{} 缺条款锚定头(//@ spec: RXS-####)",
-                f.display()
-            );
+            assert_spec_anchor(&src, &f);
             n += 1;
         }
     }

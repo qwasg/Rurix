@@ -14,8 +14,11 @@ use rurixc::lexer::lex;
 use rurixc::parser::parse;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::conformance_dir;
+
 fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/syntax")
+    conformance_dir("syntax")
 }
 
 fn collect_rx_files(dir: &Path, out: &mut Vec<PathBuf>) {

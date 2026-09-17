@@ -12,8 +12,11 @@ use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{assert_spec_anchor, conformance_dir};
+
 fn corpus_dirs() -> Vec<PathBuf> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance");
+    let root = conformance_dir(Path::new(""));
     vec![root.join("resolve"), root.join("typeck")]
 }
 
@@ -73,11 +76,6 @@ fn semantic_corpus_is_diagnostic_free() {
 fn semantic_corpus_files_carry_spec_anchor() {
     for file in corpus() {
         let src = fs::read_to_string(&file).expect("读取样例失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            file.display()
-        );
+        assert_spec_anchor(&src, &file);
     }
 }

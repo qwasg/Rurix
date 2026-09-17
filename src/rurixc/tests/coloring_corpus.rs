@@ -6,41 +6,20 @@
 //! reject 体例:`reject/<category>/*.rx`,文件头次行 `//@ expect-error: RX####`;
 //! 批跑断言"产生诊断且全部为预期码"(反例全拦截口径)。
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{assert_spec_anchor, conformance_dir, expect_error_code, read_source, rx_files};
+
 /// 两个语料根(着色 + 地址空间)。
 const ROOTS: [&str; 2] = ["coloring", "addrspace"];
 
 fn root_dir(root: &str, sub: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../conformance")
-        .join(root)
-        .join(sub)
-}
-
-fn rx_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if !root.is_dir() {
-        return out;
-    }
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(d) = stack.pop() {
-        for e in fs::read_dir(&d).unwrap_or_else(|e| panic!("读取 {} 失败: {e}", d.display())) {
-            let p = e.expect("读取目录项失败").path();
-            if p.is_dir() {
-                stack.push(p);
-            } else if p.extension().is_some_and(|x| x == "rx") {
-                out.push(p);
-            }
-        }
-    }
-    out.sort();
-    out
+    conformance_dir(Path::new("")).join(root).join(sub)
 }
 
 /// resolve → typeck → 着色/barrier 检查(HIR 层,无 MIR),返回错误码序列。
@@ -66,7 +45,7 @@ fn accept_corpus_is_diagnostic_free() {
         let files = rx_files(&root_dir(root, "accept"));
         for f in files {
             total += 1;
-            let src = fs::read_to_string(&f).expect("读取样例失败");
+            let src = read_source(&f);
             let codes = run_pipeline(&src);
             assert!(
                 codes.is_empty(),
@@ -85,14 +64,8 @@ fn reject_corpus_all_intercepted() {
         let files = rx_files(&root_dir(root, "reject"));
         for f in files {
             total += 1;
-            let src = fs::read_to_string(&f).expect("读取样例失败");
-            let expected: u16 = src
-                .lines()
-                .find_map(|l| l.trim().strip_prefix("//@ expect-error: RX"))
-                .unwrap_or_else(|| panic!("{} 缺 //@ expect-error: RX#### 头", f.display()))
-                .trim()
-                .parse()
-                .expect("expect-error 码格式非法");
+            let src = read_source(&f);
+            let expected: u16 = expect_error_code(&src, &f);
             let codes = run_pipeline(&src);
             assert!(
                 !codes.is_empty(),
@@ -135,13 +108,8 @@ fn reject_has_expected_categories() {
 fn corpus_files_carry_spec_anchor() {
     for root in ROOTS {
         for f in rx_files(&root_dir(root, "")) {
-            let src = fs::read_to_string(&f).expect("读取样例失败");
-            let first = src.lines().next().unwrap_or("");
-            assert!(
-                first.starts_with("//@ spec: RXS-"),
-                "{} 缺条款锚定头(//@ spec: RXS-####)",
-                f.display()
-            );
+            let src = read_source(&f);
+            assert_spec_anchor(&src, &f);
         }
     }
 }
