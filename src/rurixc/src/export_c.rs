@@ -427,3 +427,123 @@ pub fn generate_header(exports: &[CExport], guard: &str) -> String {
     s.push_str(&format!("#endif /* {guard} */\n"));
     s
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::span::{Edition, SourceId};
+
+    fn sp() -> Span {
+        Span::new(SourceId(0), 0, 0, Edition::Rx0)
+    }
+
+    fn export(symbol: &str, params: Vec<CType>, ret: CType) -> CExport {
+        CExport {
+            symbol: symbol.to_owned(),
+            fn_name: symbol.to_owned(),
+            params,
+            ret,
+            span: sp(),
+        }
+    }
+
+    //@ spec: RXS-0251
+    #[test]
+    fn ctype_c_decl_covers_all_scalars_and_void() {
+        assert_eq!(CType::I8.c_decl(), "int8_t");
+        assert_eq!(CType::I16.c_decl(), "int16_t");
+        assert_eq!(CType::I32.c_decl(), "int32_t");
+        assert_eq!(CType::I64.c_decl(), "int64_t");
+        assert_eq!(CType::U8.c_decl(), "uint8_t");
+        assert_eq!(CType::U16.c_decl(), "uint16_t");
+        assert_eq!(CType::U32.c_decl(), "uint32_t");
+        assert_eq!(CType::U64.c_decl(), "uint64_t");
+        assert_eq!(CType::F32.c_decl(), "float");
+        assert_eq!(CType::F64.c_decl(), "double");
+        assert_eq!(CType::Bool.c_decl(), "bool");
+        assert_eq!(CType::Void.c_decl(), "void");
+    }
+
+    //@ spec: RXS-0251
+    #[test]
+    fn ctype_c_decl_pointer_constness() {
+        let mut_ptr = CType::Ptr {
+            is_const: false,
+            pointee: Box::new(CType::F32),
+        };
+        assert_eq!(mut_ptr.c_decl(), "float*");
+        let const_ptr = CType::Ptr {
+            is_const: true,
+            pointee: Box::new(CType::U8),
+        };
+        assert_eq!(const_ptr.c_decl(), "const uint8_t*");
+    }
+
+    //@ spec: RXS-0251
+    #[test]
+    fn scalar_ctype_maps_names_and_rejects_others() {
+        assert_eq!(scalar_ctype("i8"), Some(CType::I8));
+        assert_eq!(scalar_ctype("u64"), Some(CType::U64));
+        assert_eq!(scalar_ctype("f32"), Some(CType::F32));
+        assert_eq!(scalar_ctype("bool"), Some(CType::Bool));
+        // 子集 v1 外的类型名(含 `usize` / 复合)→ None。
+        assert_eq!(scalar_ctype("usize"), None);
+        assert_eq!(scalar_ctype("String"), None);
+        assert_eq!(scalar_ctype(""), None);
+    }
+
+    #[test]
+    fn c_prototype_void_params_and_typed_params() {
+        let noop = export("rurix_noop", Vec::new(), CType::Void);
+        assert_eq!(noop.c_prototype(), "void rurix_noop(void);");
+        let add = export("rurix_add", vec![CType::I32, CType::I32], CType::I32);
+        assert_eq!(add.c_prototype(), "int32_t rurix_add(int32_t, int32_t);");
+        let ptr_ret = export(
+            "rurix_buf",
+            vec![CType::Ptr {
+                is_const: true,
+                pointee: Box::new(CType::F32),
+            }],
+            CType::Ptr {
+                is_const: false,
+                pointee: Box::new(CType::U8),
+            },
+        );
+        assert_eq!(ptr_ret.c_prototype(), "uint8_t* rurix_buf(const float*);");
+    }
+
+    //@ spec: RXS-0252
+    #[test]
+    fn export_directives_one_per_symbol() {
+        let exports = [
+            export("alpha", Vec::new(), CType::Void),
+            export("beta", vec![CType::I32], CType::I32),
+        ];
+        assert_eq!(
+            export_directives(&exports),
+            vec!["/EXPORT:alpha".to_owned(), "/EXPORT:beta".to_owned()]
+        );
+        assert!(export_directives(&[]).is_empty());
+    }
+
+    //@ spec: RXS-0253, RXS-0254
+    #[test]
+    fn generate_header_is_deterministic_and_well_formed() {
+        let exports = vec![
+            export("rurix_add", vec![CType::I32, CType::I32], CType::I32),
+            export("rurix_noop", Vec::new(), CType::Void),
+        ];
+        let h1 = generate_header(&exports, "RURIX_GEN_H");
+        let h2 = generate_header(&exports, "RURIX_GEN_H");
+        assert_eq!(h1, h2, "两次生成须逐字节一致(幂等,RXS-0253)");
+        assert!(h1.contains("#ifndef RURIX_GEN_H\n#define RURIX_GEN_H\n"));
+        assert!(h1.contains("#include <stdint.h>\n"));
+        assert!(h1.contains("#include <stdbool.h>\n"));
+        assert!(h1.contains("extern \"C\" {"));
+        assert!(h1.contains("int32_t rurix_add(int32_t, int32_t);\n"));
+        assert!(h1.contains("void rurix_noop(void);\n"));
+        assert!(h1.ends_with("#endif /* RURIX_GEN_H */\n"));
+        // 确定性:LF 行尾,无 CR。
+        assert!(!h1.contains('\r'));
+    }
+}
