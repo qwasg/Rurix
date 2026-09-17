@@ -1180,6 +1180,7 @@
       "src/rurix-rt/src/vk.rs"
     ],
     "RXS-0214": [
+      "src/rurixup/src/bundle.rs",
       "src/rurixup/src/install.rs",
       "src/rurixup/src/toolchain.rs"
     ],

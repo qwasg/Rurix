@@ -138,10 +138,15 @@ jobs:
       # ⑤ 版号 + prerelease 判定(演练 vs tag 正式发布)。
       - name: resolve release version + prerelease flag (EA1.2, RXS-0218)
         shell: powershell
+        env:
+          # 触发者输入经 env 传入(禁 ${{ }} 直插脚本体:表达式插值 = 脚本注入面),
+          # 且只接受纯数字序号,其余一律拒(fail-closed)。
+          REHEARSAL_N: ${{ github.event.inputs.rehearsal_n }}
         run: |
           if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
-            $n = '${{ github.event.inputs.rehearsal_n }}'
+            $n = $env:REHEARSAL_N
             if (-not $n) { $n = '1' }
+            if ($n -notmatch '^[0-9]+$') { throw "rehearsal_n 非纯数字序号:$n(拒)" }
             $ver = "v1.0.1-dist.$n"; $pre = 'true'
             Write-Output "发布演练(裁决 D):版号 $ver pre-release(不推演练 tag)"
           } else {
