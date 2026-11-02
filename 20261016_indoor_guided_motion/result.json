@@ -1,8 +1,8 @@
 {
   "status": "RECOMMENDED_OPTION_OFFLINE_INDOOR_SHORT_DOLLY_ONLY",
-  "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\index.html",
-  "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\output.run.json",
-  "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\results.json",
+  "viewer": "[本机路径已隐藏]",
+  "capture_receipt": "[本机路径已隐藏]",
+  "export_receipt": "[本机路径已隐藏]",
   "native_resolution": [
     640,
     360
@@ -115,12 +115,12 @@
   "static_default_changed": false,
   "runtime_source_changed": false,
   "overall_quality_accepted": false,
-  "result": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\result.json",
-  "usage": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\USAGE.md",
-  "reproduce_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py",
-  "independent_review": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\independent_motion_review.json",
-  "stability_proxy": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\review\\comparison.json",
-  "lamp_analysis": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\lamp_analysis\\result.json",
+  "result": "[本机路径已隐藏]",
+  "usage": "[本机路径已隐藏]",
+  "reproduce_script": "[本机路径已隐藏]",
+  "independent_review": "[本机路径已隐藏]",
+  "stability_proxy": "[本机路径已隐藏]",
+  "lamp_analysis": "[本机路径已隐藏]",
   "lamp_candidate": "Visible emission x0.5 rejected: slightly dimmer, no clear restored detail.",
   "remaining": [
     "Only eight 640x360 frames, static objects and 0.15m dolly were inspected.",
@@ -128,7 +128,7 @@
     "Glass/water detail and lamp white-region appearance remain unresolved."
   ],
   "setup_failure": {
-    "path": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8",
+    "path": "[本机路径已隐藏]",
     "completed_GPU_frames": 0,
     "reason": "Optional runtime history max=1 is outside existing parser bounds; omitted optional block instead."
   }

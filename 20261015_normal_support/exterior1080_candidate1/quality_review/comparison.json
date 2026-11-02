@@ -1,7 +1,7 @@
 {
   "label": "primary opaque normal support",
-  "baseline_RAW": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\capture\\frame_000000_scene.raw",
-  "candidate_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\frame_000000_scene.raw",
+  "baseline_RAW": "[本机路径已隐藏]",
+  "candidate_RAW": "[本机路径已隐藏]",
   "frame_index": 0,
   "dimensions": [
     1920,
@@ -301,7 +301,7 @@
   },
   "config": {
     "baseline": {
-      "path": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\config.json",
+      "path": "[本机路径已隐藏]",
       "present": true,
       "seed": 7312026601,
       "calibration_seed": 7312026602,
@@ -630,7 +630,7 @@
       }
     },
     "candidate": {
-      "path": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+      "path": "[本机路径已隐藏]",
       "present": true,
       "seed": 7312026601,
       "calibration_seed": 7312026602,

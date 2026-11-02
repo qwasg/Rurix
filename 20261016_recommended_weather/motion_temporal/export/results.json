@@ -1,6 +1,6 @@
 {
   "status": "EXPORTED_POST_OIDN_FINITE_HISTORY",
-  "run_dir": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run",
+  "run_dir": "[本机路径已隐藏]",
   "frames": [
     0,
     1,
@@ -71,21 +71,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\tile_000_guided_oidn_1_usjqi9\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\tile_000_guided_oidn_1_usjqi9\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\tile_000_guided_oidn_1_usjqi9\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\tile_000_guided_oidn_1_usjqi9\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -99,7 +99,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.186326100025326,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\tile_000_guided_f4a04bab2047.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -126,17 +126,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\full_color_only_oidn_iypjtkd3\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\full_color_only_oidn_iypjtkd3\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -150,10 +150,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.40889570000581443,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\full_color_only_2907c3eddb08.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.5952218000311404,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000000\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 1,
@@ -205,21 +205,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\tile_000_guided_oidn_zp0fxge2\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\tile_000_guided_oidn_zp0fxge2\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\tile_000_guided_oidn_zp0fxge2\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\tile_000_guided_oidn_zp0fxge2\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -233,7 +233,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.19583750003948808,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\tile_000_guided_12362e410ae3.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -260,17 +260,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\full_color_only_oidn_m4alhtdr\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\full_color_only_oidn_m4alhtdr\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -284,10 +284,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.24822469986975193,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\full_color_only_bf45049cead8.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.44406219990924,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000001\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 2,
@@ -345,21 +345,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\tile_000_guided_oidn_weipkbkh\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\tile_000_guided_oidn_weipkbkh\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\tile_000_guided_oidn_weipkbkh\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\tile_000_guided_oidn_weipkbkh\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -373,7 +373,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.19668699987232685,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\tile_000_guided_813f8ca8493c.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -400,17 +400,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\full_color_only_oidn__b1zs3qj\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\full_color_only_oidn__b1zs3qj\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -424,10 +424,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.26588220009580255,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\full_color_only_877a5a192d5f.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.4625691999681294,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000002\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 3,
@@ -485,21 +485,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\tile_000_guided_oidn_tux85afv\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\tile_000_guided_oidn_tux85afv\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\tile_000_guided_oidn_tux85afv\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\tile_000_guided_oidn_tux85afv\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -513,7 +513,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.203574099810794,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\tile_000_guided_354bc647f9a1.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -540,17 +540,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\full_color_only_oidn_tcj94pvx\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\full_color_only_oidn_tcj94pvx\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -564,10 +564,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.26807010010816157,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\full_color_only_5321a38f629f.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.47164419991895556,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000003\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 4,
@@ -625,21 +625,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\tile_000_guided_oidn_foomd9_k\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\tile_000_guided_oidn_foomd9_k\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\tile_000_guided_oidn_foomd9_k\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\tile_000_guided_oidn_foomd9_k\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -653,7 +653,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.1921377000398934,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\tile_000_guided_4d420607b16e.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -680,17 +680,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\full_color_only_oidn_pigqpa2i\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\full_color_only_oidn_pigqpa2i\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -704,10 +704,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.35772049985826015,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\full_color_only_042f212c1e6e.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.5498581998981535,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000004\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 5,
@@ -765,21 +765,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\tile_000_guided_oidn_ik68xmyk\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\tile_000_guided_oidn_ik68xmyk\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\tile_000_guided_oidn_ik68xmyk\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\tile_000_guided_oidn_ik68xmyk\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -793,7 +793,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.17433169996365905,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\tile_000_guided_10d6ca573684.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -820,17 +820,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\full_color_only_oidn_feu0l69x\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\full_color_only_oidn_feu0l69x\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -844,10 +844,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.38622620003297925,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\full_color_only_e1a58e07db82.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.5605578999966383,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000005\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 6,
@@ -905,21 +905,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\tile_000_guided_oidn_7pj4fln0\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\tile_000_guided_oidn_7pj4fln0\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\tile_000_guided_oidn_7pj4fln0\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\tile_000_guided_oidn_7pj4fln0\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -933,7 +933,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.22582609998062253,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\tile_000_guided_2dc0611d1be1.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -960,17 +960,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\full_color_only_oidn_gars7xgj\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\full_color_only_oidn_gars7xgj\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -984,10 +984,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.39493900001980364,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\full_color_only_e55b8d04eb1b.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.6207651000004262,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000006\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 7,
@@ -1045,21 +1045,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\tile_000_guided_oidn_l_4lj72n\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\tile_000_guided_oidn_l_4lj72n\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\tile_000_guided_oidn_l_4lj72n\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\tile_000_guided_oidn_l_4lj72n\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1073,7 +1073,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.19070679997093976,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\tile_000_guided_b24181a6b6bb.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1100,17 +1100,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\full_color_only_oidn_6hlispbu\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\full_color_only_oidn_6hlispbu\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1124,10 +1124,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.3767156999092549,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\full_color_only_40a32ed4a77b.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.5674224998801947,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000007\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 8,
@@ -1185,21 +1185,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\tile_000_guided_oidn_q2k1dxc_\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\tile_000_guided_oidn_q2k1dxc_\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\tile_000_guided_oidn_q2k1dxc_\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\tile_000_guided_oidn_q2k1dxc_\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1213,7 +1213,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.21167250000871718,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\tile_000_guided_5052b836b2cd.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1240,17 +1240,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\full_color_only_oidn_gni41_pi\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\full_color_only_oidn_gni41_pi\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1264,10 +1264,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.3014877999667078,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\full_color_only_e7c4bc4313a6.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.513160299975425,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000008\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 9,
@@ -1325,21 +1325,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\tile_000_guided_oidn_8h93mww9\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\tile_000_guided_oidn_8h93mww9\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\tile_000_guided_oidn_8h93mww9\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\tile_000_guided_oidn_8h93mww9\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1353,7 +1353,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.18851180002093315,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\tile_000_guided_2efc23387cca.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1380,17 +1380,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\full_color_only_oidn_6w8oi3uj\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\full_color_only_oidn_6w8oi3uj\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1404,10 +1404,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.2718934000004083,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\full_color_only_c217e6439dbf.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.46040520002134144,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000009\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 10,
@@ -1465,21 +1465,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\tile_000_guided_oidn_9jabz28y\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\tile_000_guided_oidn_9jabz28y\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\tile_000_guided_oidn_9jabz28y\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\tile_000_guided_oidn_9jabz28y\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1493,7 +1493,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.21675570006482303,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\tile_000_guided_2a57f9bcecc8.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1520,17 +1520,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\full_color_only_oidn_v1i2k7qr\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\full_color_only_oidn_v1i2k7qr\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1544,10 +1544,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.2868359999265522,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\full_color_only_75e44e6fd68b.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.5035916999913752,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000010\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 11,
@@ -1605,21 +1605,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\tile_000_guided_oidn_4c37r0i0\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\tile_000_guided_oidn_4c37r0i0\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\tile_000_guided_oidn_4c37r0i0\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\tile_000_guided_oidn_4c37r0i0\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1633,7 +1633,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.1783970999531448,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\tile_000_guided_ba2ebcdfb2f8.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1660,17 +1660,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\full_color_only_oidn_h6_yyvs1\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\full_color_only_oidn_h6_yyvs1\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1684,10 +1684,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.2551833000034094,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\full_color_only_db75aab24102.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.4335803999565542,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000011\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 12,
@@ -1745,21 +1745,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\tile_000_guided_oidn_seyqdeo1\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\tile_000_guided_oidn_seyqdeo1\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\tile_000_guided_oidn_seyqdeo1\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\tile_000_guided_oidn_seyqdeo1\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1773,7 +1773,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.22839100006967783,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\tile_000_guided_ad13bc695e5d.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1800,17 +1800,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\full_color_only_oidn_gbtgo438\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\full_color_only_oidn_gbtgo438\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1824,10 +1824,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.4631064001005143,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\full_color_only_36bd3b98baa5.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.6914974001701921,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000012\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 13,
@@ -1885,21 +1885,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\tile_000_guided_oidn_tdg3a0rf\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\tile_000_guided_oidn_tdg3a0rf\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\tile_000_guided_oidn_tdg3a0rf\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\tile_000_guided_oidn_tdg3a0rf\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -1913,7 +1913,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.21260379999876022,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\tile_000_guided_66a76ad40ffe.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -1940,17 +1940,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\full_color_only_oidn_ftnparhb\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\full_color_only_oidn_ftnparhb\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -1964,10 +1964,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.39172669989056885,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\full_color_only_e32427088816.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.6043304998893291,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000013\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 14,
@@ -2025,21 +2025,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\tile_000_guided_oidn_c_t7dv7c\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\tile_000_guided_oidn_c_t7dv7c\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\tile_000_guided_oidn_c_t7dv7c\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\tile_000_guided_oidn_c_t7dv7c\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2053,7 +2053,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.18199660000391304,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\tile_000_guided_e76bc773514f.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -2080,17 +2080,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\full_color_only_oidn_epp6pqls\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\full_color_only_oidn_epp6pqls\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -2104,10 +2104,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.33412130014039576,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\full_color_only_9a1ce291dbe5.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.5161179001443088,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000014\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 15,
@@ -2165,21 +2165,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\tile_000_guided_oidn_9w6k_phv\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\tile_000_guided_oidn_9w6k_phv\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\tile_000_guided_oidn_9w6k_phv\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\tile_000_guided_oidn_9w6k_phv\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2193,7 +2193,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.17033200012519956,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\tile_000_guided_89d65b2764cd.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -2220,17 +2220,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\full_color_only_oidn_gm6l3hyi\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\full_color_only_oidn_gm6l3hyi\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -2244,10 +2244,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.24766890006139874,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\full_color_only_7c0fec998f4b.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.4180009001865983,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000015\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 16,
@@ -2305,21 +2305,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\tile_000_guided_oidn_vn_t5p4w\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\tile_000_guided_oidn_vn_t5p4w\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\tile_000_guided_oidn_vn_t5p4w\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\tile_000_guided_oidn_vn_t5p4w\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2333,7 +2333,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.20034139999188483,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\tile_000_guided_f265e2ffdae3.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -2360,17 +2360,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\full_color_only_oidn_r1mj46s3\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\full_color_only_oidn_r1mj46s3\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -2384,10 +2384,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.25404120003804564,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\full_color_only_d1c378b13629.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.4543826000299305,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000016\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 17,
@@ -2445,21 +2445,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_000_guided_oidn_qp1_y443\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_000_guided_oidn_qp1_y443\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_000_guided_oidn_qp1_y443\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_000_guided_oidn_qp1_y443\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2473,7 +2473,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.22204989986494184,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_000_guided_b2c4816395ab.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 4096
         },
@@ -2506,21 +2506,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_001_guided_oidn_fodxzwkf\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_001_guided_oidn_fodxzwkf\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_001_guided_oidn_fodxzwkf\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_001_guided_oidn_fodxzwkf\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2534,7 +2534,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.28714420017786324,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\tile_001_guided_04f4f4203946.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 768
         }
@@ -2561,17 +2561,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\full_color_only_oidn_en26p8te\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\full_color_only_oidn_en26p8te\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -2585,10 +2585,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.2895374000072479,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\full_color_only_ba7946e166f9.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.798731500050053,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000017\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 18,
@@ -2646,21 +2646,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_000_guided_oidn_9dethxs5\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_000_guided_oidn_9dethxs5\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_000_guided_oidn_9dethxs5\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_000_guided_oidn_9dethxs5\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2674,7 +2674,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.19439770001918077,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_000_guided_98ad33c9d8df.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 2816
         },
@@ -2707,21 +2707,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_001_guided_oidn_ib3lq1yy\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_001_guided_oidn_ib3lq1yy\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_001_guided_oidn_ib3lq1yy\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_001_guided_oidn_ib3lq1yy\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2735,7 +2735,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.26434220001101494,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\tile_001_guided_0776038fe353.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 2048
         }
@@ -2762,17 +2762,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\full_color_only_oidn_6rcld02a\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\full_color_only_oidn_6rcld02a\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -2786,10 +2786,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.4196684998460114,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\full_color_only_ba432fc521b4.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.8784083998762071,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000018\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 19,
@@ -2847,21 +2847,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_000_guided_oidn_flrrfw14\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_000_guided_oidn_flrrfw14\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_000_guided_oidn_flrrfw14\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_000_guided_oidn_flrrfw14\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2875,7 +2875,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.20586179988458753,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_000_guided_e8cef094ec8c.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 5760
         },
@@ -2908,21 +2908,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_001_guided_oidn_viavxixn\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_001_guided_oidn_viavxixn\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_001_guided_oidn_viavxixn\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_001_guided_oidn_viavxixn\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -2936,7 +2936,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.22315139998681843,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\tile_001_guided_f17dcd363986.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 256
         }
@@ -2963,17 +2963,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\full_color_only_oidn_kuvly3b1\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\full_color_only_oidn_kuvly3b1\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -2987,10 +2987,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.41823289985768497,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\full_color_only_b236d5e41a7c.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.8472460997290909,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000019\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 20,
@@ -3048,21 +3048,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_000_guided_oidn_hg2eoz2_\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_000_guided_oidn_hg2eoz2_\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_000_guided_oidn_hg2eoz2_\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_000_guided_oidn_hg2eoz2_\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3076,7 +3076,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.1967002998571843,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_000_guided_e485a4959d01.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 5760
         },
@@ -3109,21 +3109,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_001_guided_oidn_rjar5ny0\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_001_guided_oidn_rjar5ny0\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_001_guided_oidn_rjar5ny0\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_001_guided_oidn_rjar5ny0\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3137,7 +3137,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.23898599995300174,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_001_guided_4c4faf2fbb49.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 512
         },
@@ -3170,21 +3170,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_002_guided_oidn_rang4iu5\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_002_guided_oidn_rang4iu5\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_002_guided_oidn_rang4iu5\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_002_guided_oidn_rang4iu5\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3198,7 +3198,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.2680661000777036,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\tile_002_guided_e2fc2dd8e838.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 256
         }
@@ -3225,17 +3225,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\full_color_only_oidn_ueauczwc\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\full_color_only_oidn_ueauczwc\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -3249,10 +3249,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.38537020003423095,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\full_color_only_1eb03b9c607b.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 1.0891225999221206,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000020\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 21,
@@ -3310,21 +3310,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_000_guided_oidn__tux5e_9\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_000_guided_oidn__tux5e_9\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_000_guided_oidn__tux5e_9\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_000_guided_oidn__tux5e_9\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3338,7 +3338,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.188671899959445,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_000_guided_4af43a49b44e.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 5760
         },
@@ -3371,21 +3371,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_001_guided_oidn_oysxj1w9\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_001_guided_oidn_oysxj1w9\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_001_guided_oidn_oysxj1w9\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_001_guided_oidn_oysxj1w9\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3399,7 +3399,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.18442000006325543,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\tile_001_guided_53c8a032990f.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 256
         }
@@ -3426,17 +3426,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\full_color_only_oidn_g_nm56a_\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\full_color_only_oidn_g_nm56a_\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -3450,10 +3450,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.35134429996833205,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\full_color_only_01469a6f84c4.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.7244361999910325,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000021\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 22,
@@ -3511,21 +3511,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\tile_000_guided_oidn_3g0kjiu6\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\tile_000_guided_oidn_3g0kjiu6\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\tile_000_guided_oidn_3g0kjiu6\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\tile_000_guided_oidn_3g0kjiu6\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3539,7 +3539,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.20503919990733266,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\tile_000_guided_889651e4aa2d.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 2432
         }
@@ -3566,17 +3566,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\full_color_only_oidn_c2vma7ob\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\full_color_only_oidn_c2vma7ob\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -3590,10 +3590,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.2560082001145929,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\full_color_only_bb31211af245.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.46104740002192557,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000022\\output.png"
+      "output": "[本机路径已隐藏]"
     },
     {
       "frame": 23,
@@ -3651,21 +3651,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\tile_000_guided_oidn_2xnh_7f6\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\tile_000_guided_oidn_2xnh_7f6\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\tile_000_guided_oidn_2xnh_7f6\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\tile_000_guided_oidn_2xnh_7f6\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -3679,7 +3679,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.2391385999508202,
-            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\tile_000_guided_8c162df8b158.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 5760
         }
@@ -3706,17 +3706,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\full_color_only_oidn_7m_uio3c\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\full_color_only_oidn_7m_uio3c\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -3730,10 +3730,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.38923260010778904,
-        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\full_color_only_09d56333dce5.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
       "CPU_export_OIDN_process_wall_s": 0.6283712000586092,
-      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\frame_000023\\output.png"
+      "output": "[本机路径已隐藏]"
     }
   ],
   "history_frames_including_current": 3,
@@ -3749,13 +3749,13 @@
   "GPU_calls": 0,
   "CPU_total_export_wall_s": 57.37115540006198,
   "command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\temporal_oidn\\export_temporal.py",
+    "[本机路径已隐藏]",
     "--run-dir",
-    "E:/rurix_quality_runs/20261016_recommended_weather/motion/run",
+    "[本机路径已隐藏]",
     "--output-dir",
-    "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/candidate_v1",
+    "[本机路径已隐藏]",
     "--frames",
     "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
     "--source",
@@ -3767,18 +3767,18 @@
     "Spatial OIDN softness remains; temporal filtering is not a detail reconstruction reference."
   ],
   "reproduction_command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\temporal_oidn\\export_temporal.py",
+    "[本机路径已隐藏]",
     "--run-dir",
-    "E:/rurix_quality_runs/20261016_recommended_weather/motion/run",
+    "[本机路径已隐藏]",
     "--output-dir",
-    "E:/rurix_quality_runs/20261016_recommended_weather/motion_temporal/export",
+    "[本机路径已隐藏]",
     "--frames",
     "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23",
     "--source",
     "pre-temporal",
     "--execute"
   ],
-  "publication_source": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\temporal_oidn\\candidate_v1"
+  "publication_source": "[本机路径已隐藏]"
 }

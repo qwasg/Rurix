@@ -1,8 +1,8 @@
 {
-  "run": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1",
+  "run": "[本机路径已隐藏]",
   "frame_index": 0,
-  "manifest": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\pixel_probe.json",
-  "probe_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\frame_000000_optical_pixel_probe_words.raw",
+  "manifest": "[本机路径已隐藏]",
+  "probe_RAW": "[本机路径已隐藏]",
   "RAW_header_WH": [
     7776,
     1
@@ -118,10 +118,10 @@
       ]
     }
   ],
-  "reference": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\exterior_road\\filtered_point_inputs.json",
+  "reference": "[本机路径已隐藏]",
   "enabled": true,
   "actual_camera_packet_equal_to_reference": true,
-  "material_id_mapping": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\triangle_origin_material_ids.u32le",
+  "material_id_mapping": "[本机路径已隐藏]",
   "baseline_probe_run": null,
   "points": [
     {

@@ -232,10 +232,10 @@
   ],
   "provenance": {
     "purpose": "Local texture on/off capture only; not a UE comparison or canonical anchor",
-    "parent_contract": "D:\\Rurix\\milestones\\g13\\g13_ue_upscale_parity_contract.json",
+    "parent_contract": "[本机路径已隐藏]",
     "parent_contract_digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f",
     "parent_contract_file_sha256": "sha256:c0d650661ac4d984de225c4833ef22086a110566029eea8d78f2c1b658d01697",
-    "local_asset": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf",
+    "local_asset": "[本机路径已隐藏]",
     "local_asset_sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
     "parent_asset_sha256": "sha256:4dae7c0d22cda6922a4541de3b41a0d63d22846c381ee7f06954a264a23f2565",
     "scope": "Camera, lighting, exposure, seeds and material policy preserved exactly. Asset identity differs; equivalence to canonical asset is not asserted.",
@@ -264,7 +264,7 @@
         },
         {
           "role": "gltf",
-          "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_full_precision_v3_a1.gltf",
+          "path": "[本机路径已隐藏]",
           "sha256": "sha256:2f04aa8a222a9ac95184fc02973acc50002e414c231c7d0e56a258a9e3a2e4fc"
         },
         {
@@ -274,12 +274,12 @@
         },
         {
           "role": "repair_provenance",
-          "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_material_v2.material_repair.provenance.json",
+          "path": "[本机路径已隐藏]",
           "sha256": "sha256:c6d9ee8ab51e32b65df0731d9f55b64f2c208eabf05779728e74d63ece5d5575"
         },
         {
           "role": "tangent_provenance",
-          "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_full_precision_v3_a1.tangents.provenance.json",
+          "path": "[本机路径已隐藏]",
           "sha256": "sha256:c1c07a430e814b273519b61c8a8a66e73afc0b65c9f0bb9fd7b9a40def460599"
         }
       ],
@@ -418,7 +418,7 @@
       "sampler": "integer_flux_cdf_hash32_v1",
       "samples_per_pixel": 8,
       "emissive_lod": 0,
-      "source_manifest_path": "D:\\Rurix\\milestones\\g10\\corpus\\lighting_bistro_interior.json",
+      "source_manifest_path": "[本机路径已隐藏]",
       "source_manifest_sha256": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce",
       "covered_proxy_ids": [
         "pointLight1",
@@ -510,7 +510,7 @@
       "secondary": "global_v1"
     },
     "render_repair_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_0921_quality\\continuation_1003_p1_v1\\contracts\\interior_global_control.v1.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "af8a9648a4e7b3ad259a3b44d1f2614f183b2088cf37c6a7a9e1944cb2f765c3"
     },
     "hq_reflection_history": "stationary-opaque-reflection-v1",
@@ -521,13 +521,13 @@
       "emission_partition": "preceding_vertex_nee_secondary_reflected_only"
     },
     "quality_repair_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_1003_render_repair\\contracts\\interior_final_v9.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "sha256:5fda22b5ad68b42b062166b2259a55b71c454550b9fd0d9284e7de6fee5c9d2e"
     },
     "quality_campaign": {
       "schema": "rurix.hq.quality_campaign.v1",
-      "source_gltf": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_full_precision_v3_a1.gltf",
-      "input_gltf": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\interior\\BistroInterior_rough_glass_optical_v5.gltf",
+      "source_gltf": "[本机路径已隐藏]",
+      "input_gltf": "[本机路径已隐藏]",
       "input_sha256": "sha256:42ebba7f27515455fbcc26772f61685caac4ca6e720c14173ae12b6e634115a3",
       "purpose": "material/transport/water/convergence/dynamic visual repair; no inherited quality verdict",
       "camera_fov_before": 43.197681669907375
@@ -603,7 +603,7 @@
       "optical_lod": "source_sampler_mip0"
     },
     "specular_mis_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\interior_native128_edges_v19.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "444646e5046832415ef6cac03fd332a24d9fe1db9c85d9fc0618f53d0aecade2",
       "purpose": "Native paired MIS same-view 128 frame convergence versus v19; all actual HDR checkpoints retained; quality_status remains NOT_EVALUATED until independent acceptance"
     },
@@ -617,7 +617,7 @@
       "medium": "saved_primary_lifo_once_beer"
     },
     "terminal_comparison_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\interior_native128_mis_v20.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "5930ce9ce449cdd75f23f570eadf578a6a116ed9efcce8b1dedd79134ea92a95",
       "change": "water off for currently explicit terminal operator support; matched64sample camera/lighting otherwise preserved"
     },
@@ -659,19 +659,19 @@
       "refraction_blur": false
     },
     "v28_water_derivation": {
-      "current_parent": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\emission_guard_v27_20261008\\contracts\\interior_emission_guard_v27.json",
+      "current_parent": "[本机路径已隐藏]",
       "current_parent_sha256": "01b56daee1cafe279a499729b51ba42b208d4cfc7924358d7a740ff71013b6cc",
-      "water_boundary_parent": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\interior_water_static_smoke_v22.json",
+      "water_boundary_parent": "[本机路径已隐藏]",
       "water_parent_sha256": "39ba3dc59109bc143bf414af74e493dea402c3a17f15f4e7fd85314f2c1ba59f",
       "scope": "Original authored water domain/boundary/sky and camera; v5 asset/current physics; explicit physical ray refraction and full mesh receiver lighting. Waves retained. No quality acceptance."
     },
     "final_framing_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\water_compact_v28_20261008\\contracts\\interior_water_natural_v28.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "7e69c95fc6cd11fd6817df43874757a3ead01b4f258f86d2b9def42a3d6c441e",
       "change": "Only FOV47 to actual geometry-validated53; native1920 capacity/detail diagnostic, no quality claim"
     },
     "epoch_memory_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\water_capture_v29_20261008\\interior_water_fov53_v29.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "042203c96f73797ddbb16bb9aca1a5a9bbf2bc370a1cddd534eacc56d0a7aa49",
       "change": "Only opt-in source-certified full-write epoch scratch reuse; physical inputs/shaders/quality/capture preserved"
     },
@@ -681,7 +681,7 @@
       "conditional_outputs": "preserve_hit_material_rmw"
     },
     "endpoint_memory_parent": {
-      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\epoch_reuse_v30_20261008\\contracts\\interior_epoch_native1080_v30.json",
+      "path": "[本机路径已隐藏]",
       "sha256": "8aa41a413e3fb85ca0469ea241f4288b03bb9175a5816dfd5a8e5e423be89e40",
       "change": "Explicit source-certified full-write access for out_rays only; preserve hit/material RMW, all shader arithmetic and physical inputs"
     },

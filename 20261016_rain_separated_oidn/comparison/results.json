@@ -1,11 +1,11 @@
 {
   "status": "CPU_EXPORT_COMPLETE_NOT_QUALITY_ACCEPTANCE",
-  "source_receipt": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\output.run.json",
+  "source_receipt": "[本机路径已隐藏]",
   "coverage_map": {
     "0": "rain_history1",
     "1": "rain_history0"
   },
-  "coverage_map_source": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\rain_separated_oidn\\coverage_map.json",
+  "coverage_map_source": "[本机路径已隐藏]",
   "dimensions": [
     640,
     360
@@ -14,10 +14,10 @@
     {
       "frame_index": 0,
       "sources": {
-        "scene": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_scene.raw",
-        "pre": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_effects_pre_rain.raw",
-        "presented": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_presented.raw",
-        "coverage": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_rain_history1.raw"
+        "scene": "[本机路径已隐藏]",
+        "pre": "[本机路径已隐藏]",
+        "presented": "[本机路径已隐藏]",
+        "coverage": "[本机路径已隐藏]"
       },
       "decomposition": {
         "coverage": {
@@ -161,7 +161,7 @@
       "variants": {
         "original": {
           "PNG": "frame_000000/original.png",
-          "linear_RAW": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_scene.raw",
+          "linear_RAW": "[本机路径已隐藏]",
           "source_reference_only": true,
           "HDR_stats": {
             "shape": [
@@ -242,15 +242,15 @@
       "OIDN_runs": {
         "pre": {
           "command": [
-            "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+            "[本机路径已隐藏]",
             "--device",
             "cpu",
             "--filter",
             "RT",
             "--hdr",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\pre_oidn_p7u0h1t6\\input.pfm",
+            "[本机路径已隐藏]",
             "--output",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\pre_oidn_p7u0h1t6\\output.pfm",
+            "[本机路径已隐藏]",
             "--type",
             "float",
             "--quality",
@@ -270,15 +270,15 @@
         },
         "whole": {
           "command": [
-            "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+            "[本机路径已隐藏]",
             "--device",
             "cpu",
             "--filter",
             "RT",
             "--hdr",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\whole_oidn_ys4e8icv\\input.pfm",
+            "[本机路径已隐藏]",
             "--output",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\whole_oidn_ys4e8icv\\output.pfm",
+            "[本机路径已隐藏]",
             "--type",
             "float",
             "--quality",
@@ -301,10 +301,10 @@
     {
       "frame_index": 1,
       "sources": {
-        "scene": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_scene.raw",
-        "pre": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_effects_pre_rain.raw",
-        "presented": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_presented.raw",
-        "coverage": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_rain_history0.raw"
+        "scene": "[本机路径已隐藏]",
+        "pre": "[本机路径已隐藏]",
+        "presented": "[本机路径已隐藏]",
+        "coverage": "[本机路径已隐藏]"
       },
       "decomposition": {
         "coverage": {
@@ -448,7 +448,7 @@
       "variants": {
         "original": {
           "PNG": "frame_000001/original.png",
-          "linear_RAW": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_scene.raw",
+          "linear_RAW": "[本机路径已隐藏]",
           "source_reference_only": true,
           "HDR_stats": {
             "shape": [
@@ -529,15 +529,15 @@
       "OIDN_runs": {
         "pre": {
           "command": [
-            "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+            "[本机路径已隐藏]",
             "--device",
             "cpu",
             "--filter",
             "RT",
             "--hdr",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\pre_oidn_oenz909n\\input.pfm",
+            "[本机路径已隐藏]",
             "--output",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\pre_oidn_oenz909n\\output.pfm",
+            "[本机路径已隐藏]",
             "--type",
             "float",
             "--quality",
@@ -557,15 +557,15 @@
         },
         "whole": {
           "command": [
-            "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+            "[本机路径已隐藏]",
             "--device",
             "cpu",
             "--filter",
             "RT",
             "--hdr",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\whole_oidn_qdw56r2y\\input.pfm",
+            "[本机路径已隐藏]",
             "--output",
-            "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\whole_oidn_qdw56r2y\\output.pfm",
+            "[本机路径已隐藏]",
             "--type",
             "float",
             "--quality",

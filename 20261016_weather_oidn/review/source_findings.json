@@ -1,6 +1,6 @@
 {
   "status": "READ_ONLY_SOURCE_FINDINGS_ONE_PROPOSAL_NOT_IMPLEMENTED",
-  "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+  "run": "[本机路径已隐藏]",
   "receipt": {
     "exit_code": 0,
     "frames": 8,
@@ -94,7 +94,7 @@
     }
   },
   "actual_cloud_upload": {
-    "parameter_source": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\cloud_transport_inputs.json",
+    "parameter_source": "[本机路径已隐藏]",
     "float_slots": {
       "base_m": 30.0,
       "top_m": 90.0,

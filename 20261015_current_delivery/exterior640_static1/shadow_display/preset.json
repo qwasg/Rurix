@@ -13,11 +13,11 @@
     0.0722
   ],
   "formula": "Y<T: RGB*(1+a*(1-Y/T)^3); Y>=T: exact input",
-  "source_capture": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\output.run.json",
+  "source_capture": "[本机路径已隐藏]",
   "HDR_sources": {
-    "original": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\capture\\frame_000000_scene.raw",
-    "oidn100": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\oidn100.raw",
-    "mix50": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\mix50.raw"
+    "original": "[本机路径已隐藏]",
+    "oidn100": "[本机路径已隐藏]",
+    "mix50": "[本机路径已隐藏]"
   },
   "new_GPU_frames": 0,
   "new_OIDN_runs": 0,
@@ -39,13 +39,13 @@
   ],
   "diagnosis": "Door/panel/shop mostly contain weak nonzero scene radiance. Current wide-C1 toe does not strongly crush it. Single-frame zeros in hedge/road cannot establish whether physical lighting or sampling/transport lacks contribution.",
   "conditional_next_check": "No additional capture performed. To investigate zero regions, keep camera/seed/EV/materials and geometry fixed; first inspect receiver/material and direct-vs-indirect support for hedge[448,188,500,217] and road[288,216,415,245]. Only if valid receivers and insufficient sky contribution are confirmed, compare one frame with effects.sky_intensity0.01 versus0.02 as a diagnostic of that one light path, with lit_facade_control unchanged as a control. Do not adopt increased sky as a repair without that comparison.",
-  "export_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\export_shadow_preset.py",
-  "entry": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\shadow_display\\index.html",
+  "export_script": "[本机路径已隐藏]",
+  "entry": "[本机路径已隐藏]",
   "selected_metrics": {
     "original": {
       "amount": 0.5,
-      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\original_a050.png",
-      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\capture\\frame_000000_scene.raw",
+      "PNG": "[本机路径已隐藏]",
+      "HDR_source": "[本机路径已隐藏]",
       "pixels_above_cutoff_bitwise_unchanged": true,
       "zero_black_preserved": true,
       "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
@@ -85,8 +85,8 @@
     },
     "oidn100": {
       "amount": 0.5,
-      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\oidn100_a050.png",
-      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\oidn100.raw",
+      "PNG": "[本机路径已隐藏]",
+      "HDR_source": "[本机路径已隐藏]",
       "pixels_above_cutoff_bitwise_unchanged": true,
       "zero_black_preserved": true,
       "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
@@ -126,8 +126,8 @@
     },
     "mix50": {
       "amount": 0.5,
-      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\mix50_a050.png",
-      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\mix50.raw",
+      "PNG": "[本机路径已隐藏]",
+      "HDR_source": "[本机路径已隐藏]",
       "pixels_above_cutoff_bitwise_unchanged": true,
       "zero_black_preserved": true,
       "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,

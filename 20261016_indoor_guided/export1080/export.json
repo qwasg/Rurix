@@ -1,13 +1,13 @@
 {
-  "run_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
+  "run_receipt": "[本机路径已隐藏]",
   "source_files": {
-    "scene": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_scene.raw",
-    "geometry": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_geometry.raw",
-    "material": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_material.raw",
-    "water_surface": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_water_surface.raw",
-    "effects_opaque_scene": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_effects_opaque_scene.raw",
-    "primary_partition_reservoir_meta": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_primary_partition_reservoir_meta.raw",
-    "glass_footprint_extra_c01": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_glass_footprint_extra_c01.raw"
+    "scene": "[本机路径已隐藏]",
+    "geometry": "[本机路径已隐藏]",
+    "material": "[本机路径已隐藏]",
+    "water_surface": "[本机路径已隐藏]",
+    "effects_opaque_scene": "[本机路径已隐藏]",
+    "primary_partition_reservoir_meta": "[本机路径已隐藏]",
+    "glass_footprint_extra_c01": "[本机路径已隐藏]"
   },
   "dimensions": [
     1920,
@@ -17,7 +17,7 @@
   "material_domains": {
     "status": "OK",
     "reason": null,
-    "asset": "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\source_glass_roughness_candidate\\BistroInterior_source_roughness_v8.gltf",
+    "asset": "[本机路径已隐藏]",
     "default_material_id": 71,
     "captured_alpha_crosscheck": {
       "status": "MATCHED",
@@ -26,7 +26,7 @@
     }
   },
   "footprint": {
-    "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.log",
+    "log": "[本机路径已隐藏]",
     "actual_roi_xywh": [
       416,
       329,
@@ -99,17 +99,17 @@
       },
       "source_HDR_rescaled_by_helper": false,
       "command": [
-        "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+        "[本机路径已隐藏]",
         "--device",
         "cpu",
         "--filter",
         "RT",
         "--hdr",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_color_only_oidn_5i7uz5ub\\color.pfm",
+        "[本机路径已隐藏]",
         "--input_scale",
         "1024.0",
         "--output",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_color_only_oidn_5i7uz5ub\\output.pfm",
+        "[本机路径已隐藏]",
         "--type",
         "float",
         "--quality",
@@ -123,7 +123,7 @@
       ],
       "exit_code": 0,
       "process_wall_s": 1.4789879000745714,
-      "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_color_only_a2ef593dd6a7.oidn.log"
+      "log": "[本机路径已隐藏]"
     },
     {
       "label": "full_albedo",
@@ -147,19 +147,19 @@
       },
       "source_HDR_rescaled_by_helper": false,
       "command": [
-        "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+        "[本机路径已隐藏]",
         "--device",
         "cpu",
         "--filter",
         "RT",
         "--hdr",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_oidn_2q1v9d8d\\color.pfm",
+        "[本机路径已隐藏]",
         "--input_scale",
         "1024.0",
         "--alb",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_oidn_2q1v9d8d\\albedo.pfm",
+        "[本机路径已隐藏]",
         "--output",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_oidn_2q1v9d8d\\output.pfm",
+        "[本机路径已隐藏]",
         "--type",
         "float",
         "--quality",
@@ -173,7 +173,7 @@
       ],
       "exit_code": 0,
       "process_wall_s": 1.5506309000775218,
-      "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_56e443a79bdc.oidn.log"
+      "log": "[本机路径已隐藏]"
     },
     {
       "label": "full_albedo_Ns",
@@ -197,21 +197,21 @@
       },
       "source_HDR_rescaled_by_helper": false,
       "command": [
-        "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+        "[本机路径已隐藏]",
         "--device",
         "cpu",
         "--filter",
         "RT",
         "--hdr",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\color.pfm",
+        "[本机路径已隐藏]",
         "--input_scale",
         "1024.0",
         "--alb",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\albedo.pfm",
+        "[本机路径已隐藏]",
         "--nrm",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\normal.pfm",
+        "[本机路径已隐藏]",
         "--output",
-        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\output.pfm",
+        "[本机路径已隐藏]",
         "--type",
         "float",
         "--quality",
@@ -225,7 +225,7 @@
       ],
       "exit_code": 0,
       "process_wall_s": 1.8251641001552343,
-      "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_bc3766fa7c2d.oidn.log"
+      "log": "[本机路径已隐藏]"
     }
   ],
   "OIDN_call_count": 3,
@@ -233,32 +233,32 @@
   "CPU_export_wall_s": 10.36497460003011,
   "variants": {
     "original": {
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\original.png",
-      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_scene.raw",
+      "PNG": "[本机路径已隐藏]",
+      "RAW": "[本机路径已隐藏]",
       "RAW_is_source_reference": true,
       "HDR_min": 0.0,
       "HDR_max": 1.3650944232940674,
       "finite": true
     },
     "color_only": {
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\color_only.png",
-      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\color_only.raw",
+      "PNG": "[本机路径已隐藏]",
+      "RAW": "[本机路径已隐藏]",
       "RAW_is_source_reference": false,
       "HDR_min": 0.0,
       "HDR_max": 1.376158356666565,
       "finite": true
     },
     "guided_albedo": {
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_albedo.png",
-      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_albedo.raw",
+      "PNG": "[本机路径已隐藏]",
+      "RAW": "[本机路径已隐藏]",
       "RAW_is_source_reference": false,
       "HDR_min": 0.0,
       "HDR_max": 1.376158356666565,
       "finite": true
     },
     "guided_normal": {
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
-      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+      "PNG": "[本机路径已隐藏]",
+      "RAW": "[本机路径已隐藏]",
       "RAW_is_source_reference": false,
       "HDR_min": 0.0,
       "HDR_max": 1.376158356666565,
@@ -273,7 +273,7 @@
         576,
         626
       ],
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_wall.png",
+      "PNG": "[本机路径已隐藏]",
       "purpose": "Native display comparison only; not a filter mask"
     },
     "bar": {
@@ -283,7 +283,7 @@
         1190,
         691
       ],
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_bar.png",
+      "PNG": "[本机路径已隐藏]",
       "purpose": "Native display comparison only; not a filter mask"
     },
     "ceiling": {
@@ -293,7 +293,7 @@
         1804,
         324
       ],
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_ceiling.png",
+      "PNG": "[本机路径已隐藏]",
       "purpose": "Native display comparison only; not a filter mask"
     },
     "floor": {
@@ -303,7 +303,7 @@
         768,
         1069
       ],
-      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_floor.png",
+      "PNG": "[本机路径已隐藏]",
       "purpose": "Native display comparison only; not a filter mask"
     }
   },
@@ -326,7 +326,7 @@
   "renderer_executed": false,
   "GPU_executed": false,
   "real_time": false,
-  "semantics_reference": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\delivery_check\\indoor_guide_semantics.json",
+  "semantics_reference": "[本机路径已隐藏]",
   "context_policy_note": "This explicit full-frame trial supersedes the old all-valid-tile recommendation in the semantics report. Unsupported first-hit context is approximate; the writeback mask does not isolate CNN context.",
   "limitations": [
     "Single fresh static frame; no temporal claim.",
@@ -335,13 +335,13 @@
     "No HDR clipping, color substitution, guide fabrication on eligible pixels, or lighting/exposure change."
   ],
   "export_command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_indoor.py",
+    "[本机路径已隐藏]",
     "--run-dir",
-    "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080",
+    "[本机路径已隐藏]",
     "--out",
-    "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080",
+    "[本机路径已隐藏]",
     "--input-scale",
     "1024.0"
   ]

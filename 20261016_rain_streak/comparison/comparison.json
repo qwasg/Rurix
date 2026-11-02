@@ -8,14 +8,14 @@
     {
       "frame_index": 0,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000000/original.png",
         "presented": "baseline/frame_000000/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000000_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000000_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000000/original.png",
         "presented": "candidate/frame_000000/presented.png"
       }
@@ -23,14 +23,14 @@
     {
       "frame_index": 1,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000001/original.png",
         "presented": "baseline/frame_000001/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000001_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000001_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000001/original.png",
         "presented": "candidate/frame_000001/presented.png"
       }
@@ -38,14 +38,14 @@
     {
       "frame_index": 2,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000002/original.png",
         "presented": "baseline/frame_000002/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000002_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000002_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000002/original.png",
         "presented": "candidate/frame_000002/presented.png"
       }
@@ -53,14 +53,14 @@
     {
       "frame_index": 3,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000003/original.png",
         "presented": "baseline/frame_000003/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000003_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000003_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000003/original.png",
         "presented": "candidate/frame_000003/presented.png"
       }
@@ -68,14 +68,14 @@
     {
       "frame_index": 4,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000004/original.png",
         "presented": "baseline/frame_000004/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000004_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000004_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000004/original.png",
         "presented": "candidate/frame_000004/presented.png"
       }
@@ -83,14 +83,14 @@
     {
       "frame_index": 5,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000005/original.png",
         "presented": "baseline/frame_000005/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000005_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000005_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000005/original.png",
         "presented": "candidate/frame_000005/presented.png"
       }
@@ -98,14 +98,14 @@
     {
       "frame_index": 6,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000006/original.png",
         "presented": "baseline/frame_000006/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000006_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000006_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000006/original.png",
         "presented": "candidate/frame_000006/presented.png"
       }
@@ -113,14 +113,14 @@
     {
       "frame_index": 7,
       "baseline": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "baseline/frame_000007/original.png",
         "presented": "baseline/frame_000007/presented.png"
       },
       "candidate": {
-        "source_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000007_scene.raw",
-        "source_presented": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture\\frame_000007_presented.raw",
+        "source_HDR": "[本机路径已隐藏]",
+        "source_presented": "[本机路径已隐藏]",
         "original": "candidate/frame_000007/original.png",
         "presented": "candidate/frame_000007/presented.png"
       }
@@ -164,21 +164,21 @@
   },
   "execution": {
     "baseline": {
-      "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
-      "receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
-      "config": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+      "run": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
+      "config": "[本机路径已隐藏]",
       "command": [
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "[本机路径已隐藏]",
         "--spv-dir",
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "[本机路径已隐藏]",
         "--capture-dir",
-        "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture",
+        "[本机路径已隐藏]",
         "--profile",
         "desktop_sdr_high",
         "--contract",
-        "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+        "[本机路径已隐藏]",
         "--gltf",
-        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "[本机路径已隐藏]",
         "--scene",
         "bistro-interior",
         "--width",
@@ -232,7 +232,7 @@
         "--capture-raw-profile",
         "scene_presented_v1",
         "--optical-tail-bundle",
-        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "[本机路径已隐藏]",
         "--sampling-seed",
         "7312026601",
         "--capture-sequence-stages",
@@ -248,21 +248,21 @@
       "whole_device_peak_used_mib": 3904.0
     },
     "candidate": {
-      "run": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak",
-      "receipt": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\output.run.json",
-      "config": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\config.json",
+      "run": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
+      "config": "[本机路径已隐藏]",
       "command": [
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+        "[本机路径已隐藏]",
         "--spv-dir",
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+        "[本机路径已隐藏]",
         "--capture-dir",
-        "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture",
+        "[本机路径已隐藏]",
         "--profile",
         "desktop_sdr_high",
         "--contract",
-        "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\config.json",
+        "[本机路径已隐藏]",
         "--gltf",
-        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "[本机路径已隐藏]",
         "--scene",
         "bistro-interior",
         "--width",
@@ -316,7 +316,7 @@
         "--capture-raw-profile",
         "scene_presented_v1",
         "--optical-tail-bundle",
-        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "[本机路径已隐藏]",
         "--sampling-seed",
         "7312026601",
         "--capture-sequence-stages",

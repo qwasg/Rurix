@@ -8,8 +8,8 @@
         648
       ],
       "frames": 1,
-      "run": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run",
-      "export": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export",
+      "run": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
       "camera_motion": "static",
       "camera_distance_m": 0,
       "native_frame_dt_s": 0.016666666666666666,
@@ -26,9 +26,9 @@
       "guide_coverage_fraction": [
         0.14317558299039781
       ],
-      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\index.html",
-      "raw_scene": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run\\capture\\frame_000000_scene.raw",
-      "source_config": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run\\config.json",
+      "viewer": "[本机路径已隐藏]",
+      "raw_scene": "[本机路径已隐藏]",
+      "source_config": "[本机路径已隐藏]",
       "upscaled": false,
       "real_time": false,
       "GPU_pass_average_ms": 14074.238688
@@ -40,8 +40,8 @@
         360
       ],
       "frames": 24,
-      "run": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run",
-      "export": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\export",
+      "run": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
       "camera_motion": "dolly",
       "camera_distance_m": 0.8214285714285714,
       "native_frame_dt_s": 0.016666666666666666,
@@ -104,9 +104,9 @@
         0.0016666666666666668,
         0.0016666666666666668
       ],
-      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\export\\index.html",
-      "raw_scene": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run\\capture\\frame_000000_scene.raw",
-      "source_config": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run\\config.json",
+      "viewer": "[本机路径已隐藏]",
+      "raw_scene": "[本机路径已隐藏]",
+      "source_config": "[本机路径已隐藏]",
       "upscaled": false,
       "real_time": false,
       "GPU_pass_average_ms": 4277.7354000000005
@@ -117,7 +117,7 @@
         360
       ],
       "frames": 24,
-      "run": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run",
+      "run": "[本机路径已隐藏]",
       "camera_motion": "dolly",
       "camera_distance_m": 0.8214285714285714,
       "native_frame_dt_s": 0.016666666666666666,
@@ -126,14 +126,14 @@
       "GPU_pass_sum_ns": 102665649600,
       "capture_wall_s": 411.81300000008196,
       "whole_device_peak_used_MiB": 3938.0,
-      "raw_scene": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run\\capture\\frame_000000_scene.raw",
-      "source_config": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run\\config.json",
+      "raw_scene": "[本机路径已隐藏]",
+      "source_config": "[本机路径已隐藏]",
       "upscaled": false,
       "real_time": false,
       "name": "motion_temporal",
-      "export": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export",
-      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\index.html",
-      "comparison_viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\export\\index.html",
+      "export": "[本机路径已隐藏]",
+      "viewer": "[本机路径已隐藏]",
+      "comparison_viewer": "[本机路径已隐藏]",
       "CPU_export_wall_s": 57.37115540006198,
       "new_GPU_calls": 0,
       "GPU_measurement_scope": "Reused original capture measurements; no GPU execution in this CPU export.",
@@ -233,7 +233,7 @@
         "protected_regions_bitwise_unchanged_all_frames": true,
         "comparison": "Same per-frame spatial OIDN result with and without finite history; controls retained.",
         "new_GPU_calls": 0,
-        "source_capture_reused": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run",
+        "source_capture_reused": "[本机路径已隐藏]",
         "CPU_export_wall_s_measured_local": 57.37115540006198,
         "guide_coverage_fraction_range": [
           0.010555555555555556,
@@ -297,36 +297,36 @@
     "CPU OIDN RT HDR HIGH",
     "automatic real albedo/normal guide cores and color-only fallback"
   ],
-  "source_preset": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\config.json",
+  "source_preset": "[本机路径已隐藏]",
   "command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
+    "[本机路径已隐藏]",
     "--output-root",
-    "E:\\rurix_quality_runs\\20261016_recommended_weather",
+    "[本机路径已隐藏]",
     "--mode",
     "motion",
     "--run"
   ],
   "native_1080_weather_rendered": false,
   "native_1080_blocker": "Current measured allocation layout projects about11.94GB device memory at1920x1080, beyond this8GB GPU; no failing1080 trial was launched.",
-  "memory_estimate_report": "E:\\rurix_quality_runs\\20261016_recommended_weather\\review\\weather_memory_estimate.json",
+  "memory_estimate_report": "[本机路径已隐藏]",
   "image_review": {
     "weather_memory_estimate": {
       "status": "EXISTING_ACTUAL_ALLOCATION_LEDGER_PROJECTION_NOT_NEW_CAPABILITY_QUERY_OR_RENDER",
-      "run": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4",
+      "run": "[本机路径已隐藏]",
       "requested_target": [
         1920,
         1080
       ],
       "source_files": [
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\session_capacity_preflight.json",
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\capacity_preflight.json",
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\pass_manifest.json",
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\optical_augmented_manifest.json",
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\lane.json",
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\output.run.json",
-        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\gpu_memory_samples.json"
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
       ],
       "baseline": {
         "dimensions": [
@@ -575,12 +575,12 @@
       "method": "Use session ledger after optical augmentation. Image allocations were selected by exact size/640x360 and independently checked against actual pixel dispatch writers; two augmented image allocations were confirmed by factory source. Keep scene geometry, textures, BLAS sizes, fixed queue capacity and live capture policy unchanged. Preserve the current alias groups and frames_in_flight=1; only pixel allocations and8B/row reduction scale. No whole-peak times9 shortcut.",
       "source_locations": [
         {
-          "file": "D:/Rurix/src/rurix-rt/src/agent_persistent_factory.rs",
+          "file": "[本机路径已隐藏]",
           "line": 136,
           "purpose": "128B/pixel snapshot,4B/pixel marker,8B/height rows; extra cloud queue based on fixed capacity"
         },
         {
-          "file": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/temporal_lighting.rs",
+          "file": "[本机路径已隐藏]",
           "lines": [
             66,
             70
@@ -588,7 +588,7 @@
           "purpose": "two80B/pixel histories and color12/debug16 placed HOST by existing selected policy"
         },
         {
-          "file": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+          "file": "[本机路径已隐藏]",
           "lines": [
             2537,
             2548,
@@ -621,12 +621,12 @@
       ],
       "ledger_sources": {
         "early_preflight": {
-          "file": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\capacity_preflight.json",
+          "file": "[本机路径已隐藏]",
           "heap0_required_peak_bytes": 3591735376,
           "meaning": "Original host graph before optical augmentation; not the actual later session allocation ledger."
         },
         "actual_session_preflight": {
-          "file": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture\\session_capacity_preflight.json",
+          "file": "[本机路径已隐藏]",
           "heap0_required_peak_bytes": 3634750352,
           "meaning": "Includes actual optical augmentation; this3634750352-byte ledger is the projection baseline."
         },
@@ -636,7 +636,7 @@
     "native_visual_review": {
       "review_date_utc": "2026-10-16",
       "scope": "Native 1152x648 representative still, visual review only; no new rendering, OIDN, or image normalization.",
-      "input_directory": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/export/frame_000000",
+      "input_directory": "[本机路径已隐藏]",
       "images_viewed_at_original_resolution": [
         "output.png",
         "color_only.png",
@@ -674,7 +674,7 @@
     "sequence_visual_review": {
       "review_date_utc": "2026-10-16",
       "scope": "Read-only visual inspection of all 24 completed exported frames through six native-resolution contact rows; no new rendering, OIDN, metrics, or algorithm changes.",
-      "source_directory": "E:/rurix_quality_runs/20261016_recommended_weather/motion",
+      "source_directory": "[本机路径已隐藏]",
       "images_viewed": [
         "frames_00_03_native.png",
         "frames_04_07_native.png",
@@ -717,7 +717,7 @@
     },
     "post_oidn_temporal": {
       "status": "VISUALLY_REVIEWED_AVAILABLE_OPTION",
-      "candidate": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/candidate_v1",
+      "candidate": "[本机路径已隐藏]",
       "comparison": "同一当帧 guide 空间结果：current.png 无历史；output.png 为有限三帧历史。未用旧整批固定屏幕交集输出归因。",
       "viewing": "原尺寸实际 PNG 与原生 ROI 双行接触图；上 current，下 finite。没有新增图片、OIDN、GPU 或算法修改。",
       "inspected": [
@@ -761,7 +761,7 @@
     }
   },
   "scope": "One current offline weather combination; global defaults and realtime paths unchanged.",
-  "preserved_indoor_native1080": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1",
+  "preserved_indoor_native1080": "[本机路径已隐藏]",
   "limitations": [
     "Fine masonry and road texture remains soft after OIDN; distant window and shopfront details vary in sharpness between frames.",
     "Rain remains weak against dark backgrounds and the overall weather impression is limited.",
@@ -790,7 +790,7 @@
     "protected_regions_bitwise_unchanged_all_frames": true,
     "comparison": "Same per-frame spatial OIDN result with and without finite history; controls retained.",
     "new_GPU_calls": 0,
-    "source_capture_reused": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run",
+    "source_capture_reused": "[本机路径已隐藏]",
     "CPU_export_wall_s_measured_local": 57.37115540006198,
     "guide_coverage_fraction_range": [
       0.010555555555555556,

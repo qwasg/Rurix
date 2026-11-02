@@ -1,8 +1,8 @@
 {
   "status": "KEEP_OPTIONAL_PRESET_LOCAL_ROAD_NET_BENEFIT",
   "created_utc": "2026-10-15T23:13:38.366201+00:00",
-  "baseline": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as",
-  "candidate": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1",
+  "baseline": "[本机路径已隐藏]",
+  "candidate": "[本机路径已隐藏]",
   "scope": "One native1920x1080 static frame; no new dynamic capture, convergence or full-scene quality acceptance.",
   "visual_note": "同相机、光照、种子和EV8的原始HDR对照显示，路面密集黑条明显消除。中远处铺地凹凸感同时变弱，水洼内部黑碎纹与颗粒仍在。灯罩边缘的原黑缺口恢复成连续亮边；部分叶片沿叶形增亮，未见该局部轮廓外光晕，但亮碎片增多。整体细噪、门洞暗部和动态稳定性未解决。据此保留为可切换室外预设，仅认可该静态首帧的道路修复净收益。",
   "runtime_toggle": {

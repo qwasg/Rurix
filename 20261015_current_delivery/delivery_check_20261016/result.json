@@ -124,17 +124,17 @@
     }
   ],
   "images": {
-    "indoor_original": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\original.png",
-    "indoor_mix50": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\mix50.png",
-    "indoor_oidn": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\oidn100.png",
-    "indoor_bar": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\roi_bar.png",
-    "indoor_water": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\roi_water.png",
-    "indoor_lamps": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\roi_lamps.png",
-    "sunny_original": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\original.png",
-    "sunny_oidn": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\oidn100.png",
-    "weather_original": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\original.png",
-    "weather_output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\output.png",
-    "weather_motion": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\index.html"
+    "indoor_original": "[本机路径已隐藏]",
+    "indoor_mix50": "[本机路径已隐藏]",
+    "indoor_oidn": "[本机路径已隐藏]",
+    "indoor_bar": "[本机路径已隐藏]",
+    "indoor_water": "[本机路径已隐藏]",
+    "indoor_lamps": "[本机路径已隐藏]",
+    "sunny_original": "[本机路径已隐藏]",
+    "sunny_oidn": "[本机路径已隐藏]",
+    "weather_original": "[本机路径已隐藏]",
+    "weather_output": "[本机路径已隐藏]",
+    "weather_motion": "[本机路径已隐藏]"
   },
   "parameters": {
     "interior": {
@@ -159,9 +159,9 @@
       "weather": "clouds off; rain off; water on",
       "mix50": "0.5 original + 0.5 OIDN100 in linear float32 HDR; no clamp",
       "OIDN": "2.5.1 CPU RT HDR high, color only, float, 8 threads",
-      "export_record": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1/preview/export.json",
-      "run_record": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1/output.run.json",
-      "config": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1/config.json"
+      "export_record": "[本机路径已隐藏]",
+      "run_record": "[本机路径已隐藏]",
+      "config": "[本机路径已隐藏]"
     },
     "outdoor": {
       "sunny": {
@@ -169,7 +169,7 @@
           1920,
           1080
         ],
-        "run": "E:/rurix_quality_runs/20261015_normal_support/exterior1080_candidate1",
+        "run": "[本机路径已隐藏]",
         "normal_support": true,
         "display": "wide-C1 + sRGB, --ev-offset 8",
         "compared": "scene original vs CPU OIDN100"
@@ -179,7 +179,7 @@
           1152,
           648
         ],
-        "run": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/run",
+        "run": "[本机路径已隐藏]",
         "clouds": "on",
         "water": "on",
         "rain": "on",
@@ -234,15 +234,15 @@
   "startup": {
     "status": "ACTIVE",
     "recorded_utc": "2026-10-16T05:54:40.409367+00:00",
-    "active_executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
-    "shared_release": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\release\\hq_quality_lane.exe",
-    "ordinary_D_release": "D:\\Rurix\\target\\release\\hq_quality_lane.exe",
-    "previous_D_binary_backup": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\previous_D_target_release_hq_quality_lane.exe",
+    "active_executable": "[本机路径已隐藏]",
+    "shared_release": "[本机路径已隐藏]",
+    "ordinary_D_release": "[本机路径已隐藏]",
+    "previous_D_binary_backup": "[本机路径已隐藏]",
     "launch_scripts": [
-      "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
-      "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\capture_representatives.py"
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]"
     ],
-    "source_build": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\delivery_check\\restored_build_result.json",
+    "source_build": "[本机路径已隐藏]",
     "factor_HOST_trial_enabled": false,
     "finite_wait_trial_enabled": false,
     "existing_verified_filter_partition_placement_preserved": true,
@@ -257,19 +257,19 @@
     "prepared_launches": [
       {
         "scene": "interior",
-        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
-        "configuration": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\config.json",
+        "executable": "[本机路径已隐藏]",
+        "configuration": "[本机路径已隐藏]",
         "matches_chosen_delivered_configuration": true
       },
       {
         "scene": "exterior",
-        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
-        "configuration": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+        "executable": "[本机路径已隐藏]",
+        "configuration": "[本机路径已隐藏]",
         "matches_chosen_delivered_configuration": true
       },
       {
         "scene": "weather_still_native",
-        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+        "executable": "[本机路径已隐藏]",
         "dimensions": [
           1152,
           648
@@ -279,7 +279,7 @@
       },
       {
         "scene": "weather_motion",
-        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+        "executable": "[本机路径已隐藏]",
         "dimensions": [
           640,
           360

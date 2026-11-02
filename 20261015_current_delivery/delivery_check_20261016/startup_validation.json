@@ -5,19 +5,19 @@
   "prepared_launches": [
     {
       "scene": "interior",
-      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
-      "configuration": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\config.json",
+      "executable": "[本机路径已隐藏]",
+      "configuration": "[本机路径已隐藏]",
       "matches_chosen_delivered_configuration": true
     },
     {
       "scene": "exterior",
-      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
-      "configuration": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+      "executable": "[本机路径已隐藏]",
+      "configuration": "[本机路径已隐藏]",
       "matches_chosen_delivered_configuration": true
     },
     {
       "scene": "weather_still_native",
-      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+      "executable": "[本机路径已隐藏]",
       "dimensions": [
         1152,
         648
@@ -27,7 +27,7 @@
     },
     {
       "scene": "weather_motion",
-      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+      "executable": "[本机路径已隐藏]",
       "dimensions": [
         640,
         360

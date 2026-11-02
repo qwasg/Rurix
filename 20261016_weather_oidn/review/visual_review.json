@@ -1,9 +1,9 @@
 {
   "assessment": "VISIBLE_GRAIN_REDUCTION_WITH_DETAIL_AND_WEATHER_TRADEOFF",
   "reviewer": "road_bsdf_probe independent visual review",
-  "source_run": "E:/rurix_quality_runs/20261015_weather_motion/weather8",
+  "source_run": "[本机路径已隐藏]",
   "source_is_new_cloud_strat8_candidate": false,
-  "preview_directory": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/weather_oidn/results",
+  "preview_directory": "[本机路径已隐藏]",
   "viewed": [
     "roi_full_f0_f7.png",
     "roi_water_road_f0_f7.png",

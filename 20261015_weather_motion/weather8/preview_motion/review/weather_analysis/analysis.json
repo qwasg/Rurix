@@ -1,7 +1,7 @@
 {
   "status": "COMPLETED_DATA_DESCRIPTIVE_REVIEW",
-  "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
-  "preview_motion": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion",
+  "run": "[本机路径已隐藏]",
+  "preview_motion": "[本机路径已隐藏]",
   "execution": {
     "exit_code": 0,
     "frames": 8,
@@ -326,7 +326,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000000\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -343,7 +343,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000001\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -360,7 +360,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000002\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -377,7 +377,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000003\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -394,7 +394,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000004\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -411,7 +411,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000005\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -428,7 +428,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000006\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -445,7 +445,7 @@
       ],
       "scene_all_finite": true,
       "negative_scene_channels": 0,
-      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000007\\original.png",
+      "original_png": "[本机路径已隐藏]",
       "original_matches_EV8_wide_C1": true,
       "export_receipt": null,
       "presented_dimensions": [
@@ -476,12 +476,12 @@
     ]
   },
   "images": [
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\original_sky_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\original_water_road_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\original_rain_center_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\presented_sky_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\presented_water_road_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\presented_rain_center_8frames_native1to1.png"
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]"
   ],
   "display": {
     "original": "Existing original PNG verified against scene HDR at fixed EV8 + wide-C1 + sRGB8",

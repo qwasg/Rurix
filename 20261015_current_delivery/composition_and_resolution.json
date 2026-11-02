@@ -2,7 +2,7 @@
   "status": "NATIVE1080_DELIVERED_BOTH_SCENES",
   "frames": [
     {
-      "run": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1",
+      "run": "[本机路径已隐藏]",
       "camera": {
         "position": [
           0.05216281,
@@ -23,7 +23,7 @@
           "h": 1080
         }
       },
-      "native_HDR": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\capture\\frame_000000_scene.raw",
+      "native_HDR": "[本机路径已隐藏]",
       "HDR_dimensions": [
         1920,
         1080
@@ -40,7 +40,7 @@
       "ev_offset": 10.0
     },
     {
-      "run": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as",
+      "run": "[本机路径已隐藏]",
       "camera": {
         "position": [
           22.0,
@@ -61,7 +61,7 @@
           "h": 1080
         }
       },
-      "native_HDR": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\capture\\frame_000000_scene.raw",
+      "native_HDR": "[本机路径已隐藏]",
       "HDR_dimensions": [
         1920,
         1080
@@ -85,23 +85,23 @@
   "new_GPU_timed_frames": 1,
   "new_indoor_GPU_frames": 0,
   "failed_attempts": [
-    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1\\output.run.json",
-    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_filter\\output.run.json",
-    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working\\output.run.json",
-    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working_region\\output.run.json",
-    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_optional_timing\\output.run.json"
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]"
   ],
   "runtime_change": "Attempt6 host changes include optional GPU timing and stage8 segments with at most1 AS at complete error-summary boundaries. Footer/readback, shader bundle, mathematical order and sampling are unchanged.",
   "memory": {
     "choice": "existing hq_filter_working_memory plus hq_partition_working_memory host_visible_zero_initialized_v1",
-    "first_attempt_failed_before_GPU": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1\\output.run.json",
-    "second_attempt_failed_before_GPU": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_filter\\output.run.json",
-    "third_attempt_partial_GPU_timestamp_failure": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working\\output.run.json",
-    "fourth_attempt_partial_GPU_timestamp_failure": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working_region\\output.run.json",
-    "fifth_attempt_stale_header_failure": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_optional_timing\\output.run.json",
+    "first_attempt_failed_before_GPU": "[本机路径已隐藏]",
+    "second_attempt_failed_before_GPU": "[本机路径已隐藏]",
+    "third_attempt_partial_GPU_timestamp_failure": "[本机路径已隐藏]",
+    "fourth_attempt_partial_GPU_timestamp_failure": "[本机路径已隐藏]",
+    "fifth_attempt_stale_header_failure": "[本机路径已隐藏]",
     "journal_sync": "Region synchronization is unchanged. Attempts3/4 failed with query NOT_READY. Attempt5 allowed missing timing as null, then failed a genuine stale header check: expected2413, actual2412; no completed owner frame was published. Attempt6 retains optional timing and limits stage8 segments to at most1 AS at complete error-summary boundaries, preserving footer/readback. Missing timing stays null; completion checks remain mandatory.",
     "source_diagnosis": "native1080_memory_diagnosis.json",
-    "actual_main_graph_capacity": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\capture\\capacity_preflight.json",
+    "actual_main_graph_capacity": "[本机路径已隐藏]",
     "actual_session_status": "Passed enforced allocation and completed one GPU frame; main graph preflight alone is not treated as session success.",
     "before_heaps": [
       {

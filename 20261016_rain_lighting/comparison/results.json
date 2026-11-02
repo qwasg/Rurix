@@ -33,15 +33,15 @@
       "frame_index": 0,
       "source_files": {
         "baseline": {
-          "scene": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_scene.raw",
-          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_effects_pre_rain.raw"
+          "scene": "[本机路径已隐藏]",
+          "effects_pre_rain": "[本机路径已隐藏]"
         },
         "candidate": {
-          "scene": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000000_scene.raw",
-          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000000_effects_pre_rain.raw"
+          "scene": "[本机路径已隐藏]",
+          "effects_pre_rain": "[本机路径已隐藏]"
         }
       },
-      "reused_denoised_pre": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\denoised_pre.raw",
+      "reused_denoised_pre": "[本机路径已隐藏]",
       "coverage_current_stage": "rain_history1",
       "non_rain_pixels": 230064,
       "non_rain_post_bitwise_unchanged": true,
@@ -291,15 +291,15 @@
       "frame_index": 1,
       "source_files": {
         "baseline": {
-          "scene": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_scene.raw",
-          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_effects_pre_rain.raw"
+          "scene": "[本机路径已隐藏]",
+          "effects_pre_rain": "[本机路径已隐藏]"
         },
         "candidate": {
-          "scene": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000001_scene.raw",
-          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000001_effects_pre_rain.raw"
+          "scene": "[本机路径已隐藏]",
+          "effects_pre_rain": "[本机路径已隐藏]"
         }
       },
-      "reused_denoised_pre": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\denoised_pre.raw",
+      "reused_denoised_pre": "[本机路径已隐藏]",
       "coverage_current_stage": "rain_history0",
       "non_rain_pixels": 230039,
       "non_rain_post_bitwise_unchanged": true,
@@ -548,8 +548,8 @@
   ],
   "execution": {
     "baseline": {
-      "run": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2",
-      "receipt": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\output.run.json",
+      "run": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
       "gpu_frames": 2,
       "gpu_timed_frames": 2,
       "gpu_timing_status": "available",
@@ -568,8 +568,8 @@
       "whole_device_peak_used_mib": 3906.0
     },
     "candidate": {
-      "run": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2",
-      "receipt": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\output.run.json",
+      "run": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
       "gpu_frames": 2,
       "gpu_timed_frames": 2,
       "gpu_timing_status": "available",

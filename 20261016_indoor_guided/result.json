@@ -3,29 +3,29 @@
   "recorded_utc": "2026-10-16T06:28:51.601537+00:00",
   "selected_variant": "guided_normal",
   "selected_image": {
-    "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
-    "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+    "PNG": "[本机路径已隐藏]",
+    "RAW": "[本机路径已隐藏]",
     "RAW_is_source_reference": false,
     "HDR_min": 0.0,
     "HDR_max": 1.376158356666565,
     "finite": true
   },
-  "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\index.html",
+  "viewer": "[本机路径已隐藏]",
   "runs": {
     "640": {
       "status": "COMPLETED_OFFLINE_EXPORT",
       "selected": "guided_normal",
       "selected_image": {
-        "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\guided_normal.png",
-        "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\guided_normal.raw",
+        "PNG": "[本机路径已隐藏]",
+        "RAW": "[本机路径已隐藏]",
         "RAW_is_source_reference": false,
         "HDR_min": 7.729640287834627e-07,
         "HDR_max": 1.122358798980713,
         "finite": true
       },
-      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\index.html",
-      "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture640\\output.run.json",
-      "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\export.json",
+      "viewer": "[本机路径已隐藏]",
+      "capture_receipt": "[本机路径已隐藏]",
+      "export_receipt": "[本机路径已隐藏]",
       "native_resolution": [
         640,
         360
@@ -54,16 +54,16 @@
       "status": "COMPLETED_OFFLINE_EXPORT",
       "selected": "guided_normal",
       "selected_image": {
-        "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
-        "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+        "PNG": "[本机路径已隐藏]",
+        "RAW": "[本机路径已隐藏]",
         "RAW_is_source_reference": false,
         "HDR_min": 0.0,
         "HDR_max": 1.376158356666565,
         "finite": true
       },
-      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\index.html",
-      "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
-      "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\export.json",
+      "viewer": "[本机路径已隐藏]",
+      "capture_receipt": "[本机路径已隐藏]",
+      "export_receipt": "[本机路径已隐藏]",
       "native_resolution": [
         1920,
         1080
@@ -109,7 +109,7 @@
       "comparison_floor.png",
       "comparison_ceiling.png"
     ],
-    "independent_review": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\independent_review1080.json",
+    "independent_review": "[本机路径已隐藏]",
     "guide_nonzero_fraction": 0.8277199074074074,
     "guide_effective_coverage_fraction": 0.7094498396508487,
     "unsupported_outputs_bitwise_equal_to_color_only": true,
@@ -119,22 +119,22 @@
     "official_method_reference": "https://www.openimagedenoise.org/documentation.html#rt",
     "guide_policy": "Full-frame official OIDN with actual material RGB and Ns.2px inward rejection+16px feather controls writeback, not CNN context isolation. Exclude physical water, primary and extra glass coverage, emission and unreliable opaque materials."
   },
-  "review640": "E:\\rurix_quality_runs\\20261016_indoor_guided\\review640.json",
+  "review640": "[本机路径已隐藏]",
   "native1080_succeeded": true,
   "new_completed_GPU_frames": 2,
   "pre_submission_setup_failure": {
-    "path": "E:\\rurix_quality_runs\\20261016_indoor_guided\\verify640",
+    "path": "[本机路径已隐藏]",
     "reason": "Historical material shader no longer matches current source marker; existing compatible module bundle selected.",
     "GPU_completed_frames": 0
   },
-  "active_host": "E:/rurix_quality_build/day_1015_glass_reconstruction/restored_device_local_v1/candidate_hq_quality_lane.exe",
-  "shader_bundle": "E:/rurix_quality_build/day_1015_glass_reconstruction/normal_support_v1/shaders_complete",
+  "active_host": "[本机路径已隐藏]",
+  "shader_bundle": "[本机路径已隐藏]",
   "renderer_source_changes_this_round": false,
   "current_indoor_normal_support_option_changed": false,
   "timing_logging": "Existing GPU timestamp and shader preparation logs recorded; extra logging approved by user.",
-  "memory_estimate": "E:\\rurix_quality_runs\\20261016_indoor_guided\\memory_estimate.json",
-  "reproduce_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_indoor.py",
-  "CPU_only_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_indoor.py",
+  "memory_estimate": "[本机路径已隐藏]",
+  "reproduce_script": "[本机路径已隐藏]",
+  "CPU_only_script": "[本机路径已隐藏]",
   "global_runtime_denoiser_changed": false,
   "overall_quality_accepted": false,
   "dynamic_test_this_round": false,

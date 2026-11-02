@@ -10,7 +10,7 @@
   "material_domains": {
     "status": "OK",
     "reason": null,
-    "asset": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+    "asset": "[本机路径已隐藏]",
     "default_material_id": 132,
     "captured_alpha_crosscheck": {
       "status": "MATCHED",
@@ -98,7 +98,7 @@
     "fixed_weights": true,
     "temporal_radiance_accumulation": false
   },
-  "run_dir": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\motion4",
+  "run_dir": "[本机路径已隐藏]",
   "results": [
     {
       "frame": 0,
@@ -150,21 +150,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\tile_000_guided_oidn_w1x9014h\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\tile_000_guided_oidn_w1x9014h\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\tile_000_guided_oidn_w1x9014h\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\tile_000_guided_oidn_w1x9014h\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -178,7 +178,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.23986450000666082,
-            "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\tile_000_guided_c4249f619f08.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -209,17 +209,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\full_color_only_oidn_e2ygu4xx\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\full_color_only_oidn_e2ygu4xx\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -233,10 +233,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.44605659996159375,
-        "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\full_color_only_21788261df91.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
-      "output": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\output.png",
-      "raw": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000000\\output.raw"
+      "output": "[本机路径已隐藏]",
+      "raw": "[本机路径已隐藏]"
     },
     {
       "frame": 1,
@@ -288,21 +288,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\tile_000_guided_oidn_d90a6b5a\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\tile_000_guided_oidn_d90a6b5a\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\tile_000_guided_oidn_d90a6b5a\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\tile_000_guided_oidn_d90a6b5a\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -316,7 +316,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.2977450001053512,
-            "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\tile_000_guided_211fe8b0ab39.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -347,17 +347,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\full_color_only_oidn_ysv44hyx\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\full_color_only_oidn_ysv44hyx\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -371,10 +371,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.3499137000180781,
-        "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\full_color_only_4f1f1329cc24.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
-      "output": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\output.png",
-      "raw": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000001\\output.raw"
+      "output": "[本机路径已隐藏]",
+      "raw": "[本机路径已隐藏]"
     },
     {
       "frame": 2,
@@ -426,21 +426,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\tile_000_guided_oidn_4y8jqwlb\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\tile_000_guided_oidn_4y8jqwlb\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\tile_000_guided_oidn_4y8jqwlb\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\tile_000_guided_oidn_4y8jqwlb\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -454,7 +454,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.199239999987185,
-            "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\tile_000_guided_f4d62fa44c10.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -485,17 +485,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\full_color_only_oidn_9rp1qv6i\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\full_color_only_oidn_9rp1qv6i\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -509,10 +509,10 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.43987290002405643,
-        "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\full_color_only_0aea47fb057e.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
-      "output": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\output.png",
-      "raw": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000002\\output.raw"
+      "output": "[本机路径已隐藏]",
+      "raw": "[本机路径已隐藏]"
     },
     {
       "frame": 3,
@@ -564,21 +564,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\tile_000_guided_oidn_8oas3w2m\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\tile_000_guided_oidn_8oas3w2m\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\tile_000_guided_oidn_8oas3w2m\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\tile_000_guided_oidn_8oas3w2m\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -592,7 +592,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.30609999992884696,
-            "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\tile_000_guided_391928d84f7c.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520
         }
@@ -623,17 +623,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\full_color_only_oidn_iduumn04\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\full_color_only_oidn_iduumn04\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -647,21 +647,21 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.3313557000365108,
-        "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\full_color_only_5f290cebd9a1.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
-      "output": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\output.png",
-      "raw": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\frame_000003\\output.raw"
+      "output": "[本机路径已隐藏]",
+      "raw": "[本机路径已隐藏]"
     }
   ],
   "CPU_total_export_wall_s": 4.684837699867785,
   "command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_fullframe\\export_fullframe.py",
+    "[本机路径已隐藏]",
     "--run-dir",
-    "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\motion4",
+    "[本机路径已隐藏]",
     "--output-dir",
-    "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic",
+    "[本机路径已隐藏]",
     "--frames",
     "0,1,2,3",
     "--source",

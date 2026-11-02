@@ -1,8 +1,8 @@
 {
   "status": "COMPLETED_DATA_DESCRIPTIVE_REVIEW",
   "runs": {
-    "off": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off",
-    "on": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on"
+    "off": "[本机路径已隐藏]",
+    "on": "[本机路径已隐藏]"
   },
   "execution": {
     "off": {
@@ -3614,36 +3614,36 @@
   },
   "display": "original/OIDN/mix50 HDR: fixed EV8, wide-C1, sRGB8; no resize/normalization. Presented sheets use actual GPU BGRA8.",
   "preview_receipts": [
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000000\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000000\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000001\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000001\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000002\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000002\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000003\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000004\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000005\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000005\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000006\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000006\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000007\\export.json",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000007\\export.json"
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]"
   ],
   "images": [
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\original_road_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\original_foliage_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\original_lamp_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\presented_road_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\presented_foliage_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\presented_lamp_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\oidn100_road_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\oidn100_foliage_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\oidn100_lamp_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\mix50_road_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\mix50_foliage_8frames_native1to1.png",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\normal_support_candidate\\motion_analysis\\mix50_lamp_8frames_native1to1.png"
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]"
   ],
   "limits": [
     "Fixed screen ROIs, not corresponding tracked surfaces; dolly changes visibility and parallax.",

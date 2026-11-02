@@ -1,184 +1,184 @@
 {
   "status": "CURRENT_OFFLINE_OUTPUTS_READY_OVERALL_NOT_ACCEPTED_WAITING_REFERENCE",
   "recorded_utc": "2026-10-16T07:16:12.610416+00:00",
-  "entry": "E:\\rurix_quality_runs\\20261015_current_delivery\\index.html",
-  "commands": "E:\\rurix_quality_runs\\20261015_current_delivery\\current_commands.txt",
+  "entry": "[本机路径已隐藏]",
+  "commands": "[本机路径已隐藏]",
   "items": [
     {
       "id": "indoor1080",
       "title": "室内 1080 静态",
       "tag": "当前推荐静态 · 1920×1080",
-      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\index.html",
-      "image": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+      "viewer": "[本机路径已隐藏]",
+      "image": "[本机路径已隐藏]",
       "dimensions": [
         1920,
         1080
       ],
       "frames": 1,
-      "config": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\config.json",
-      "capture": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
-      "export": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\export.json",
-      "source_HDR": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_scene.raw",
-      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_indoor.py",
-      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_indoor.py' '--output-root' 'E:/rurix_quality_runs/indoor1080_repeat_NEW' '--width' '1920' '--run'",
-      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
-      "asset": "D:/Rurix/artifacts/day_1013_terminal_sampling/source_glass_roughness_candidate/BistroInterior_source_roughness_v8.gltf",
+      "config": "[本机路径已隐藏]",
+      "capture": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
+      "source_HDR": "[本机路径已隐藏]",
+      "script": "[本机路径已隐藏]",
+      "command": "& '[本机路径已隐藏]' '-B' '[本机路径已隐藏]' '--output-root' '[本机路径已隐藏]' '--width' '1920' '--run'",
+      "spv": "[本机路径已隐藏]",
+      "asset": "[本机路径已隐藏]",
       "source_files": [
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\capture_indoor.py",
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_indoor.py"
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
       ],
       "benefit": "真实材质与法线引导保留更多地板纹理、吧台板缝和部分墙顶细节。",
       "limits": "玻璃亮点、水内颗粒、灯面白区及部分细节软化仍在。",
       "gpu_s": 15.567764704,
       "wall_s": 190.64000000013039,
       "peak_MiB": 6567.0,
-      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+      "current_host": "[本机路径已隐藏]"
     },
     {
       "id": "indoor8",
       "title": "室内 8 帧可选稳定",
       "tag": "离线可选 · 640×360 · 8帧",
-      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\index.html",
-      "image": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\frame_000007\\output.png",
+      "viewer": "[本机路径已隐藏]",
+      "image": "[本机路径已隐藏]",
       "dimensions": [
         640,
         360
       ],
       "frames": 8,
-      "config": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\config.json",
-      "capture": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\output.run.json",
-      "export": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\results.json",
-      "source_HDR": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\capture\\frame_000000_scene.raw",
-      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py",
-      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py' '--output-root' 'E:/rurix_quality_runs/indoor8_repeat_NEW' '--run'",
-      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
-      "asset": "D:/Rurix/artifacts/day_1013_terminal_sampling/source_glass_roughness_candidate/BistroInterior_source_roughness_v8.gltf",
+      "config": "[本机路径已隐藏]",
+      "capture": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
+      "source_HDR": "[本机路径已隐藏]",
+      "script": "[本机路径已隐藏]",
+      "command": "& '[本机路径已隐藏]' '-B' '[本机路径已隐藏]' '--output-root' '[本机路径已隐藏]' '--run'",
+      "spv": "[本机路径已隐藏]",
+      "asset": "[本机路径已隐藏]",
       "source_files": [
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\capture_motion.py",
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_motion.py",
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\temporal_oidn\\reprojection.py"
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
       ],
       "benefit": "0.15m平移、静态物体：墙顶明暗跳变轻微减少，保留当帧无历史对照。",
       "limits": "仅可靠不透明区域最多结合前两帧；玻璃、水、发光面回退。未证明长动态或1080动态稳定。",
       "gpu_s": 11.013713664,
       "wall_s": 171.6720000000205,
       "peak_MiB": 2146.0,
-      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+      "current_host": "[本机路径已隐藏]"
     },
     {
       "id": "sunny1080",
       "title": "室外晴天 1080 静态",
       "tag": "当前查看 · 1920×1080",
-      "viewer": "E:\\rurix_quality_runs\\20261015_current_delivery\\sunny1080_current.html",
-      "image": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\oidn100.png",
+      "viewer": "[本机路径已隐藏]",
+      "image": "[本机路径已隐藏]",
       "dimensions": [
         1920,
         1080
       ],
       "frames": 1,
-      "config": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
-      "capture": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\output.run.json",
-      "export": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\export.json",
-      "source_HDR": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\frame_000000_scene.raw",
-      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_sunny.py",
-      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_sunny.py' '--output-root' 'E:/rurix_quality_runs/sunny1080_repeat_NEW' '--run'",
-      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
-      "asset": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+      "config": "[本机路径已隐藏]",
+      "capture": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
+      "source_HDR": "[本机路径已隐藏]",
+      "script": "[本机路径已隐藏]",
+      "command": "& '[本机路径已隐藏]' '-B' '[本机路径已隐藏]' '--output-root' '[本机路径已隐藏]' '--run'",
+      "spv": "[本机路径已隐藏]",
+      "asset": "[本机路径已隐藏]",
       "source_files": [
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\capture_representatives.py",
-        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\export_hdr_triplet.py"
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
       ],
       "benefit": "法线支持修正消除已检查道路的大块黑条；选用OIDN100查看，原图与50%混合保留。",
       "limits": "远处铺地凹凸感减弱；门洞与绿篱暗部、叶片软化及水内颗粒仍在。",
       "gpu_s": 41.124541632,
       "wall_s": 416.094000000041,
       "peak_MiB": 7015.0,
-      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+      "current_host": "[本机路径已隐藏]"
     },
     {
       "id": "rain1152",
       "title": "雨天 1152 静态",
       "tag": "当前天气代表帧 · 1152×648",
-      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\index.html",
-      "image": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/export/frame_000000/output.png",
+      "viewer": "[本机路径已隐藏]",
+      "image": "[本机路径已隐藏]",
       "dimensions": [
         1152,
         648
       ],
       "frames": 1,
-      "config": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/run/config.json",
-      "capture": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/run/output.run.json",
-      "export": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/export/results.json",
-      "source_HDR": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run\\capture\\frame_000000_scene.raw",
-      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
-      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py' '--output-root' 'E:/rurix_quality_runs/rain1152_repeat_NEW' '--mode' 'still' '--still-width' '1152' '--still-height' '648' '--post-oidn-history' '1' '--run'",
-      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_lighting_v1\\shaders_complete",
-      "asset": "D:/Rurix/artifacts/day_1004_quality_repair/assets/exterior/BistroExterior_rough_glass_optical_v6.gltf",
+      "config": "[本机路径已隐藏]",
+      "capture": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
+      "source_HDR": "[本机路径已隐藏]",
+      "script": "[本机路径已隐藏]",
+      "command": "& '[本机路径已隐藏]' '-B' '[本机路径已隐藏]' '--output-root' '[本机路径已隐藏]' '--mode' 'still' '--still-width' '1152' '--still-height' '648' '--post-oidn-history' '1' '--run'",
+      "spv": "[本机路径已隐藏]",
+      "asset": "[本机路径已隐藏]",
       "source_files": [
-        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/export_temporal.py",
-        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/noise_fullframe/export_fullframe.py"
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
       ],
       "benefit": "受光短雨丝与背景分离，背景使用当前帧OIDN和真实引导，雨按实际捕获信号重组。",
       "limits": "天气1080尚未完成；水内碎纹、暗部雨偏弱和细纹理软化仍在。",
       "gpu_s": 14.074238688,
       "wall_s": 219.76600000006147,
       "peak_MiB": 6158.0,
-      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+      "current_host": "[本机路径已隐藏]"
     },
     {
       "id": "rain24",
       "title": "雨天 24 帧可选稳定",
       "tag": "离线可选 · 640×360 · 24帧",
-      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\index.html",
-      "image": "E:/rurix_quality_runs/20261016_recommended_weather/motion_temporal/export/frame_000012/output.png",
+      "viewer": "[本机路径已隐藏]",
+      "image": "[本机路径已隐藏]",
       "dimensions": [
         640,
         360
       ],
       "frames": 24,
-      "config": "E:/rurix_quality_runs/20261016_recommended_weather/motion/run/config.json",
-      "capture": "E:/rurix_quality_runs/20261016_recommended_weather/motion/run/output.run.json",
-      "export": "E:/rurix_quality_runs/20261016_recommended_weather/motion_temporal/export/results.json",
-      "source_HDR": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run\\capture\\frame_000000_scene.raw",
-      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
-      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py' '--output-root' 'E:/rurix_quality_runs/rain24_repeat_NEW' '--mode' 'motion' '--motion-frames' '24' '--post-oidn-history' '3' '--run'",
-      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_lighting_v1\\shaders_complete",
-      "asset": "D:/Rurix/artifacts/day_1004_quality_repair/assets/exterior/BistroExterior_rough_glass_optical_v6.gltf",
+      "config": "[本机路径已隐藏]",
+      "capture": "[本机路径已隐藏]",
+      "export": "[本机路径已隐藏]",
+      "source_HDR": "[本机路径已隐藏]",
+      "script": "[本机路径已隐藏]",
+      "command": "& '[本机路径已隐藏]' '-B' '[本机路径已隐藏]' '--output-root' '[本机路径已隐藏]' '--mode' 'motion' '--motion-frames' '24' '--post-oidn-history' '3' '--run'",
+      "spv": "[本机路径已隐藏]",
+      "asset": "[本机路径已隐藏]",
       "source_files": [
-        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/export_temporal.py",
-        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/reprojection.py",
-        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/noise_fullframe/export_fullframe.py"
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
       ],
       "benefit": "远窗与店面变化有轻微缓和；最多结合前两帧的空间结果，非递归，保留无历史对照。",
       "limits": "24帧仅覆盖0.383秒；透明、水与雨不使用该历史。细纹理略软，未证明长动态或快速运动稳定。",
       "gpu_s": 102.6656496,
       "wall_s": 411.81300000008196,
       "peak_MiB": 3938.0,
-      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+      "current_host": "[本机路径已隐藏]"
     }
   ],
   "common_dependencies": {
-    "python": "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "python": "[本机路径已隐藏]",
     "python_packages": {
       "numpy": "2.3.5",
       "Pillow": "12.3.0"
     },
-    "OIDN": "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+    "OIDN": "[本机路径已隐藏]",
     "OIDN_version": "2.5.1 CPU",
-    "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+    "current_host": "[本机路径已隐藏]",
     "runtime": "Windows + Vulkan GPU driver for capture; existing renderer/shader sources and source-referenced assets must remain available.",
-    "renderer_source_root": "D:/Rurix/src/rurix-render",
-    "shader_source_root": "D:/Rurix/src/rurix-render/kernels",
-    "optical_tail_bundle": "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+    "renderer_source_root": "[本机路径已隐藏]",
+    "shader_source_root": "[本机路径已隐藏]",
+    "optical_tail_bundle": "[本机路径已隐藏]",
     "source_asset_roots": [
-      "E:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior",
-      "E:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior"
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]"
     ],
     "no_OpenCV_needed_for_recommended_outputs": true
   },
   "resource_optimization_17": {
-    "source": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/scratch_certificates.rs",
-    "entries_list_source": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/memory_focus/new_variant_entries.json",
+    "source": "[本机路径已隐藏]",
+    "entries_list_source": "[本机路径已隐藏]",
     "exact_17_variant_names": [
       "hq_sun_direct_light_thin_shadow_ns_cloud_sun_finite_cloud_surface",
       "hq_sun_geometry_reflection_nee_partition_thin_shadow_ns_specular_mis_canonical_air_cloud_sun_finite_cloud_surface",
@@ -247,18 +247,18 @@
       }
     ],
     "current_source_evidence": [
-      "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/finite_cloud.rs:51",
-      "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/finite_cloud.rs:65",
-      "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/mis_canonical_air.rs:132"
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]"
     ],
     "evidence": {
-      "allocation": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\memory_focus\\actual_allocation_comparison.json",
-      "HDR_comparison": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\memory_focus\\frame_equivalence_retry1.json",
-      "launcher_journal": "E:\\rurix_quality_runs\\20261016_scratch_variant_compat\\verify1152_retry1_launcher.jsonl",
-      "receipt": "E:\\rurix_quality_runs\\20261016_scratch_variant_compat\\verify1152_retry1\\output.run.json",
-      "summary": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/memory_focus/verification_result.json",
-      "readable": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/memory_focus/verification.md",
-      "actual_ledger": "E:/rurix_quality_runs/20261016_scratch_variant_compat/verify1152_retry1/capture/session_capacity_preflight.json"
+      "allocation": "[本机路径已隐藏]",
+      "HDR_comparison": "[本机路径已隐藏]",
+      "launcher_journal": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
+      "summary": "[本机路径已隐藏]",
+      "readable": "[本机路径已隐藏]",
+      "actual_ledger": "[本机路径已隐藏]"
     },
     "native1080_weather": {
       "rendered": false,

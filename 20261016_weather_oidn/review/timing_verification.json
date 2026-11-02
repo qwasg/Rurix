@@ -4,7 +4,7 @@
   "scope": "Read current source and two completed logs/receipts only. No source edits, render, build, new timestamp instrumentation or rerun.",
   "source": {
     "gpu_sum": {
-      "path": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+      "path": "[本机路径已隐藏]",
       "lines": [
         3720,
         3727
@@ -12,7 +12,7 @@
       "description": "After successful persistent owner frame, uses already-collected result.telemetry.passes.gpu_ns sum. Empty passes print status=unavailable; no fabricated zero."
     },
     "shader_prepare": {
-      "path": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+      "path": "[本机路径已隐藏]",
       "start_line": 2643,
       "end_log_lines": [
         2734,
@@ -22,7 +22,7 @@
       "scope": "CPU elapsed for this shader byte loading/inspection/identity loop. Does not include earlier scene/graph preparation or later DeviceFrameSession allocation/pipeline construction; session construction is at2954–2957. Not total startup or GPU time."
     },
     "gpu_shader_ranking": {
-      "path": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+      "path": "[本机路径已隐藏]",
       "lines": [
         3728,
         3733
@@ -30,7 +30,7 @@
       "description": "Existing top8 GPU_SHADER aggregate log also present; no additions made."
     },
     "receipt_aggregation": {
-      "path": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/history_probe/run_journal_sync_ab.py",
+      "path": "[本机路径已隐藏]",
       "lines": [
         40,
         59
@@ -50,9 +50,9 @@
   "runs": [
     {
       "label": "weather8",
-      "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
-      "output_log": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.log",
-      "receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
+      "run": "[本机路径已隐藏]",
+      "output_log": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
       "gpu_per_frame_logs": [
         {
           "line": 2,
@@ -129,9 +129,9 @@
     },
     {
       "label": "cloud_strat8",
-      "run": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8",
-      "output_log": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\output.log",
-      "receipt": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\output.run.json",
+      "run": "[本机路径已隐藏]",
+      "output_log": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
       "gpu_per_frame_logs": [
         {
           "line": 2,

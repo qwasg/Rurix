@@ -22,9 +22,9 @@ nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap}small{color:#bec9d1}
 const frames=[0, 1, 2, 3, 4, 5, 6, 7], slider=document.getElementById('frame'), image=document.getElementById('image');
 let timer=null;
 function show(){const i=+slider.value, f=frames[i], p='frame_'+String(f).padStart(6,'0')+'/';
- image.src=p+'comparison_native.png';document.getElementById('label').textContent='Frame '+f+' ('+(i+1)+'/8)';
+ image.src="/local-resource.html" '+f+' ('+(i+1)+'/8)';
  for(const [id,file] of Object.entries({current:'current.png',output:'output.png',history:'history_weight.png',
- mask:'mask.png',guide:'guide_weight.png',record:'frame.json'}))document.getElementById(id).href=p+file;}
+ mask:'mask.png',guide:'guide_weight.png',record:'frame.json'}))document.getElementById(id).href="/local-resource.html"
 function step(delta){slider.value=(+slider.value+delta+frames.length)%frames.length;show();}
 function stop(){clearInterval(timer);timer=null;document.getElementById('play').textContent='播放';}
 function start(){stop();const fps=Math.max(1,Math.min(30,+document.getElementById('fps').value||5));
@@ -34,5 +34,5 @@ document.getElementById('previous').onclick=()=>{stop();step(-1)};
 document.getElementById('next').onclick=()=>{stop();step(1)};
 slider.oninput=()=>{stop();show()};document.getElementById('fps').onchange=()=>{if(timer)start()};
 document.getElementById('fit').onchange=e=>image.style.maxWidth=e.target.checked?'100%':'none';
-for(const f of frames){const im=new Image();im.src='frame_'+String(f).padStart(6,'0')+'/comparison_native.png'}show();
+for(const f of frames){const im=new Image();im.src="/local-resource.html"+String(f).padStart(6,'0')+'/comparison_native.png'}show();
 </script></html>

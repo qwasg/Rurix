@@ -1,8 +1,8 @@
 {
   "status": "COMPLETED_CPU_OIDN_PREVIEW_NOT_QUALITY_ACCEPTANCE",
-  "source_run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
-  "source_receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
-  "source_configuration": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+  "source_run": "[本机路径已隐藏]",
+  "source_receipt": "[本机路径已隐藏]",
+  "source_configuration": "[本机路径已隐藏]",
   "dimensions": [
     640,
     360
@@ -10,7 +10,7 @@
   "frames": [
     {
       "frame_index": 0,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000000/export.json",
       "actual_presented": "frame_000000/actual_presented.png",
       "CPU_OIDN_wall_s": 0.4416201999410987,
@@ -18,7 +18,7 @@
       "variants": {
         "original": {
           "png": "frame_000000/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -92,7 +92,7 @@
     },
     {
       "frame_index": 1,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000001/export.json",
       "actual_presented": "frame_000001/actual_presented.png",
       "CPU_OIDN_wall_s": 0.44242199999280274,
@@ -100,7 +100,7 @@
       "variants": {
         "original": {
           "png": "frame_000001/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -174,7 +174,7 @@
     },
     {
       "frame_index": 2,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000002/export.json",
       "actual_presented": "frame_000002/actual_presented.png",
       "CPU_OIDN_wall_s": 0.41737120016478,
@@ -182,7 +182,7 @@
       "variants": {
         "original": {
           "png": "frame_000002/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -256,7 +256,7 @@
     },
     {
       "frame_index": 3,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000003/export.json",
       "actual_presented": "frame_000003/actual_presented.png",
       "CPU_OIDN_wall_s": 0.38184139993973076,
@@ -264,7 +264,7 @@
       "variants": {
         "original": {
           "png": "frame_000003/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -338,7 +338,7 @@
     },
     {
       "frame_index": 4,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000004/export.json",
       "actual_presented": "frame_000004/actual_presented.png",
       "CPU_OIDN_wall_s": 0.5240144000854343,
@@ -346,7 +346,7 @@
       "variants": {
         "original": {
           "png": "frame_000004/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -420,7 +420,7 @@
     },
     {
       "frame_index": 5,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000005/export.json",
       "actual_presented": "frame_000005/actual_presented.png",
       "CPU_OIDN_wall_s": 0.4884787001647055,
@@ -428,7 +428,7 @@
       "variants": {
         "original": {
           "png": "frame_000005/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -502,7 +502,7 @@
     },
     {
       "frame_index": 6,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000006/export.json",
       "actual_presented": "frame_000006/actual_presented.png",
       "CPU_OIDN_wall_s": 0.47464600019156933,
@@ -510,7 +510,7 @@
       "variants": {
         "original": {
           "png": "frame_000006/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -584,7 +584,7 @@
     },
     {
       "frame_index": 7,
-      "source_raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_scene.raw",
+      "source_raw": "[本机路径已隐藏]",
       "export": "frame_000007/export.json",
       "actual_presented": "frame_000007/actual_presented.png",
       "CPU_OIDN_wall_s": 0.44792400021106005,
@@ -592,7 +592,7 @@
       "variants": {
         "original": {
           "png": "frame_000007/original.png",
-          "raw": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_scene.raw",
+          "raw": "[本机路径已隐藏]",
           "HDR_stats": {
             "shape": [
               360,
@@ -665,7 +665,7 @@
       }
     }
   ],
-  "tool": "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+  "tool": "[本机路径已隐藏]",
   "oidn_versions": [
     "2.5.1"
   ],

@@ -1,6 +1,6 @@
 {
   "status": "EXPORTED_PREVIEW_NOT_QUALITY_ACCEPTANCE",
-  "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+  "run": "[本机路径已隐藏]",
   "dimensions": [
     640,
     360
@@ -12,8 +12,8 @@
         "original": "frame_000000/original.png",
         "presented": "frame_000000/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -23,8 +23,8 @@
         "original": "frame_000001/original.png",
         "presented": "frame_000001/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -34,8 +34,8 @@
         "original": "frame_000002/original.png",
         "presented": "frame_000002/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -45,8 +45,8 @@
         "original": "frame_000003/original.png",
         "presented": "frame_000003/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -56,8 +56,8 @@
         "original": "frame_000004/original.png",
         "presented": "frame_000004/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -67,8 +67,8 @@
         "original": "frame_000005/original.png",
         "presented": "frame_000005/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -78,8 +78,8 @@
         "original": "frame_000006/original.png",
         "presented": "frame_000006/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     },
@@ -89,8 +89,8 @@
         "original": "frame_000007/original.png",
         "presented": "frame_000007/presented.png"
       },
-      "source_scene_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_scene.raw",
-      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_presented.raw",
+      "source_scene_HDR": "[本机路径已隐藏]",
+      "source_presented_BGRA8": "[本机路径已隐藏]",
       "HDR_finite": true,
       "HDR_nonnegative": true
     }
@@ -114,17 +114,17 @@
   },
   "execution": {
     "command": [
-      "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+      "[本机路径已隐藏]",
       "--spv-dir",
-      "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+      "[本机路径已隐藏]",
       "--capture-dir",
-      "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture",
+      "[本机路径已隐藏]",
       "--profile",
       "desktop_sdr_high",
       "--contract",
-      "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+      "[本机路径已隐藏]",
       "--gltf",
-      "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+      "[本机路径已隐藏]",
       "--scene",
       "bistro-interior",
       "--width",
@@ -178,7 +178,7 @@
       "--capture-raw-profile",
       "scene_presented_v1",
       "--optical-tail-bundle",
-      "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+      "[本机路径已隐藏]",
       "--sampling-seed",
       "7312026601",
       "--capture-sequence-stages",
@@ -238,7 +238,7 @@
       "seed_note": "seed=7312026601（固定 seed 位级确定性协议 RXS-0357 L2/RXS-0400 继承）；calibration_seed=7312026602（≠seed；容差标定腿双 seed 方差底实测面，M166/G12.4 同程序纪律）",
       "exposure_note": "ev100：cornell-box=0.0 / bistro-interior=−4.0（G12.4 同值转引——灯面量级下画面可判读区间实测标定值；度量面经 ×2^(−ev100) 派生尺度链对齐消费，RXS-0392 口径继承）",
       "assisted_by": "Kimi-K3（G13.4 UE 对拍波）",
-      "showcase_note": "day_0902_rain_night 借壳展示契约：几何 = ORCA BistroExterior（CC-BY-4.0）经 FBX2glTF v0.9.7 无纹理臂 + fix_exterior_textures.py URI 回接派生（K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\）；scene_id 字面 bistro-interior 仅为共享体 parse_contract 场景闭集所留的借壳，evidence 的 scene 标签与 G10 语料文件名因此失真；m133_manifest_digest 沿冻结值（清单语义未变）；相机 / 点光 / emissive 由 derive_rain_night_contract.py 从 exterior_scene_facts.json 派生（世界坐标 = 1.6 × glTF 局部）；无日光/无天光（sun/sky = 0，车道不消费）；点光位 = 灯罩闭合盒外侧逃逸测试最优位（radius 恒 0、阴影射线无半径截断）；emissive 只可见不投光。2026-09-03。",
+      "showcase_note": "day_0902_rain_night 借壳展示契约：几何 = ORCA BistroExterior（CC-BY-4.0）经 FBX2glTF v0.9.7 无纹理臂 + fix_exterior_textures.py URI 回接派生（[本机路径已隐藏] 字面 bistro-interior 仅为共享体 parse_contract 场景闭集所留的借壳，evidence 的 scene 标签与 G10 语料文件名因此失真；m133_manifest_digest 沿冻结值（清单语义未变）；相机 / 点光 / emissive 由 derive_rain_night_contract.py 从 exterior_scene_facts.json 派生（世界坐标 = 1.6 × glTF 局部）；无日光/无天光（sun/sky = 0，车道不消费）；点光位 = 灯罩闭合盒外侧逃逸测试最优位（radius 恒 0、阴影射线无半径截断）；emissive 只可见不投光。2026-09-03。",
       "showcase_params": {
         "camera_id": "C1",
         "camera_desc": "北街街心 (22,·,−52)、人眼高 1.7 m，顺街朝 SSW 望 bistro 北转角；书店招牌左上入画，SL136/SL151 分居中线两侧",
@@ -380,7 +380,7 @@
             ]
           }
         ],
-        "gltf": "K:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior/BistroExterior.gltf",
+        "gltf": "[本机路径已隐藏]",
         "facts": "exterior_scene_facts.json",
         "emitter_suggestion_cmdline": "--emitter-pos 15.874,10.328,-41.682 --emitter-spread 25.276,1.500,22.245 --emitter-vel 0.4,-9.0,0.2 --emitter-vel-spread 0.3,0.5,0.3 --emitter-gravity -3 --emitter-life 1.659",
         "emitter_life_s": 1.659
@@ -409,7 +409,7 @@
           },
           {
             "role": "gltf",
-            "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\BistroExterior_hq_full_precision_v3_a1.gltf",
+            "path": "[本机路径已隐藏]",
             "sha256": "sha256:8af3ace89ffbdaa43f9f42017fa54fddbbfa8f4c05578dd0bfcfe99a5ee9c22b"
           },
           {
@@ -419,12 +419,12 @@
           },
           {
             "role": "repair_provenance",
-            "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\BistroExterior_hq_material_v2.material_repair.provenance.json",
+            "path": "[本机路径已隐藏]",
             "sha256": "sha256:95343c260f3c8c12a15128e1cb4a0922d4f425f93441dfb31ad2d6fcf14120eb"
           },
           {
             "role": "tangent_provenance",
-            "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\BistroExterior_hq_full_precision_v3_a1.tangents.provenance.json",
+            "path": "[本机路径已隐藏]",
             "sha256": "sha256:381f9d52975fc809e68b16e80f8e052fae9276bf82cb2e1a779ee69c2a9c78bd"
           }
         ],
@@ -750,7 +750,7 @@
         "sampler": "integer_flux_cdf_hash32_v1",
         "samples_per_pixel": 8,
         "emissive_lod": 0,
-        "source_manifest_path": "D:\\Rurix\\artifacts\\day_0921_quality\\implementation_0927\\real_configs_nee_v1\\source_lighting\\exterior_C1_cd050.lighting_manifest.json",
+        "source_manifest_path": "[本机路径已隐藏]",
         "source_manifest_sha256": "sha256:104f7731b62723fa6cbc57dd52d609d5106fc8f5e21f273a5d2dac23d1f0e101",
         "covered_proxy_ids": [],
         "covered_material_indices": []
@@ -835,7 +835,7 @@
         "secondary": "global_v1"
       },
       "render_repair_parent": {
-        "path": "D:\\Rurix\\artifacts\\day_0921_quality\\continuation_1003_p1_v1\\contracts\\rtx_exterior_cell_capacity.v1.json",
+        "path": "[本机路径已隐藏]",
         "sha256": "540cbb2b0eba0428effceba615e1cdb98d03334d4dcb0dc0882455280c50397e"
       },
       "hq_reflection_history": "stationary-opaque-reflection-v1",
@@ -846,13 +846,13 @@
         "emission_partition": "preceding_vertex_nee_secondary_reflected_only"
       },
       "quality_repair_parent": {
-        "path": "D:\\Rurix\\artifacts\\day_1003_render_repair\\contracts\\exterior_final_v9.json",
+        "path": "[本机路径已隐藏]",
         "sha256": "sha256:27b2482252e72236e50b6f86fbda902f677d4e9cfafc5ad211627e3980859c2f"
       },
       "quality_campaign": {
         "schema": "rurix.hq.quality_campaign.v1",
-        "source_gltf": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\BistroExterior_hq_full_precision_v3_a1.gltf",
-        "input_gltf": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v4.gltf",
+        "source_gltf": "[本机路径已隐藏]",
+        "input_gltf": "[本机路径已隐藏]",
         "input_sha256": "sha256:cda855f4e53a7f8456f694d4c59780e8d65bd6aee52c98786049cd88b2332067",
         "purpose": "material/transport/water/convergence/dynamic visual repair; no inherited quality verdict"
       },
@@ -973,9 +973,9 @@
         "refraction_blur": false
       },
       "v29_capacity_derivation": {
-        "parent": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\exterior_lighting_B3_reinhard_v22b.json",
+        "parent": "[本机路径已隐藏]",
         "parent_sha256": "83cc8ddefbbeadcf1908730d5d9cc4e850d4870ba68be69f5a232f7fd29a246c",
-        "operator_parent": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\water_capture_v29_20261008\\interior_water_fov53_v29.json",
+        "operator_parent": "[本机路径已隐藏]",
         "copied_policy_fields": [
           "hq_atrous",
           "hq_triangle_origin",
@@ -993,7 +993,7 @@
         "scope": "Actual exterior1920 admission with current bounded transport/capture operators. Exteriorcamera/light/sky/shore/materialasset preserved; no visual or quality acceptance."
       },
       "epoch_memory_parent": {
-        "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\water_capture_v29_20261008\\exterior_current_capacity_v29.json",
+        "path": "[本机路径已隐藏]",
         "sha256": "95e605c118037c3627c4a78f6141c7b37bbf1bc951dc82af619560a0d6d3626c",
         "change": "Only opt-in source-certified full-write epoch scratch reuse; physical inputs/shaders/quality/capture preserved"
       },
@@ -1003,7 +1003,7 @@
         "conditional_outputs": "preserve_hit_material_rmw"
       },
       "endpoint_memory_parent": {
-        "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\epoch_reuse_v30_20261008\\contracts\\exterior_epoch_native1080_v30.json",
+        "path": "[本机路径已隐藏]",
         "sha256": "c28c5dbab2f809bee8bbbbde29a8d8e45990c8b4eea3dcf144a488573f138c81",
         "change": "Explicit source-certified full-write access for out_rays only; preserve hit/material RMW, all shader arithmetic and physical inputs"
       },

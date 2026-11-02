@@ -397,8 +397,8 @@
     "No new samples, GPU renders, source changes, or quality/performance claims are made."
   ],
   "source_anchors": {
-    "generator": "D:/Rurix/ci/hq_effects_codegen.py:703, projection768-774, circle784, alpha813",
-    "actual_variant": "D:/Rurix/src/rurix-render/kernels/hq_rain_sorted_surface_camera_relative_v1.rx:118-135, alpha1263, composite1883-1887, existing previous-camera MV1890-1896"
+    "generator": "[本机路径已隐藏] projection768-774, circle784, alpha813",
+    "actual_variant": "[本机路径已隐藏] alpha1263, composite1883-1887, existing previous-camera MV1890-1896"
   },
   "writes": "C task directory only"
 }

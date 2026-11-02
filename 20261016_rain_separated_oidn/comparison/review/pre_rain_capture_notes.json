@@ -1,6 +1,6 @@
 {
   "status": "READ_ONLY_SOURCE_AND_EXISTING_MANIFEST_FINDINGS_NO_GPU",
-  "capture": "E:/rurix_quality_runs/20261016_rain_streak/weather61_streak/capture",
+  "capture": "[本机路径已隐藏]",
   "existing_data": {
     "scene_raw_frames": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60],
     "extent": [640, 360],

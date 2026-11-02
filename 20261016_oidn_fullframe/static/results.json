@@ -7,7 +7,7 @@
   "material_domains": {
     "status": "OK",
     "reason": null,
-    "asset": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+    "asset": "[本机路径已隐藏]",
     "default_material_id": 132,
     "captured_alpha_crosscheck": {
       "status": "MATCHED",
@@ -38,7 +38,7 @@
       "supported_pixels": 11520
     }
   ],
-  "run_dir": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\weather2",
+  "run_dir": "[本机路径已隐藏]",
   "results": [
     {
       "frame": 0,
@@ -89,21 +89,21 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_guided_oidn_5_23rj15\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--alb",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_guided_oidn_5_23rj15\\albedo.pfm",
+              "[本机路径已隐藏]",
               "--nrm",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_guided_oidn_5_23rj15\\normal.pfm",
+              "[本机路径已隐藏]",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_guided_oidn_5_23rj15\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -117,7 +117,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.3230498000048101,
-            "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_guided_4bc7187731e3.oidn.log"
+            "log": "[本机路径已隐藏]"
           },
           "used_pixels": 11520,
           "control_receipt": {
@@ -142,17 +142,17 @@
             },
             "source_HDR_rescaled_by_helper": false,
             "command": [
-              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "[本机路径已隐藏]",
               "--device",
               "cpu",
               "--filter",
               "RT",
               "--hdr",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_color_control_oidn_dnxo78lx\\color.pfm",
+              "[本机路径已隐藏]",
               "--input_scale",
               "256.0",
               "--output",
-              "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_color_control_oidn_dnxo78lx\\output.pfm",
+              "[本机路径已隐藏]",
               "--type",
               "float",
               "--quality",
@@ -166,7 +166,7 @@
             ],
             "exit_code": 0,
             "process_wall_s": 0.28788620000705123,
-            "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\tile_000_color_control_cb054ff7de79.oidn.log"
+            "log": "[本机路径已隐藏]"
           }
         }
       ],
@@ -196,17 +196,17 @@
         },
         "source_HDR_rescaled_by_helper": false,
         "command": [
-          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "[本机路径已隐藏]",
           "--device",
           "cpu",
           "--filter",
           "RT",
           "--hdr",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\full_color_only_oidn_vj6zov0z\\color.pfm",
+          "[本机路径已隐藏]",
           "--input_scale",
           "256.0",
           "--output",
-          "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\full_color_only_oidn_vj6zov0z\\output.pfm",
+          "[本机路径已隐藏]",
           "--type",
           "float",
           "--quality",
@@ -220,21 +220,21 @@
         ],
         "exit_code": 0,
         "process_wall_s": 0.4325553998351097,
-        "log": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\full_color_only_3921ab94ccb6.oidn.log"
+        "log": "[本机路径已隐藏]"
       },
-      "output": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\output.png",
-      "raw": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\frame_000000\\output.raw"
+      "output": "[本机路径已隐藏]",
+      "raw": "[本机路径已隐藏]"
     }
   ],
   "CPU_total_export_wall_s": 1.6966201001778245,
   "command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_fullframe\\export_fullframe.py",
+    "[本机路径已隐藏]",
     "--run-dir",
-    "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\weather2",
+    "[本机路径已隐藏]",
     "--output-dir",
-    "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static",
+    "[本机路径已隐藏]",
     "--frames",
     "0",
     "--control",

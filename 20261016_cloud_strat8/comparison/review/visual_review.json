@@ -1,7 +1,7 @@
 {
   "assessment": "NO_CLEAR_VISIBLE_QUALITY_GAIN",
   "reviewer": "road_bsdf_probe independent visual review",
-  "comparison": "E:/rurix_quality_runs/20261016_cloud_strat8/comparison",
+  "comparison": "[本机路径已隐藏]",
   "dimensions": [640, 360],
   "duration_seconds": 0.11666667275130749,
   "viewed": {
@@ -9,8 +9,8 @@
       "frames": [0, 7],
       "versions": ["baseline", "candidate"],
       "channels": ["original", "presented"],
-      "baseline_directory": "E:/rurix_quality_runs/20261015_weather_motion/weather8/preview_motion",
-      "candidate_directory": "E:/rurix_quality_runs/20261016_cloud_strat8/comparison/candidate"
+      "baseline_directory": "[本机路径已隐藏]",
+      "candidate_directory": "[本机路径已隐藏]"
     },
     "native_contact_sheets": [
       "original_water_road_8frames_native1to1.png",

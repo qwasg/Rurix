@@ -35,7 +35,7 @@
     "whole_device_peak_used_MiB": 4032,
     "timing_interpretation": "GPU timestamp sum and end-to-end run time are distinct. One pair does not establish a performance gain or real-time throughput.",
     "new_OIDN_calls": 0,
-    "comparison_report": "E:/rurix_quality_runs/20261016_rain_lighting/comparison/results.json",
+    "comparison_report": "[本机路径已隐藏]",
     "visual_review": "gpu_visual_review.json"
   },
   "limits": [

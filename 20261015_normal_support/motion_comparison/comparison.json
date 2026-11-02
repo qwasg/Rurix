@@ -17,21 +17,21 @@
   "camera": "New matched dolly0.25m, t=frame/7; previous exterior8 was static",
   "execution": {
     "off": {
-      "run": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off",
-      "receipt": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\output.run.json",
-      "config": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\config.json",
+      "run": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
+      "config": "[本机路径已隐藏]",
       "command": [
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "[本机路径已隐藏]",
         "--spv-dir",
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "[本机路径已隐藏]",
         "--capture-dir",
-        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture",
+        "[本机路径已隐藏]",
         "--profile",
         "desktop_sdr_high",
         "--contract",
-        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\config.json",
+        "[本机路径已隐藏]",
         "--gltf",
-        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "[本机路径已隐藏]",
         "--scene",
         "bistro-interior",
         "--width",
@@ -85,7 +85,7 @@
         "--capture-raw-profile",
         "scene_presented_v1",
         "--optical-tail-bundle",
-        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "[本机路径已隐藏]",
         "--sampling-seed",
         "7312026601",
         "--capture-sequence-stages",
@@ -140,21 +140,21 @@
       "shader_prepare_total_ms": 1554.866
     },
     "on": {
-      "run": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on",
-      "receipt": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\output.run.json",
-      "config": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+      "run": "[本机路径已隐藏]",
+      "receipt": "[本机路径已隐藏]",
+      "config": "[本机路径已隐藏]",
       "command": [
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "[本机路径已隐藏]",
         "--spv-dir",
-        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "[本机路径已隐藏]",
         "--capture-dir",
-        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture",
+        "[本机路径已隐藏]",
         "--profile",
         "desktop_sdr_high",
         "--contract",
-        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+        "[本机路径已隐藏]",
         "--gltf",
-        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "[本机路径已隐藏]",
         "--scene",
         "bistro-interior",
         "--width",
@@ -208,7 +208,7 @@
         "--capture-raw-profile",
         "scene_presented_v1",
         "--optical-tail-bundle",
-        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "[本机路径已隐藏]",
         "--sampling-seed",
         "7312026601",
         "--capture-sequence-stages",
@@ -264,8 +264,8 @@
     }
   },
   "preview_directories": {
-    "off": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion",
-    "on": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion"
+    "off": "[本机路径已隐藏]",
+    "on": "[本机路径已隐藏]"
   },
   "display": "scene HDR -> fixed EV8 (256 once), wide_c1_rgb_v1 -> sRGB8; no per-frame normalization or presented/TSR replay",
   "actual_presented": "Captured GPU final BGRA8 sRGB, lossless channel reorder; separate from the three scene HDR modes",
@@ -282,7 +282,7 @@
     {
       "frame_index": 0,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000000_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000000/export.json",
         "CPU_OIDN_wall_s": 0.48742750007659197,
         "oidn_version": "2.5.1",
@@ -307,7 +307,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000000_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000000/export.json",
         "CPU_OIDN_wall_s": 0.4269351998809725,
         "oidn_version": "2.5.1",
@@ -335,7 +335,7 @@
     {
       "frame_index": 1,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000001_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000001/export.json",
         "CPU_OIDN_wall_s": 0.46960069984197617,
         "oidn_version": "2.5.1",
@@ -360,7 +360,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000001_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000001/export.json",
         "CPU_OIDN_wall_s": 0.4864464998245239,
         "oidn_version": "2.5.1",
@@ -388,7 +388,7 @@
     {
       "frame_index": 2,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000002_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000002/export.json",
         "CPU_OIDN_wall_s": 0.45886170002631843,
         "oidn_version": "2.5.1",
@@ -413,7 +413,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000002_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000002/export.json",
         "CPU_OIDN_wall_s": 0.4671479999087751,
         "oidn_version": "2.5.1",
@@ -441,7 +441,7 @@
     {
       "frame_index": 3,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000003_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000003/export.json",
         "CPU_OIDN_wall_s": 0.5347802999895066,
         "oidn_version": "2.5.1",
@@ -466,7 +466,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000003_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000003/export.json",
         "CPU_OIDN_wall_s": 0.47400759998708963,
         "oidn_version": "2.5.1",
@@ -494,7 +494,7 @@
     {
       "frame_index": 4,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000004_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000004/export.json",
         "CPU_OIDN_wall_s": 0.49308219994418323,
         "oidn_version": "2.5.1",
@@ -519,7 +519,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000004_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000004/export.json",
         "CPU_OIDN_wall_s": 0.4748517000116408,
         "oidn_version": "2.5.1",
@@ -547,7 +547,7 @@
     {
       "frame_index": 5,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000005_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000005/export.json",
         "CPU_OIDN_wall_s": 0.5260845001321286,
         "oidn_version": "2.5.1",
@@ -572,7 +572,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000005_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000005/export.json",
         "CPU_OIDN_wall_s": 0.4796657001134008,
         "oidn_version": "2.5.1",
@@ -600,7 +600,7 @@
     {
       "frame_index": 6,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000006_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000006/export.json",
         "CPU_OIDN_wall_s": 0.46643530018627644,
         "oidn_version": "2.5.1",
@@ -625,7 +625,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000006_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000006/export.json",
         "CPU_OIDN_wall_s": 0.48548510018736124,
         "oidn_version": "2.5.1",
@@ -653,7 +653,7 @@
     {
       "frame_index": 7,
       "off": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000007_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_off/preview_motion/frame_000007/export.json",
         "CPU_OIDN_wall_s": 0.4658620001282543,
         "oidn_version": "2.5.1",
@@ -678,7 +678,7 @@
         }
       },
       "on": {
-        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000007_scene.raw",
+        "source_hdr": "[本机路径已隐藏]",
         "export": "../motion8_on/preview_motion/frame_000007/export.json",
         "CPU_OIDN_wall_s": 0.5045234998688102,
         "oidn_version": "2.5.1",

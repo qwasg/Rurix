@@ -10,7 +10,7 @@
     "OIDN_response": "With identical CPU RT HDR HIGH settings and inputScale256, current-frame input denoises substantially cleaner than history-mixed input. A neutral-opaque-only offline replacement preserves actual sky/water/rain and reproduces the improvement. The subsequent real GPU cap1 run confirms it. This identifies a harmful interaction in the current history-before-OIDN pipeline, not a universal claim about all temporal filters or OIDN."
   },
   "minimal_change": {
-    "file": "E:/rurix_quality_runs/20261016_oidn_current_source/motion4/config.json",
+    "file": "[本机路径已隐藏]",
     "key": "provenance.hq_temporal_lighting.cloud_max_history",
     "before": 3,
     "after": 1,
@@ -28,8 +28,8 @@
     "all_four_current_HDR_geometry_material_and_both_rain_coverage_buffers_match_baseline_bitwise": true,
     "frame0_final_PNG_matches_baseline_bitwise": true,
     "max_current_vs_opaque_RGB_difference": 3.725290298461914e-09,
-    "comparison": "E:/rurix_quality_runs/20261016_oidn_current_source/comparison/index.html",
-    "verification": "E:/rurix_quality_runs/20261016_oidn_current_source/comparison/verification.json"
+    "comparison": "[本机路径已隐藏]",
+    "verification": "[本机路径已隐藏]"
   },
   "measured_local": {
     "GPU_pass_sum_s": 17.505431072,

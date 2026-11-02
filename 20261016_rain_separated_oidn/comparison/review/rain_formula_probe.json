@@ -1,10 +1,10 @@
 {
   "scope": "read_only_source_probe",
   "sources": [
-    "D:\\Rurix\\ci\\hq_effects_codegen.py",
-    "D:\\Rurix\\src\\rurix-render\\kernels\\hq_rain_sorted_surface_camera_relative_v1.rx",
-    "D:\\Rurix\\src\\rurix-render\\src\\bin\\hq_quality_lane\\effects_lane.rs",
-    "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\config.json"
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]",
+    "[本机路径已隐藏]"
   ],
   "findings": [
     "Generated shader reads surface_rgb as C_old (shader:81-83), sorts visible rain by descending depth (shader:131-135), and uses alpha=particle_alpha*soft_depth*visibility*shutter_footprint (shader:1303-1306; generator:868-869).",

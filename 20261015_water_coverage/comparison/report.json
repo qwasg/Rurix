@@ -1,7 +1,7 @@
 {
-  "baseline": "E:\\rurix_quality_runs\\20261015_oidn_offline\\motion8_v8\\capture",
-  "candidate": "E:\\rurix_quality_runs\\20261015_water_coverage\\motion8_v3\\capture",
-  "static_candidate": "E:\\rurix_quality_runs\\20261015_water_coverage\\static1_v3\\capture",
+  "baseline": "[本机路径已隐藏]",
+  "candidate": "[本机路径已隐藏]",
+  "static_candidate": "[本机路径已隐藏]",
   "water_ROI_xyxy": [
     75,
     290,
@@ -10,12 +10,12 @@
   ],
   "display": "Direct scene-linear HDR -> existing wide-C1 tone32 (exposure1024 once) -> sRGB8; no OIDN, input clamp, or TSR/history replay.",
   "outside_ROI_scope": "Outside the supplied rectangle is only a spatial region, not a physical dry-ground or non-water mask. Changes there are reported without assigning optical-path cause.",
-  "static_baseline": "E:\\rurix_quality_runs\\20261015_water_coverage\\static1_baseline_r4\\capture",
+  "static_baseline": "[本机路径已隐藏]",
   "static_comparison_scope": "Actual old static f0 versus actual candidate static f0. Motion f0 is retained separately as a starting-pose observation and is not the static A/B baseline.",
   "timing_scope": "GPU values sum instrumented pass timestamps. Shader prepare is the logged shader setup interval, not all initialization. Wall time is reported separately.",
   "execution": {
     "baseline_motion8": {
-      "run": "E:\\rurix_quality_runs\\20261015_oidn_offline\\motion8_v8",
+      "run": "[本机路径已隐藏]",
       "exit_code": 0,
       "lane_status": "PASS",
       "wall_s": 264.3430000001099,
@@ -66,7 +66,7 @@
       "shader_prepare_total_ms": 1844.361
     },
     "candidate_motion8": {
-      "run": "E:\\rurix_quality_runs\\20261015_water_coverage\\motion8_v3",
+      "run": "[本机路径已隐藏]",
       "exit_code": 0,
       "lane_status": "PASS",
       "wall_s": 262.0,
@@ -117,7 +117,7 @@
       "shader_prepare_total_ms": 1711.633
     },
     "baseline_static1": {
-      "run": "E:\\rurix_quality_runs\\20261015_water_coverage\\static1_baseline_r4",
+      "run": "[本机路径已隐藏]",
       "exit_code": 0,
       "lane_status": "PASS",
       "wall_s": 258.1569999998901,
@@ -140,7 +140,7 @@
       "shader_prepare_total_ms": 1734.673
     },
     "candidate_static1": {
-      "run": "E:\\rurix_quality_runs\\20261015_water_coverage\\static1_v3",
+      "run": "[本机路径已隐藏]",
       "exit_code": 0,
       "lane_status": "PASS",
       "wall_s": 229.875,
