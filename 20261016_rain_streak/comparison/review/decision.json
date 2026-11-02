@@ -20,7 +20,7 @@
     "matched8_candidate_shader_prepare_ms": 1801.324,
     "continuous61_gpu_pass_sum_s": 362.762014624,
     "continuous61_wall_s": 1008.7660000000615,
-    "continuous61_shader_prepare_ms": 1845.680,
+    "continuous61_shader_prepare_ms": 1845.68,
     "continuous61_completed_and_timed_frames": 61,
     "whole_device_peak_used_mib": 3904,
     "timing_note": "GPU数字为各pass时间戳合计，墙钟包含CPU及准备等待。8帧单次A/B约0.04秒差异不作性能优劣结论；页面10fps仅检查点回放速度。"

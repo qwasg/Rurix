@@ -6,14 +6,40 @@
   "lamp_observation": "所选窄灯具ROI八帧未见明显ON特有的轮廓外亮晕；这不证明室内灯具白区层次或全部灯具问题已修复。",
   "offline_filter_observation": "OIDN100在OFF和ON均产生更大黄绿叶团，帧1/5等细叶被抹掉，团块形态逐帧变化；路面石缝和水面碎细节也被压低。mix50在线性HDR混合，保留更多细节和残余颗粒。原始scene显示、CPU去噪和GPU实际presented分别提供，未做跨帧离线滤波。",
   "matched_evidence": {
-    "dimensions": [640, 360],
+    "dimensions": [
+      640,
+      360
+    ],
     "frames_per_side": 8,
     "actual_camera_light_packets_equal_all8": true,
     "camera_displacement_m": 0.2500027418682003,
     "all16_scene_HDR_finite_nonnegative": true,
-    "road_ROI_xywh": [230, 204, 250, 120],
-    "exact_zero_RGB_OFF": [2314, 2094, 2187, 2109, 2016, 2022, 2032, 1967],
-    "exact_zero_RGB_ON": [190, 177, 163, 163, 158, 168, 184, 163],
+    "road_ROI_xywh": [
+      230,
+      204,
+      250,
+      120
+    ],
+    "exact_zero_RGB_OFF": [
+      2314,
+      2094,
+      2187,
+      2109,
+      2016,
+      2022,
+      2032,
+      1967
+    ],
+    "exact_zero_RGB_ON": [
+      190,
+      177,
+      163,
+      163,
+      158,
+      168,
+      184,
+      163
+    ],
     "black_count_note": "含真实暗缝等像素，仅作描述，不以黑像素数量替代视觉判断。",
     "GPU_pass_sum_s_OFF": 34.920476192,
     "GPU_pass_sum_s_ON": 35.280143552,

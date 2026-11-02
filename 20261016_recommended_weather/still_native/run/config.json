@@ -347,19 +347,19 @@
     }
   ],
   "provenance": {
-    "frozen_by": "ci/g13_ue_upscale_parity_smoke.py\uff08g13.p0.m_c.ue_upscale_parity\uff0cG13.4 \u6ce2\uff1bspec RXS-0405 L1 \u5b57\u6bb5\u95ed\u96c6\uff09",
+    "frozen_by": "ci/g13_ue_upscale_parity_smoke.py（g13.p0.m_c.ue_upscale_parity，G13.4 波；spec RXS-0405 L1 字段闭集）",
     "frozen_at": "2026-08-19",
-    "scene_source": "M133 \u6e05\u5355\u53cc\u573a\u666f\u95ed\u96c6\uff08milestones/g10/g10_corpus_scene_manifest.json revision 2\uff0cdigest sha256:d96b4d2f\u2026 \u8f6c\u5f15\u53ea\u8bfb\uff09\uff1bgltf_product_digest \u4e0e G12.4 \u5951\u7ea6\u540c\u6e90\u8f6c\u5f15\uff08cornell_box.gltf generated / BistroInterior.gltf CC-BY-4.0 \u6d3e\u751f\u9762\uff0cG12.4 provenance \u53e3\u5f84\u7ee7\u627f\uff09",
-    "camera_source": "\u9010\u573a\u666f\u76f8\u673a\u4f4d\u59ff\u503c\u6cbf\u7528 G10.5 \u53d6\u666f\u6821\u51c6\u767b\u8bb0\u503c\uff08milestones/g10/corpus/camera_*.json\uff1bG10.5/G11.5b/G12.4 \u9501\u5b9a\u5951\u7ea6\u9762 0-byte \u4e0d\u6d88\u8d39\u4e0d\u627f\u63a5\u2014\u2014\u672c\u5951\u7ea6\u72ec\u7acb\u51bb\u7ed3\uff09\uff1b\u5206\u8fa8\u7387 = G10.5 \u51fa\u56fe\u753b\u5e45\uff08cornell-box 512\u00d7512 / bistro-interior 1920\u00d71080 \u8f93\u51fa\u5206\u8fa8\u7387\uff1b\u5185\u90e8\u5206\u8fa8\u7387 = \u8f93\u51fa \u00d7 tier%\uff1acornell 256\u00d7256/343\u00d7343/512\u00d7512\uff0cbistro 960\u00d7540/1286\u00d7723/1920\u00d71080\u2014\u2014\u53cc\u81c2\u540c\u53d6 floor(tier%\u00d7\u8f93\u51fa) \u540c\u4e00\u53d6\u6574\u53e3\u5f84\uff1bUE DLSS \u81c2\u5b9e\u9645\u5185\u90e8\u5206\u8fa8\u7387\u4ee5\u63d2\u4ef6 NGX \u7a97\u53e3\u4e3a\u51c6\uff08\u5b9e\u6d4b tier67 bistro = 1281\u00d7721\uff0cScaleX=0.667969\uff0c\u540d\u4e49\u6863\u5bf9\u62cd\u53e3\u5f84\u89c1 tier_note\uff09\uff09",
-    "tier_note": "tier_sequence=[50,67,100]\uff08\u6e32\u67d3\u6bd4\u4f8b %\uff09\u2194 UE DLSS \u8d28\u91cf\u679a\u4e3e\u6620\u5c04 50\u2192Performance / 67\u2192Quality / 100\u2192DLAA\uff08DLSS \u63d2\u4ef6\u8d28\u91cf\u6863\u5185\u90e8\u6e32\u67d3\u6bd4\u4f8b\u540d\u4e49\u503c\u9762\u5bf9\u9f50\uff1bue_dlss_quality_map = \u5951\u7ea6\u95ed\u96c6\uff0cDLSS \u5b9e\u9645\u5185\u90e8\u6bd4\u4f8b\u4ee5\u63d2\u4ef6\u5b9e\u73b0\u4e3a\u51c6\u2014\u2014\u540d\u4e49\u6863\u5bf9\u62cd\u4e0d\u8ffd\u6c42\u6bd4\u4f8b\u5b57\u9762\u76f8\u7b49\uff0c\u5bf9\u62cd\u951a = \u540c\u8f93\u51fa\u5206\u8fa8\u7387\u540c\u6863\u4f4d\u540d\u4e49\u9762\uff09\uff1bRurix \u81c2 tier% \u5185\u90e8\u5206\u8fa8\u7387 Halton jitter 32 \u5e27\u9759\u6001\u6536\u655b\u5e8f\u5217\uff08RXS-0405 L3\uff09",
-    "lighting_note": "\u706f\u9762\u540c G12.4 \u5951\u7ea6\u9010\u5b57\u8f6c\u5f15\uff08cornell \u5929\u82b1 quad \u9762\u5149 Le=[10,9.5,8.5]\uff1bbistro 4 \u70b9\u5149 + 4 emissive \u6750\u8d28\u9762\u5149\uff09\uff1bsun/sky = 0.0 \u663e\u5f0f\u767b\u8bb0\uff08\u5ba4\u5185\u53cc\u573a\u666f\u65e0\u65b9\u5411\u5149/\u5929\u5149\u94fe\u63a5\u53e3\u9762\uff09\uff1bdeferred \u81c2\u706f\u9762\u7269\u7406\u5355\u8ba1\u6570\u7eaa\u5f8b\u504f\u5dee = G12.4 lighting_note \u540c\u578b\u767b\u8bb0\uff08\u53cc\u901a\u9053\u6709\u610f\u540c\u6784\u4e0d\u5192\u5145\u7269\u7406\u7cbe\u786e\uff0c\u6b63\u786e\u6027\u951a = M96 \u51bb\u7ed3\u9762\uff09",
-    "seed_note": "seed=7312026601\uff08\u56fa\u5b9a seed \u4f4d\u7ea7\u786e\u5b9a\u6027\u534f\u8bae RXS-0357 L2/RXS-0400 \u7ee7\u627f\uff09\uff1bcalibration_seed=7312026602\uff08\u2260seed\uff1b\u5bb9\u5dee\u6807\u5b9a\u817f\u53cc seed \u65b9\u5dee\u5e95\u5b9e\u6d4b\u9762\uff0cM166/G12.4 \u540c\u7a0b\u5e8f\u7eaa\u5f8b\uff09",
-    "exposure_note": "ev100\uff1acornell-box=0.0 / bistro-interior=\u22124.0\uff08G12.4 \u540c\u503c\u8f6c\u5f15\u2014\u2014\u706f\u9762\u91cf\u7ea7\u4e0b\u753b\u9762\u53ef\u5224\u8bfb\u533a\u95f4\u5b9e\u6d4b\u6807\u5b9a\u503c\uff1b\u5ea6\u91cf\u9762\u7ecf \u00d72^(\u2212ev100) \u6d3e\u751f\u5c3a\u5ea6\u94fe\u5bf9\u9f50\u6d88\u8d39\uff0cRXS-0392 \u53e3\u5f84\u7ee7\u627f\uff09",
-    "assisted_by": "Kimi-K3\uff08G13.4 UE \u5bf9\u62cd\u6ce2\uff09",
-    "showcase_note": "day_0902_rain_night \u501f\u58f3\u5c55\u793a\u5951\u7ea6\uff1a\u51e0\u4f55 = ORCA BistroExterior\uff08CC-BY-4.0\uff09\u7ecf FBX2glTF v0.9.7 \u65e0\u7eb9\u7406\u81c2 + fix_exterior_textures.py URI \u56de\u63a5\u6d3e\u751f\uff08K:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroExterior\\\uff09\uff1bscene_id \u5b57\u9762 bistro-interior \u4ec5\u4e3a\u5171\u4eab\u4f53 parse_contract \u573a\u666f\u95ed\u96c6\u6240\u7559\u7684\u501f\u58f3\uff0cevidence \u7684 scene \u6807\u7b7e\u4e0e G10 \u8bed\u6599\u6587\u4ef6\u540d\u56e0\u6b64\u5931\u771f\uff1bm133_manifest_digest \u6cbf\u51bb\u7ed3\u503c\uff08\u6e05\u5355\u8bed\u4e49\u672a\u53d8\uff09\uff1b\u76f8\u673a / \u70b9\u5149 / emissive \u7531 derive_rain_night_contract.py \u4ece exterior_scene_facts.json \u6d3e\u751f\uff08\u4e16\u754c\u5750\u6807 = 1.6 \u00d7 glTF \u5c40\u90e8\uff09\uff1b\u65e0\u65e5\u5149/\u65e0\u5929\u5149\uff08sun/sky = 0\uff0c\u8f66\u9053\u4e0d\u6d88\u8d39\uff09\uff1b\u70b9\u5149\u4f4d = \u706f\u7f69\u95ed\u5408\u76d2\u5916\u4fa7\u9003\u9038\u6d4b\u8bd5\u6700\u4f18\u4f4d\uff08radius \u6052 0\u3001\u9634\u5f71\u5c04\u7ebf\u65e0\u534a\u5f84\u622a\u65ad\uff09\uff1bemissive \u53ea\u53ef\u89c1\u4e0d\u6295\u5149\u30022026-09-03\u3002",
+    "scene_source": "M133 清单双场景闭集（milestones/g10/g10_corpus_scene_manifest.json revision 2，digest sha256:d96b4d2f… 转引只读）；gltf_product_digest 与 G12.4 契约同源转引（cornell_box.gltf generated / BistroInterior.gltf CC-BY-4.0 派生面，G12.4 provenance 口径继承）",
+    "camera_source": "逐场景相机位姿值沿用 G10.5 取景校准登记值（milestones/g10/corpus/camera_*.json；G10.5/G11.5b/G12.4 锁定契约面 0-byte 不消费不承接——本契约独立冻结）；分辨率 = G10.5 出图画幅（cornell-box 512×512 / bistro-interior 1920×1080 输出分辨率；内部分辨率 = 输出 × tier%：cornell 256×256/343×343/512×512，bistro 960×540/1286×723/1920×1080——双臂同取 floor(tier%×输出) 同一取整口径；UE DLSS 臂实际内部分辨率以插件 NGX 窗口为准（实测 tier67 bistro = 1281×721，ScaleX=0.667969，名义档对拍口径见 tier_note））",
+    "tier_note": "tier_sequence=[50,67,100]（渲染比例 %）↔ UE DLSS 质量枚举映射 50→Performance / 67→Quality / 100→DLAA（DLSS 插件质量档内部渲染比例名义值面对齐；ue_dlss_quality_map = 契约闭集，DLSS 实际内部比例以插件实现为准——名义档对拍不追求比例字面相等，对拍锚 = 同输出分辨率同档位名义面）；Rurix 臂 tier% 内部分辨率 Halton jitter 32 帧静态收敛序列（RXS-0405 L3）",
+    "lighting_note": "灯面同 G12.4 契约逐字转引（cornell 天花 quad 面光 Le=[10,9.5,8.5]；bistro 4 点光 + 4 emissive 材质面光）；sun/sky = 0.0 显式登记（室内双场景无方向光/天光链接口面）；deferred 臂灯面物理单计数纪律偏差 = G12.4 lighting_note 同型登记（双通道有意同构不冒充物理精确，正确性锚 = M96 冻结面）",
+    "seed_note": "seed=7312026601（固定 seed 位级确定性协议 RXS-0357 L2/RXS-0400 继承）；calibration_seed=7312026602（≠seed；容差标定腿双 seed 方差底实测面，M166/G12.4 同程序纪律）",
+    "exposure_note": "ev100：cornell-box=0.0 / bistro-interior=−4.0（G12.4 同值转引——灯面量级下画面可判读区间实测标定值；度量面经 ×2^(−ev100) 派生尺度链对齐消费，RXS-0392 口径继承）",
+    "assisted_by": "Kimi-K3（G13.4 UE 对拍波）",
+    "showcase_note": "day_0902_rain_night 借壳展示契约：几何 = ORCA BistroExterior（CC-BY-4.0）经 FBX2glTF v0.9.7 无纹理臂 + fix_exterior_textures.py URI 回接派生（[本机路径已隐藏] 字面 bistro-interior 仅为共享体 parse_contract 场景闭集所留的借壳，evidence 的 scene 标签与 G10 语料文件名因此失真；m133_manifest_digest 沿冻结值（清单语义未变）；相机 / 点光 / emissive 由 derive_rain_night_contract.py 从 exterior_scene_facts.json 派生（世界坐标 = 1.6 × glTF 局部）；无日光/无天光（sun/sky = 0，车道不消费）；点光位 = 灯罩闭合盒外侧逃逸测试最优位（radius 恒 0、阴影射线无半径截断）；emissive 只可见不投光。2026-09-03。",
     "showcase_params": {
       "camera_id": "C1",
-      "camera_desc": "\u5317\u8857\u8857\u5fc3 (22,\u00b7,\u221252)\u3001\u4eba\u773c\u9ad8 1.7 m\uff0c\u987a\u8857\u671d SSW \u671b bistro \u5317\u8f6c\u89d2\uff1b\u4e66\u5e97\u62db\u724c\u5de6\u4e0a\u5165\u753b\uff0cSL136/SL151 \u5206\u5c45\u4e2d\u7ebf\u4e24\u4fa7",
+      "camera_desc": "北街街心 (22,·,−52)、人眼高 1.7 m，顺街朝 SSW 望 bistro 北转角；书店招牌左上入画，SL136/SL151 分居中线两侧",
       "eye": [
         22.0,
         2.028,
@@ -387,18 +387,18 @@
         0.42
       ],
       "le_scale": 1.0,
-      "emissive_le_rule": "Le = display \u76ee\u6807\u4eae\u5ea6 \u00d7 2^ev100 \u00d7 le_scale\uff1b\u8272\u5411 = emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff08\u5e97\u62db\u8f7b\u5ea6\u53bb\u9971\u548c\uff09",
+      "emissive_le_rule": "Le = display 目标亮度 × 2^ev100 × le_scale；色向 = emissive DDS 线性均值方向（店招轻度去饱和）",
       "emissive_notes": [
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 4.0 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 2.0 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 0.5 \u00d7 2^(-7) \u00d7 le_scale 1",
-        "emissive DDS \u7ebf\u6027\u5747\u503c\u65b9\u5411\uff1b\u76ee\u6807 display \u7ebf\u6027 0.5 \u00d7 2^(-7) \u00d7 le_scale 1"
+        "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 2.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 4.0 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 2.0 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 0.5 × 2^(-7) × le_scale 1",
+        "emissive DDS 线性均值方向；目标 display 线性 0.5 × 2^(-7) × le_scale 1"
       ],
       "point_light_sources": [
         {

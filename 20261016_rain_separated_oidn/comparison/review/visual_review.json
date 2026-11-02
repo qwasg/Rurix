@@ -22,7 +22,10 @@
   },
   "decision": "拆层对保留雨形状比整图OIDN更合适，但目前仅支持这一局部结论。背景细节损失、f1明显残余颗粒以及雨丝偏白不自然仍阻止最终画质接受。",
   "context": {
-    "dimensions": [640, 360],
+    "dimensions": [
+      640,
+      360
+    ],
     "same_capture_three_columns": true,
     "display": "Same EV8, wide-C1/sRGB, no normalization",
     "processing": "Offline CPU OIDN color-only, rain recomposed after background denoising",

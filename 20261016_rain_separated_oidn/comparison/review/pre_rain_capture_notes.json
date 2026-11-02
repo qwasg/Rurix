@@ -2,8 +2,23 @@
   "status": "READ_ONLY_SOURCE_AND_EXISTING_MANIFEST_FINDINGS_NO_GPU",
   "capture": "[本机路径已隐藏]",
   "existing_data": {
-    "scene_raw_frames": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60],
-    "extent": [640, 360],
+    "scene_raw_frames": [
+      0,
+      6,
+      12,
+      18,
+      24,
+      30,
+      36,
+      42,
+      48,
+      54,
+      60
+    ],
+    "extent": [
+      640,
+      360
+    ],
     "scene": "f32 RGB linear HDR, after water/cloud effects and sorted rain, before TSR/exposure",
     "pre_rain_or_rain_coverage_raw_present": false,
     "can_recover_exact_pre_rain_from_existing_scene_only": false,
@@ -15,16 +30,43 @@
       "logical_resource": 1027,
       "stable_resource_id": 1028,
       "bytes": 2764800,
-      "producer": [5102, "hq_effects_composite"],
-      "last_logical_use": [5111, "hq_rain_sorted_surface_camera_relative_v1", "binding 6"],
+      "producer": [
+        5102,
+        "hq_effects_composite"
+      ],
+      "last_logical_use": [
+        5111,
+        "hq_rain_sorted_surface_camera_relative_v1",
+        "binding 6"
+      ],
       "physical_resource": 259,
       "physical_producer": 8091,
       "physical_last_rain_use": 8103,
-      "physical_overwrite": [8109, "hq_bloom"],
+      "physical_overwrite": [
+        8109,
+        "hq_bloom"
+      ],
       "semantics": "Actual water/cloud-composited background, including rain-weather lighting; excludes particle compositing. Do not substitute effects_opaque_scene, which precedes water and camera-air/cloud compositing."
     },
-    "post_rain": {"resource": 1054, "rain_binding": 16, "bytes": 2764800, "stage": "scene"},
-    "coverage_history": {"resources": [1052, 1053], "bytes_each": 921600, "stages": ["rain_history0", "rain_history1"], "rain_previous_binding": 15, "rain_current_output_binding": 19}
+    "post_rain": {
+      "resource": 1054,
+      "rain_binding": 16,
+      "bytes": 2764800,
+      "stage": "scene"
+    },
+    "coverage_history": {
+      "resources": [
+        1052,
+        1053
+      ],
+      "bytes_each": 921600,
+      "stages": [
+        "rain_history0",
+        "rain_history1"
+      ],
+      "rain_previous_binding": 15,
+      "rain_current_output_binding": 19
+    }
   },
   "composition": {
     "source": "src/rurix-render/kernels/hq_rain_sorted_surface_camera_relative_v1.rx:1306,1922-1929,1960",

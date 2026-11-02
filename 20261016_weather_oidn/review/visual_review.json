@@ -29,7 +29,11 @@
   "judgment": "OIDN100带来强烈可见的颗粒减少，但细节及点状天气观感损失过大，不宜作为最终画质修复已完成的证据。mix50是这三列中更可用的预览折中，改善可见但有限，仍需保留原始对照。",
   "processing_context_from_results": {
     "OIDN": "2.5.1 RT HDR, CPU, color-only, high",
-    "guides_missing": ["albedo", "normal", "optical-hit features"],
+    "guides_missing": [
+      "albedo",
+      "normal",
+      "optical-hit features"
+    ],
     "mix50": "0.5 original + 0.5 OIDN in linear HDR",
     "display": "EV8 applied once, wide-C1 then sRGB8",
     "new_GPU_frames": 0,

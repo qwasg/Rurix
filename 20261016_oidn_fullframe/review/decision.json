@@ -1,6 +1,9 @@
 {
   "summary": "自动全图离线导出已完成；静态保留为有限候选。真实材质与96像素上下文限制下，每帧仅5%像素使用引导，其余回退。四帧当帧颜色诊断已完成，但右侧回退区域仍有明显颗粒变化，动态仅保留试验记录。",
-  "available": {"static": true, "dynamic": false},
+  "available": {
+    "static": true,
+    "dynamic": false
+  },
   "quality_status": "quality_not_final",
   "views": {
     "static": {

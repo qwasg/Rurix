@@ -2,7 +2,10 @@
   "assessment": "LOCAL_SHORT_STREAK_SHAPE_VISIBLE_ON_TARGETED_INSPECTION_NOT_CLEAR_FULL_FRAME_GAIN",
   "reviewer": "road_bsdf_probe independent visual review",
   "comparison_directory": "[本机路径已隐藏]",
-  "dimensions": [640, 360],
+  "dimensions": [
+    640,
+    360
+  ],
   "duration_seconds": 0.11666667275130749,
   "viewed_native": [
     "original_rain_f0_f7_native1to1.png",

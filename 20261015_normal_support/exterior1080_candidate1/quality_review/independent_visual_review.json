@@ -14,13 +14,21 @@
     "unchanged_or_unresolved": "The puddle around x790..1030,y770..835 retains its patchy reflection. Frontmost cobble geometry, curb steps and post silhouettes remain distinguishable; the targeted fix does not establish water or overall noise quality."
   },
   "largest_change": {
-    "pixel": [786, 286],
+    "pixel": [
+      786,
+      286
+    ],
     "location": "A dark interruption at the edge of the left wall-mounted lantern, immediately beside its bright shade.",
     "visual_read": "The new value joins the neighboring bright lamp edge rather than appearing as a detached isolated spark. The 64x64 comparison does not show a new extended halo or a new unrelated bright object.",
     "limit": "A coherent location and finite HDR value support plausible restored visible lighting; they do not by themselves prove the exact radiance is physically correct."
   },
   "foliage": {
-    "region": [1260, 408, 8, 17],
+    "region": [
+      1260,
+      408,
+      8,
+      17
+    ],
     "visual_read": "New yellow-green bright fragments lie along the upper-right foliage contour and connect to existing leaf clusters. No obvious pixels outside the silhouette become a light halo in the reviewed crop.",
     "tradeoff": "The density of bright leaf fragments visibly increases and the tree looks more sparkling. This is broader than the road repair and should remain an explicit collateral change.",
     "limit": "Single-frame appearance cannot distinguish all physically restored leaf lighting from excessive normal adaptation or demonstrate temporal stability. It is not enough to label all new bright values either fireflies or correct highlights."

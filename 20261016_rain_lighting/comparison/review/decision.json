@@ -22,13 +22,25 @@
     "incremental_host_build_passed": true,
     "full_CI_run": false,
     "new_GPU_candidates": 1,
-    "actual_GPU_frames": [0, 1],
-    "dimensions": [640, 360],
+    "actual_GPU_frames": [
+      0,
+      1
+    ],
+    "dimensions": [
+      640,
+      360
+    ],
     "actual_frame_and_cloud_inputs_equal": true,
     "pre_rain_HDR_bitwise_equal_both_frames": true,
     "both_coverage_buffers_bitwise_equal_both_frames": true,
-    "changed_rain_pixels_by_frame": [336, 361],
-    "changed_nonrain_pixels_by_frame": [0, 0],
+    "changed_rain_pixels_by_frame": [
+      336,
+      361
+    ],
+    "changed_nonrain_pixels_by_frame": [
+      0,
+      0
+    ],
     "GPU_pass_sum_ns": 11794384512,
     "run_wall_seconds": 371.7970000000205,
     "shader_preparation_ms": 1975.721,
