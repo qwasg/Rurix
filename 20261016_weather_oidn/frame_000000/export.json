@@ -1,0 +1,144 @@
+{
+  "label": "Original weather8 frame0 CPU OIDN comparison",
+  "input_path": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
+  "dimensions": [
+    640,
+    360
+  ],
+  "mode": "executed_official_CPU_OIDN",
+  "reused_denoised_path": null,
+  "OIDN_preset": {
+    "device": "cpu",
+    "filter": "RT",
+    "hdr": true,
+    "quality": "high",
+    "threads": 8,
+    "type": "float",
+    "auxiliary_inputs": "color_only"
+  },
+  "variants": {
+    "original": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
+      "display_PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\original.png",
+      "source_reference_only": true,
+      "HDR_stats": {
+        "shape": [
+          360,
+          640,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          0.18584038317203522,
+          0.131730318069458,
+          0.08908707648515701
+        ],
+        "mean_Y": 0.0011272465654503297
+      }
+    },
+    "oidn100": {
+      "linear_RAW": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\oidn100.raw",
+      "display_PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\oidn100.png",
+      "source_reference_only": false,
+      "HDR_stats": {
+        "shape": [
+          360,
+          640,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          5.250673211776302e-07,
+          7.059477411530679e-07,
+          3.818565517121897e-07
+        ],
+        "maximum": [
+          0.07209698110818863,
+          0.042293108999729156,
+          0.037585385143756866
+        ],
+        "mean_Y": 0.001121935153657814
+      }
+    },
+    "mix50": {
+      "linear_RAW": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\mix50.raw",
+      "display_PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\mix50.png",
+      "source_reference_only": false,
+      "HDR_stats": {
+        "shape": [
+          360,
+          640,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          2.625336605888151e-07,
+          3.5297387057653395e-07,
+          2.3794265757715038e-07
+        ],
+        "maximum": [
+          0.11449436098337173,
+          0.08114716410636902,
+          0.053852252662181854
+        ],
+        "mean_Y": 0.0011245908596210486
+      }
+    }
+  },
+  "linear_format": "u32le width,height header + RGBf32le; original HDR units",
+  "mix50_formula": "float32(original*0.5) + float32(oidn100*0.5); no clamp",
+  "display": {
+    "ev": 8,
+    "exposure_multiplier": 256,
+    "curve": "wide_c1_rgb_v1",
+    "formula": "x=max(HDR,0)*2^EV; y=x/(1+x) for x<=1; y=1-0.5/sqrt(sqrt(2*x-1)) otherwise; fixed sRGB8 encoding",
+    "per_image_normalization": false,
+    "actual_TSR_replay": false
+  },
+  "source_HDR_modified": false,
+  "CPU_OIDN_wall_s_this_export": 0.4416201999410987,
+  "export_command": [
+    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "-B",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\export_hdr_triplet.py",
+    "--input",
+    "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw",
+    "--out",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000",
+    "--ev",
+    "8",
+    "--label",
+    "Original weather8 frame0 CPU OIDN comparison"
+  ],
+  "command": [
+    "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+    "--device",
+    "cpu",
+    "--filter",
+    "RT",
+    "--hdr",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\oidn_tn9_zjm5\\input.pfm",
+    "--output",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_oidn\\results\\frame_000000\\oidn_tn9_zjm5\\output.pfm",
+    "--type",
+    "float",
+    "--quality",
+    "high",
+    "--threads",
+    "8",
+    "-n",
+    "1",
+    "--verbose",
+    "1"
+  ],
+  "oidn_version": "2.5.1",
+  "source_receipt": null
+}

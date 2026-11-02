@@ -1,11 +1,11 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>路面法线修正 · 单帧对照</title><style>body{background:#111820;color:#edf1f5;font:16px/1.6 system-ui;margin:28px}a{color:#a9d7ff}img{max-width:100%;height:auto}button{font:inherit;padding:8px 18px;margin-right:10px}p{max-width:1100px}.native{overflow:auto}.native img{max-width:none}h1{font-size:28px}</style>
-<h1>路面法线修正 · 原生1080单帧对照</h1><p>同相机、光照、种子和EV8的原始HDR对照显示，路面密集黑条明显消除。中远处铺地凹凸感同时变弱，水洼内部黑碎纹与颗粒仍在。灯罩边缘的原黑缺口恢复成连续亮边；部分叶片沿叶形增亮，未见该局部轮廓外光晕，但亮碎片增多。整体细噪、门洞暗部和动态稳定性未解决。据此保留为可切换室外预设，仅认可该静态首帧的道路修复净收益。</p>
-<p>同EV8与wide-C1/sRGB，图像直接来自原始线性HDR，未去噪。道路裁切中精确黑色像素由24,149降到7；这是辅助观测，选用结论同时依据实图。未把此帧当成动态或整体画质通过。</p>
-<p><a href="decision.json">结论与真实耗时</a> · <a href="comparison.json">九点/区域HDR对照</a> · <a href="gpu_probe.json">GPU法线读回</a> · <a href="independent_visual_review.json">独立实图观察</a> · <a href="../preview/original.png">当前原尺寸图</a></p>
-<h2>道路原尺寸对照</h2><div class="native"><img src="road_context_native1to1.png"></div>
-<h2>全图切换</h2><p><button onclick="document.getElementById('full').src='baseline_full_EV8.png'">基线</button><button onclick="document.getElementById('full').src='candidate_full_EV8.png'">候选</button> <a href="baseline_full_EV8.png">基线原尺寸</a> · <a href="candidate_full_EV8.png">候选原尺寸</a></p><img id="full" src="candidate_full_EV8.png">
-<h2>邻近材质</h2><p>店面暗部仍暗；植物轮廓未见明显破坏，局部叶片高光增多。没有声称材质外观完全不变。</p><img src="neighbor_storefront_native1to1.png"><img src="neighbor_foliage_native1to1.png">
-<h2>最大亮度变化局部</h2><p>灯罩边缘缺口和叶片轮廓增亮；单帧不能证明高光强度准确或动态稳定。</p><img src="review_focal_crops.png">
-<h2>定位点</h2><img src="A_native1to1.png"><img src="B_native1to1.png"><img src="C_native1to1.png">
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>路面法线修正 · 单帧对照</title><style>body{background:#111820;color:#edf1f5;font:16px/1.6 system-ui;margin:28px}a{color:#a9d7ff}img{max-width:100%;height:auto}button{font:inherit;padding:8px 18px;margin-right:10px}p{max-width:1100px}.native{overflow:auto}.native img{max-width:none}h1{font-size:28px}</style>
+<h1>路面法线修正 · 原生1080单帧对照</h1><p>同相机、光照、种子和EV8的原始HDR对照显示，路面密集黑条明显消除。中远处铺地凹凸感同时变弱，水洼内部黑碎纹与颗粒仍在。灯罩边缘的原黑缺口恢复成连续亮边；部分叶片沿叶形增亮，未见该局部轮廓外光晕，但亮碎片增多。整体细噪、门洞暗部和动态稳定性未解决。据此保留为可切换室外预设，仅认可该静态首帧的道路修复净收益。</p>
+<p>同EV8与wide-C1/sRGB，图像直接来自原始线性HDR，未去噪。道路裁切中精确黑色像素由24,149降到7；这是辅助观测，选用结论同时依据实图。未把此帧当成动态或整体画质通过。</p>
+<p><a href="decision.json">结论与真实耗时</a> · <a href="comparison.json">九点/区域HDR对照</a> · <a href="gpu_probe.json">GPU法线读回</a> · <a href="independent_visual_review.json">独立实图观察</a> · <a href="../preview/original.png">当前原尺寸图</a></p>
+<h2>道路原尺寸对照</h2><div class="native"><img src="road_context_native1to1.png"></div>
+<h2>全图切换</h2><p><button onclick="document.getElementById('full').src='baseline_full_EV8.png'">基线</button><button onclick="document.getElementById('full').src='candidate_full_EV8.png'">候选</button> <a href="baseline_full_EV8.png">基线原尺寸</a> · <a href="candidate_full_EV8.png">候选原尺寸</a></p><img id="full" src="candidate_full_EV8.png">
+<h2>邻近材质</h2><p>店面暗部仍暗；植物轮廓未见明显破坏，局部叶片高光增多。没有声称材质外观完全不变。</p><img src="neighbor_storefront_native1to1.png"><img src="neighbor_foliage_native1to1.png">
+<h2>最大亮度变化局部</h2><p>灯罩边缘缺口和叶片轮廓增亮；单帧不能证明高光强度准确或动态稳定。</p><img src="review_focal_crops.png">
+<h2>定位点</h2><img src="A_native1to1.png"><img src="B_native1to1.png"><img src="C_native1to1.png">
 </html>

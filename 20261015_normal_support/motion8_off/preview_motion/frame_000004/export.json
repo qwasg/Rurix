@@ -1,0 +1,151 @@
+{
+  "label": "Exterior motion8 OFF frame4 EV8",
+  "input_path": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000004_scene.raw",
+  "dimensions": [
+    640,
+    360
+  ],
+  "mode": "executed_official_CPU_OIDN",
+  "reused_denoised_path": null,
+  "OIDN_preset": {
+    "device": "cpu",
+    "filter": "RT",
+    "hdr": true,
+    "quality": "high",
+    "threads": 8,
+    "type": "float",
+    "auxiliary_inputs": "color_only"
+  },
+  "variants": {
+    "original": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000004_scene.raw",
+      "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\original.png",
+      "source_reference_only": true,
+      "HDR_stats": {
+        "shape": [
+          360,
+          640,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          1.3778903484344482,
+          0.9960303902626038,
+          0.5388627052307129
+        ],
+        "mean_Y": 0.0002823297739525263
+      }
+    },
+    "oidn100": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\oidn100.raw",
+      "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\oidn100.png",
+      "source_reference_only": false,
+      "HDR_stats": {
+        "shape": [
+          360,
+          640,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          0.08835887163877487,
+          0.046807266771793365,
+          0.03297892212867737
+        ],
+        "mean_Y": 0.0002748993805177913
+      }
+    },
+    "mix50": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\mix50.raw",
+      "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\mix50.png",
+      "source_reference_only": false,
+      "HDR_stats": {
+        "shape": [
+          360,
+          640,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          0.7331246137619019,
+          0.5214188098907471,
+          0.2786277234554291
+        ],
+        "mean_Y": 0.00027861457723031015
+      }
+    }
+  },
+  "linear_format": "u32le width,height header + RGBf32le; original HDR units",
+  "mix50_formula": "float32(original*0.5) + float32(oidn100*0.5); no clamp",
+  "display": {
+    "ev": 8,
+    "exposure_multiplier": 256,
+    "curve": "wide_c1_rgb_v1",
+    "formula": "x=max(HDR,0)*2^EV; y=x/(1+x) for x<=1; y=1-0.5/sqrt(sqrt(2*x-1)) otherwise; fixed sRGB8 encoding",
+    "per_image_normalization": false,
+    "actual_TSR_replay": false
+  },
+  "source_HDR_modified": false,
+  "CPU_OIDN_wall_s_this_export": 0.49308219994418323,
+  "export_command": [
+    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "-B",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\export_hdr_triplet.py",
+    "--input",
+    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000004_scene.raw",
+    "--out",
+    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004",
+    "--ev",
+    "8",
+    "--label",
+    "Exterior motion8 OFF frame4 EV8"
+  ],
+  "command": [
+    "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+    "--device",
+    "cpu",
+    "--filter",
+    "RT",
+    "--hdr",
+    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\oidn_fafcd9af\\input.pfm",
+    "--output",
+    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\oidn_fafcd9af\\output.pfm",
+    "--type",
+    "float",
+    "--quality",
+    "high",
+    "--threads",
+    "8",
+    "-n",
+    "1",
+    "--verbose",
+    "1"
+  ],
+  "oidn_version": "2.5.1",
+  "source_receipt": null,
+  "actual_presented": {
+    "source_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000004_presented.raw",
+    "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion\\frame_000004\\actual_presented.png",
+    "format": "u32le width,height + BGRA8 sRGB alpha255",
+    "processing": "BGRA to RGB channel reorder only; no HDR mapping, OIDN, or exposure",
+    "headless_capture_not_window_presentation": true
+  }
+}
