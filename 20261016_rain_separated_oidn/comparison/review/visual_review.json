@@ -1,0 +1,38 @@
+{
+  "assessment": "RAIN_PRESERVATION_VISIBLE_BACKGROUND_DETAIL_AND_FRAME_VARIATION_UNRESOLVED",
+  "reviewer": "road_bsdf_probe independent visual review",
+  "source": "E:/rurix_quality_runs/20261016_rain_separated_oidn/comparison",
+  "viewed": [
+    "full_two_frames_native.png",
+    "rain_two_frames_native.png",
+    "near_rain_two_frames_native.png",
+    "water_road_two_frames_native.png",
+    "frame_000000/original.png",
+    "frame_000000/whole_oidn.png",
+    "frame_000000/separated.png",
+    "frame_000001/whole_oidn.png",
+    "frame_000001/separated.png"
+  ],
+  "observations": {
+    "background": "两种OIDN均明显减少原始密集亮粒，f0主体更容易阅读；但中央道路趋大面积平滑色面，石材细纹、细窗框及右侧树冠/绿篱层次变软，不能称无损去噪。",
+    "frame1_residuals": "f1两种OIDN的右侧建筑、右侧道路及前景石路仍有明显未去净粗颗粒、斑驳和波纹；相比f0较平滑的背景更杂乱。拆层没有解决这一帧间外观差异，不能只报告背景整体变干净。",
+    "whole_oidn_rain": "整图OIDN削弱、软化了部分短雨丝，但仍可见一些亮短条，尤其f0上方墙面附近；不能说整图OIDN将雨全部抹掉。",
+    "separated_rain": "拆层合成保留更多清晰、细窄、近竖向的短雨丝，局部方向性比whole_oidn易辨，这是实图可见的保留收益。雨丝仍显眼偏白、边缘偏硬，像小白棒或白屑，自然感没有随保留而解决。",
+    "water_and_edges": "水面轮廓、内部建筑暗反射、主要路缘与台阶仍可辨；两种OIDN都使反射内部细节偏软。没有看到拆层独有的大范围晕边或长拖尾，但两帧不能验证动态遮挡及稳定性。"
+  },
+  "decision": "拆层对保留雨形状比整图OIDN更合适，但目前仅支持这一局部结论。背景细节损失、f1明显残余颗粒以及雨丝偏白不自然仍阻止最终画质接受。",
+  "context": {
+    "dimensions": [640, 360],
+    "same_capture_three_columns": true,
+    "display": "Same EV8, wide-C1/sRGB, no normalization",
+    "processing": "Offline CPU OIDN color-only, rain recomposed after background denoising",
+    "actual_TSR_replay": false,
+    "GPU_integrated": false
+  },
+  "limits": [
+    "仅两帧独立处理，不是长动态或完整生命周期稳定证明。",
+    "两帧输入和相机抖动也不同，外观差异不直接等于纯flicker。",
+    "可见颗粒减少不等于有参考真值的噪声误差下降。",
+    "未运行GPU、未修改D/E或新增算法。"
+  ]
+}

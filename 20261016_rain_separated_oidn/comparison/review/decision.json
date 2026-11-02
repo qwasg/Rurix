@@ -1,0 +1,59 @@
+{
+  "status": "SEPARATED_OFFLINE_COMPOSITE_WORKS_FIXED_RAIN_RADIANCE_CONFIRMED",
+  "summary": "已实现并用两帧实际HDR验证：只去噪雨前背景，再按真实预乘雨颜色与透射率重组。背景颗粒明显减少，短雨丝比整图OIDN保留得更清楚；固定雨辐射造成的偏白小棒仍在，细节软化和第二帧局部残留颗粒仍明显，不判定整体画质通过，也不替换预设。",
+  "quality_accepted": false,
+  "preset_selection_changed": false,
+  "GPU_integrated": false,
+  "root_cause": {
+    "source_formula": "For each sorted particle: a=particle_alpha*depth_soft*visibility*shutter_coverage; P=L_air_prefix+T_air_prefix*particle_radiance; C_new=(1-a)*C_old+a*P. Rain radiance is a fixed scene-linear input, with no scene-light evaluation for the drop itself.",
+    "source_radiance_RGB": [0.05, 0.055, 0.07],
+    "measured_effective_rain_RGB_medians": [[0.050000000974949964,0.0549999998263105,0.0700000000186923],[0.05000000083909147,0.054999999885973185,0.0700000000432167]],
+    "measured_rain_pixels": [336,361],
+    "measured_aggregate_coverage_max": [0.4000000059604645,0.4288833737373352],
+    "display_EV_offset": 8,
+    "display_multiplier": 256,
+    "measured_exposed_premultiplied_rain_luminance_median": [2.059166334156809,2.075994170097483],
+    "interpretation": "在本次实际雨像素中，A/coverage与固定输入radiance吻合；高对比雨信号在原始HDR中已存在。wide-C1压缩高亮，但这不是后期才生成的雨，也不是雨的场景光照或物理折射模型。"
+  },
+  "implementation": {
+    "host_files": ["src/rurix-render/src/bin/hq_quality_lane/core.rs","src/rurix-render/src/bin/hq_quality_lane/effects_lane.rs"],
+    "host_change": "Expose effects_pre_rain and existing rain_history0/1 through explicit sequence capture. Label pre-rain as scene-linear HDR. Existing readback lifetime protection retains the actual buffer; no added shader/pass or copy.",
+    "formula": "T=1-coverage; A=post-T*pre; output=A+T*OIDN(pre). Computed equivalently as post+T*(OIDN(pre)-pre) in float64 then f32.",
+    "offline_script": "export_separated.py",
+    "OIDN": "Official2.5.1, CPU RT HDR, color-only, high, float,8threads, independently per frame.",
+    "preserved": "Rain shape/radiance/coverage/occlusion and original exposure, cloud and rainy scene lighting, water, material, sampling. Existing original HDR untouched. No source radiance clipping or RGB-only additive rain.",
+    "source_shaders_changed": false,
+    "additional_GPU_passes": 0,
+    "actual_GPU_pass_count": 8113
+  },
+  "verification": {
+    "capture_frames": 2,
+    "capture_size": [640,360],
+    "same_as_previous_weather8_first_two": "Both actual frame128 uploads and scene RAW are bitwise identical. Dolly total distance scaled to0.25/7m for the two-frame run.",
+    "coverage_source": "Verified actual rain pass8103 descriptor19 writes: frame0 history1, frame1 history0. Not inferred from TSR parity.",
+    "pre_rain_buffer": "Actual input resource1027 retained, no later writers; scene output1054.",
+    "original_HDR_recomposition": "Both frames restore original scene bitwise; float64 max error0. No negative A channels. Zero-coverage pixels reproduce denoised background bitwise.",
+    "recomposition_equivalence_max_abs_error": 3.469446951953614e-18,
+    "build": "Incremental release host PASS;20.42200000002049s;0shaders recompiled.",
+    "validation": "Only pre-existing deprecated-layer-settings warning and active-layer information; no new validation error recorded.",
+    "full_CI_run": false
+  },
+  "execution": {
+    "GPU_capture_pass_sum_s_measured_local": 11.79134656,
+    "capture_wall_s_measured_local": 326.9220000000205,
+    "shader_prepare_ms": 1537.878,
+    "whole_device_peak_used_MiB": 3906,
+    "CPU_background_OIDN_two_frames_wall_s_measured_local": 0.7972661999519914,
+    "CPU_whole_image_control_two_frames_wall_s_measured_local": 0.9348784999456257,
+    "CPU_all_four_OIDN_processes_wall_s_measured_local": 1.732144699897617,
+    "timing_scope": "OIDN numbers are process wall time, not export/composite totals. GPU pass sums exclude CPU setup/waits. No realtime or60fps claim. No additional61-frame run."
+  },
+  "observation": "整图OIDN仍保留部分亮短条，但会柔化或削弱局部雨信号；拆层版保留更多清晰短雨丝。两种OIDN均显著减少背景密集颗粒，同时损失路面细纹、墙面细节与植物层次。f1右墙、右侧道路和前景石路仍有明显粗颗粒/波纹，远比f0杂乱；拆层没有修复这种帧间表现差异。",
+  "limitations": [
+    "这是离线CPU捕获后重组候选，未接入实时GPU帧图或TSR；没有透明层历史重投影或时序稳定保证。",
+    "只有两个连续640×360输出，首末间隔约1/60秒；不代表1080p或长动态验收，不代替先前61帧白屑发现。",
+    "保留了固定雨辐射，所以不会自动解决高对比白屑；可见性增加不等于自然感改善。",
+    "OIDN color-only背景去噪仍有纹理软化与残留颗粒，未修复采样/传输噪声的根因，也未恢复云层层次。"
+  ],
+  "remaining": "雨前HDR和正确透明重组路径已打通。下一项雨修复应针对固定辐射的雨颜色来源/场景依赖散射或折射，而不是继续改形状或压整图曝光；背景还需针对残留颗粒和跨帧变化选择更合适的重建输入。保留晴天及所有既有预设，停止本轮GPU任务。"
+}

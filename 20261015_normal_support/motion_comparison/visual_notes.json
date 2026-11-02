@@ -1,0 +1,27 @@
+{
+  "decision": "KEEP_OPTIONAL_PRESET_WITH_SHORT_MOTION_LIMITS",
+  "summary": "同配置室外640×360、0.25m dolly、OFF/ON各8帧中，ON原始HDR显示及实际presented均未再现OFF的大片路面黑域和横条；台阶暗缝、路缘及水斑大轮廓连续。ON仍使远处路面更平、叶簇更亮且亮点更密，八帧内未观察到仅ON出现的明显单帧爆闪或轮廓外新晕边，但细碎亮斑和水面颗粒仍在变化。OIDN100额外造成叶片成团、团块逐帧变化及路面细节损失；mix50减轻软化但保留颗粒。保留该可选预设，整体动态画质及长期稳定性仍未验收。",
+  "road_observation": "八帧ON原始渲染及实际presented均未重现OFF远端大黑域/横条；真实台阶暗缝、两侧路缘、水斑大轮廓随前移连续。远处路面浮雕感减弱已存在于原始ON，水面碎黑点、颗粒仍在，不能把OIDN进一步软化算作算法收益。",
+  "foliage_observation": "OFF已经有逐帧重排的黄绿细碎亮斑。ON上部叶簇更亮、亮点更密，但本8帧未见只在ON出现的明显单帧爆闪或轮廓外晕边。这是有限帧视觉观察，不是纯闪烁定量证明。",
+  "lamp_observation": "所选窄灯具ROI八帧未见明显ON特有的轮廓外亮晕；这不证明室内灯具白区层次或全部灯具问题已修复。",
+  "offline_filter_observation": "OIDN100在OFF和ON均产生更大黄绿叶团，帧1/5等细叶被抹掉，团块形态逐帧变化；路面石缝和水面碎细节也被压低。mix50在线性HDR混合，保留更多细节和残余颗粒。原始scene显示、CPU去噪和GPU实际presented分别提供，未做跨帧离线滤波。",
+  "matched_evidence": {
+    "dimensions": [640, 360],
+    "frames_per_side": 8,
+    "actual_camera_light_packets_equal_all8": true,
+    "camera_displacement_m": 0.2500027418682003,
+    "all16_scene_HDR_finite_nonnegative": true,
+    "road_ROI_xywh": [230, 204, 250, 120],
+    "exact_zero_RGB_OFF": [2314, 2094, 2187, 2109, 2016, 2022, 2032, 1967],
+    "exact_zero_RGB_ON": [190, 177, 163, 163, 158, 168, 184, 163],
+    "black_count_note": "含真实暗缝等像素，仅作描述，不以黑像素数量替代视觉判断。",
+    "GPU_pass_sum_s_OFF": 34.920476192,
+    "GPU_pass_sum_s_ON": 35.280143552,
+    "process_wall_s_OFF": 415.641,
+    "process_wall_s_ON": 414.437,
+    "whole_device_peak_MiB_each": 3367,
+    "performance_note": "各为一次运行，8/8帧均有完整GPU时间戳；GPU pass合计不是完整帧延迟，不从约1%的总量差异作性能结论。"
+  },
+  "scope": "静态证据仍为原生1920×1080单帧配对；本次新增独立640×360短动态配对。旧室外8帧实际为static，不能复用为动态基线。本次OFF/ON同程序、bundle、资产、EV8、光照、种子及采样，仅法线开关和输出路径不同。",
+  "limits": "固定屏幕ROI混合视差、可见性、采样及可能的LOD变化，帧差不是纯闪烁。未增加其他种子、长运动、雨云、所有材质或全回归；不作实时、60fps或UE5级声明。运行时全局默认false保持，当前室外可选预设true保持。"
+}

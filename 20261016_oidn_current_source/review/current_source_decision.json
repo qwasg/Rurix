@@ -1,0 +1,57 @@
+{
+  "summary": "已用同配置四帧GPU对照确认净改善：离线OIDN前将opaque历史上限从3改为1，右侧墙面和道路斑驳显著减少，主要窗框/饰条/路沿轮廓保留，首帧最终图逐位一致。收录为有限离线候选；细小石材纹理仍偏软，四帧不代表长动态验收。",
+  "available": true,
+  "quality_status": "measured_local_net_improvement_limited_four_frames",
+  "recommended_for": "Current cloud-on offline OIDN export using this exact captured scene/preset; existing runtime defaults remain unchanged.",
+  "root_cause": {
+    "raw_sampling": "Sparse bright samples already exist in current-frame HDR. In the measured right-side region the largest frame1 sample has luminance0.1557791978 both before and after history; no brightness clamp was introduced.",
+    "history": "Short-history mixing retains old bright positions and changes the spatial noise distribution. Right opaque-region energy changes only+0.0193%/-0.3888% in frames1/2. Those startup frames do not run luminance rejection or sigma clipping, so clipping is not the source of their new mottling.",
+    "reprojection": "Actual nearest-pixel reprojection includes local many-to-one reuse, affecting1.92%/2.47% of changed pixels in frames1/2. This explains some local duplication but does not establish a motion-vector/indexing error or account for all broad mottling.",
+    "OIDN_response": "With identical CPU RT HDR HIGH settings and inputScale256, current-frame input denoises substantially cleaner than history-mixed input. A neutral-opaque-only offline replacement preserves actual sky/water/rain and reproduces the improvement. The subsequent real GPU cap1 run confirms it. This identifies a harmful interaction in the current history-before-OIDN pipeline, not a universal claim about all temporal filters or OIDN."
+  },
+  "minimal_change": {
+    "file": "E:/rurix_quality_runs/20261016_oidn_current_source/motion4/config.json",
+    "key": "provenance.hq_temporal_lighting.cloud_max_history",
+    "before": 3,
+    "after": 1,
+    "scope": "clouds on; offline OIDN candidate only",
+    "new_shaders": 0,
+    "builds": 0,
+    "new_GPU_runs": 1,
+    "sampling_exposure_OIDN_parameters_changed": false,
+    "guide_coverage_changed": false
+  },
+  "actual_validation": {
+    "dimensions": [640,360],
+    "frames": [0,1,2,3],
+    "only_config_difference_confirmed": true,
+    "all_four_current_HDR_geometry_material_and_both_rain_coverage_buffers_match_baseline_bitwise": true,
+    "frame0_final_PNG_matches_baseline_bitwise": true,
+    "max_current_vs_opaque_RGB_difference": 3.725290298461914e-09,
+    "comparison": "E:/rurix_quality_runs/20261016_oidn_current_source/comparison/index.html",
+    "verification": "E:/rurix_quality_runs/20261016_oidn_current_source/comparison/verification.json"
+  },
+  "measured_local": {
+    "GPU_pass_sum_s": 17.505431072,
+    "GPU_per_frame_s": [4.676062624,4.210500384,4.239704576,4.379163488],
+    "capture_wall_s": 247.10900000017136,
+    "shader_prepare_ms": 1157.288,
+    "CPU_four_frame_export_wall_s": 3.5538116998504847,
+    "whole_device_peak_used_MiB": 3947,
+    "performance_claim": "Reported timings only; one run per configuration does not establish a speedup."
+  },
+  "remaining": [
+    "Fine stone and facade texture remains soft after color-only OIDN; no clean reference establishes detail-perfect denoising.",
+    "Four frames span about0.05seconds; no long-trajectory stability guarantee.",
+    "Current guide-domain policy is conservative.96pixels specifies model context, not a general requirement that every context pixel have one reliable material. No further mask restrictions were added.",
+    "This repair changes an offline export preset; no realtime denoiser integration or60fps claim."
+  ],
+  "review_files": [
+    "history_grain_probe.json",
+    "right_opaque_probe.json",
+    "grain_probe/result.json",
+    "offline_current_source_review.json",
+    "current_source_gpu_review.json"
+  ],
+  "defaults_changed": false
+}

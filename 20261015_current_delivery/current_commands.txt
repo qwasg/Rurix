@@ -1,0 +1,17 @@
+当前五项复现命令；本次整理未执行。输出目录须不存在；GPU串行。
+去掉 --run 仅查看命令。
+
+室内 1080 静态
+& 'C:\Users\wcj20\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' '-B' 'C:\Users\wcj20\Documents\Codex\2026-10-13\task-2\current_delivery\indoor_guided\recommended_indoor.py' '--output-root' 'E:/rurix_quality_runs/indoor1080_repeat_NEW' '--width' '1920' '--run'
+
+室内 8 帧可选稳定
+& 'C:\Users\wcj20\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' '-B' 'C:\Users\wcj20\Documents\Codex\2026-10-13\task-2\current_delivery\indoor_guided\recommended_motion.py' '--output-root' 'E:/rurix_quality_runs/indoor8_repeat_NEW' '--run'
+
+室外晴天 1080 静态
+& 'C:\Users\wcj20\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' '-B' 'C:\Users\wcj20\Documents\Codex\2026-10-13\task-2\current_delivery\recommended_sunny.py' '--output-root' 'E:/rurix_quality_runs/sunny1080_repeat_NEW' '--run'
+
+雨天 1152 静态
+& 'C:\Users\wcj20\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' '-B' 'C:\Users\wcj20\Documents\Codex\2026-10-13\task-2\current_delivery\recommended_weather\export_weather.py' '--output-root' 'E:/rurix_quality_runs/rain1152_repeat_NEW' '--mode' 'still' '--still-width' '1152' '--still-height' '648' '--post-oidn-history' '1' '--run'
+
+雨天 24 帧可选稳定
+& 'C:\Users\wcj20\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' '-B' 'C:\Users\wcj20\Documents\Codex\2026-10-13\task-2\current_delivery\recommended_weather\export_weather.py' '--output-root' 'E:/rurix_quality_runs/rain24_repeat_NEW' '--mode' 'motion' '--motion-frames' '24' '--post-oidn-history' '3' '--run'

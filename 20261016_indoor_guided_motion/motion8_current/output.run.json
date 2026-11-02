@@ -1,0 +1,231 @@
+{
+  "command": [
+    "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+    "--spv-dir",
+    "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+    "--capture-dir",
+    "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\capture",
+    "--profile",
+    "desktop_sdr_high",
+    "--contract",
+    "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\config.json",
+    "--gltf",
+    "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\source_glass_roughness_candidate\\BistroInterior_source_roughness_v8.gltf",
+    "--scene",
+    "bistro-interior",
+    "--width",
+    "640",
+    "--height",
+    "360",
+    "--tier",
+    "100",
+    "--frames",
+    "8",
+    "--warmup",
+    "0",
+    "--seed",
+    "7312026601",
+    "--normal-mode",
+    "full",
+    "--textures",
+    "on",
+    "--reflection",
+    "on",
+    "--camera-motion",
+    "dolly",
+    "--camera-distance",
+    "0.15",
+    "--object-motion",
+    "static",
+    "--object-distance",
+    "0.25",
+    "--ev-offset",
+    "10.0",
+    "--auto-exposure",
+    "off",
+    "--bloom",
+    "0",
+    "--capture-every",
+    "1",
+    "--diagnostics",
+    "checkpoint_hdr",
+    "--history-probe",
+    "off",
+    "--frame-origin",
+    "0",
+    "--present",
+    "off",
+    "--clouds",
+    "off",
+    "--water",
+    "on",
+    "--rain",
+    "off",
+    "--capture-raw-profile",
+    "scene_presented_v1",
+    "--optical-tail-bundle",
+    "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+    "--sampling-seed",
+    "7312026601",
+    "--capture-sequence-stages",
+    "scene,geometry,material,water_surface,effects_opaque_scene,primary_partition_reservoir_meta,glass_footprint_extra_c01",
+    "--optical-journal-sync",
+    "frame"
+  ],
+  "mode": "indoor_guided_motion8",
+  "region_uses_default": false,
+  "execution_environment_overrides": {},
+  "config_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\config.json",
+  "exit_code": 0,
+  "wall_seconds": 171.6720000000205,
+  "frames": 8,
+  "camera_distance_m": 0.15,
+  "linear_scene_hdr_frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "whole_device_peak_used_mib": 2146.0,
+  "gpu_frames": 8,
+  "gpu_timed_frames": 8,
+  "gpu_timing_status": "available",
+  "gpu_timing_unavailable_frames": [],
+  "gpu_pass_sum_ns": 11013713664,
+  "gpu_per_frame": [
+    {
+      "frame": 0,
+      "gpu_pass_sum_ns": 1408049024
+    },
+    {
+      "frame": 1,
+      "gpu_pass_sum_ns": 1311458240
+    },
+    {
+      "frame": 2,
+      "gpu_pass_sum_ns": 1416733760
+    },
+    {
+      "frame": 3,
+      "gpu_pass_sum_ns": 1367852000
+    },
+    {
+      "frame": 4,
+      "gpu_pass_sum_ns": 1352057472
+    },
+    {
+      "frame": 5,
+      "gpu_pass_sum_ns": 1388227936
+    },
+    {
+      "frame": 6,
+      "gpu_pass_sum_ns": 1378746112
+    },
+    {
+      "frame": 7,
+      "gpu_pass_sum_ns": 1390589120
+    }
+  ],
+  "owner_frames": 8,
+  "owner_sum_ns": {
+    "owner_before_publication_ns": 49870808300,
+    "cpu_record_ns": 8515082700,
+    "cpu_submit_ns": 627195200,
+    "cpu_fence_wait_ns": 12782555100
+  },
+  "owner_per_frame": [
+    {
+      "sample": 0,
+      "regions": 1122,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 23798394900,
+      "cpu_record_ns": 1018484900,
+      "cpu_submit_ns": 76220600,
+      "cpu_fence_wait_ns": 1922338000
+    },
+    {
+      "sample": 1,
+      "regions": 1112,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3338929600,
+      "cpu_record_ns": 932629000,
+      "cpu_submit_ns": 69556300,
+      "cpu_fence_wait_ns": 1437109700
+    },
+    {
+      "sample": 2,
+      "regions": 1164,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3915988400,
+      "cpu_record_ns": 1164941000,
+      "cpu_submit_ns": 85028500,
+      "cpu_fence_wait_ns": 1574540700
+    },
+    {
+      "sample": 3,
+      "regions": 1124,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3534365500,
+      "cpu_record_ns": 997958100,
+      "cpu_submit_ns": 72257100,
+      "cpu_fence_wait_ns": 1518098700
+    },
+    {
+      "sample": 4,
+      "regions": 1128,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3963626700,
+      "cpu_record_ns": 1166314500,
+      "cpu_submit_ns": 83404800,
+      "cpu_fence_wait_ns": 1592857100
+    },
+    {
+      "sample": 5,
+      "regions": 1144,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3700192700,
+      "cpu_record_ns": 998981500,
+      "cpu_submit_ns": 74949400,
+      "cpu_fence_wait_ns": 1653387900
+    },
+    {
+      "sample": 6,
+      "regions": 1130,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3689369300,
+      "cpu_record_ns": 1053127600,
+      "cpu_submit_ns": 80890200,
+      "cpu_fence_wait_ns": 1522937300
+    },
+    {
+      "sample": 7,
+      "regions": 1145,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 3929941200,
+      "cpu_record_ns": 1182646100,
+      "cpu_submit_ns": 84888300,
+      "cpu_fence_wait_ns": 1561285700
+    }
+  ],
+  "note": "Completed owner frames and fully timed frames are separate. Unavailable GPU time is null; no partial or zero substitute. Available sums are timestamp durations, not wall time."
+}

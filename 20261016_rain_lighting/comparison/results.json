@@ -1,0 +1,608 @@
+{
+  "status": "EXPORTED_GPU_RAIN_SOURCE_WITH_REUSED_OFFLINE_OIDN_NOT_QUALITY_ACCEPTANCE",
+  "dimensions": [
+    640,
+    360
+  ],
+  "checks": [
+    {
+      "frame": 0,
+      "actual_frame128_equal": true,
+      "actual_cloud71_equal": true,
+      "pre_rain_bitwise_equal": true,
+      "both_coverage_buffers_bitwise_equal": true,
+      "same_current_coverage_binding": true,
+      "current_side": "rain_history1",
+      "previous_side": "rain_history0",
+      "double_buffer_continuity": true
+    },
+    {
+      "frame": 1,
+      "actual_frame128_equal": true,
+      "actual_cloud71_equal": true,
+      "pre_rain_bitwise_equal": true,
+      "both_coverage_buffers_bitwise_equal": true,
+      "same_current_coverage_binding": true,
+      "current_side": "rain_history0",
+      "previous_side": "rain_history1",
+      "double_buffer_continuity": true
+    }
+  ],
+  "frames": [
+    {
+      "frame_index": 0,
+      "source_files": {
+        "baseline": {
+          "scene": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_scene.raw",
+          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000000_effects_pre_rain.raw"
+        },
+        "candidate": {
+          "scene": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000000_scene.raw",
+          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000000_effects_pre_rain.raw"
+        }
+      },
+      "reused_denoised_pre": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\denoised_pre.raw",
+      "coverage_current_stage": "rain_history1",
+      "non_rain_pixels": 230064,
+      "non_rain_post_bitwise_unchanged": true,
+      "non_rain_separated_bitwise_unchanged": true,
+      "changed_HDR_pixels": 336,
+      "changed_non_rain_pixels": 0,
+      "coverage_unchanged": true,
+      "old_source_decomposition": {
+        "coverage": {
+          "min": 0.0,
+          "max": 0.4000000059604645,
+          "nonzero_pixels": 336,
+          "zero_pixels": 230064,
+          "sum": 50.151377588976175
+        },
+        "transmission_range": [
+          0.5999999940395355,
+          1.0
+        ],
+        "effective_rain_color_diagnostic": {
+          "mask": "currentCoverage > 1e-4",
+          "pixels": 336,
+          "rain_pixels_any_positive_coverage": 336,
+          "max_aggregate_coverage_alpha": 0.4000000059604645,
+          "configured_particle_alpha": null,
+          "configured_particle_radiance_RGB": null,
+          "meaning": "A/coverage is the effective captured premultiplied rain-source color, including actual air-prefix/composition effects; it is not albedo or an invented guide.",
+          "A_over_coverage_RGB_percentiles": {
+            "p05": [
+              0.049999995515180654,
+              0.054999994844078054,
+              0.06999999432798527
+            ],
+            "median": [
+              0.050000000974949964,
+              0.0549999998263105,
+              0.0700000000186923
+            ],
+            "p95": [
+              0.0500000060861337,
+              0.055000003947671884,
+              0.07000000689105568
+            ]
+          },
+          "A_over_coverage_RGB_max": [
+            0.05000003588012682,
+            0.05500006295346747,
+            0.07000002234352966
+          ],
+          "A_times_EV8_exposure_pre_tone_RGB_percentiles": {
+            "p05": [
+              0.21488735960346658,
+              0.23637608324860915,
+              0.3008422800275973
+            ],
+            "median": [
+              1.8712890225401637,
+              2.058417791744631,
+              2.6198044779641347
+            ],
+            "p95": [
+              3.6549008437831545,
+              4.020390949782456,
+              5.116861216777721
+            ]
+          },
+          "A_times_EV8_exposure_pre_tone_RGB_max": [
+            5.120000472208504,
+            5.632000381977317,
+            7.168000313845667
+          ],
+          "A_times_EV8_exposure_pre_tone_Y_percentiles": [
+            0.23646204000909476,
+            2.059166334156809,
+            4.021852906524063,
+            5.634048355882008
+          ],
+          "exposed_Y_percentile_order": [
+            "p05",
+            "median",
+            "p95",
+            "max"
+          ]
+        },
+        "A": {
+          "negative_channels": 0,
+          "large_negative_channels": 0,
+          "minimum_RGB": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_RGB": [
+            0.02000000184456447,
+            0.022000001492098895,
+            0.028000001225959636
+          ],
+          "sum_Y": 2.7593288016304296,
+          "negative_Y_sum": 0.0,
+          "max_negative_channel_magnitude": 0.0,
+          "clipped": false
+        },
+        "negative_A_roundoff_screen": {
+          "meaning": "Conservative f32 composition-roundoff screen; not proof of correct stage binding or a quality tolerance",
+          "max_particle_layers": 256,
+          "operation_budget": 2056,
+          "f32_unit_roundoff": 5.960464477539063e-08,
+          "gamma_n": 0.0001225621693027071,
+          "formula": "gamma_n*(abs(post)+abs(pre)); negative A is never clipped",
+          "maximum_channel_tolerance": 4.555400101122188e-05
+        },
+        "original_recomposition": {
+          "float64_max_abs_error": 0.0,
+          "f32_bitwise_equal_post": true,
+          "stable_delta_form_exact_float64": true
+        },
+        "zero_coverage": {
+          "post_pre_bitwise_equal": true,
+          "A_exact_zero": true
+        },
+        "accepted_for_CPU_OIDN": true
+      },
+      "new_source_decomposition": {
+        "coverage": {
+          "min": 0.0,
+          "max": 0.4000000059604645,
+          "nonzero_pixels": 336,
+          "zero_pixels": 230064,
+          "sum": 50.151377588976175
+        },
+        "transmission_range": [
+          0.5999999940395355,
+          1.0
+        ],
+        "effective_rain_color_diagnostic": {
+          "mask": "currentCoverage > 1e-4",
+          "pixels": 336,
+          "rain_pixels_any_positive_coverage": 336,
+          "max_aggregate_coverage_alpha": 0.4000000059604645,
+          "configured_particle_alpha": null,
+          "configured_particle_radiance_RGB": null,
+          "meaning": "A/coverage is the effective captured premultiplied rain-source color, including actual air-prefix/composition effects; it is not albedo or an invented guide.",
+          "A_over_coverage_RGB_percentiles": {
+            "p05": [
+              0.0024153647224139352,
+              0.002215237476736529,
+              0.0019388986487063728
+            ],
+            "median": [
+              0.0025159005953526927,
+              0.002307853983025769,
+              0.0020206724023932145
+            ],
+            "p95": [
+              0.0026838141769871602,
+              0.0024621053684291396,
+              0.0021559171944032264
+            ]
+          },
+          "A_over_coverage_RGB_max": [
+            0.002766648614973847,
+            0.0025387053511092415,
+            0.0022241293381729133
+          ],
+          "A_times_EV8_exposure_pre_tone_RGB_percentiles": {
+            "p05": [
+              0.011062941472204501,
+              0.01014839278286083,
+              0.008885064621596625
+            ],
+            "median": [
+              0.09372520687724739,
+              0.08597848268485009,
+              0.07527792915155485
+            ],
+            "p95": [
+              0.1841155724307355,
+              0.1689124076694768,
+              0.14791819047537935
+            ]
+          },
+          "A_times_EV8_exposure_pre_tone_RGB_max": [
+            0.26148266593649794,
+            0.23984347384932647,
+            0.20994392159806807
+          ],
+          "A_times_EV8_exposure_pre_tone_Y_percentiles": [
+            0.010251613540972019,
+            0.08685285628304984,
+            0.17062881801630655,
+            0.24228521841451825
+          ],
+          "exposed_Y_percentile_order": [
+            "p05",
+            "median",
+            "p95",
+            "max"
+          ]
+        },
+        "A": {
+          "negative_channels": 0,
+          "large_negative_channels": 0,
+          "minimum_RGB": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_RGB": [
+            0.001021416663814445,
+            0.0009368885697239315,
+            0.0008200934437424534
+          ],
+          "sum_Y": 0.11730342774605944,
+          "negative_Y_sum": 0.0,
+          "max_negative_channel_magnitude": 0.0,
+          "clipped": false
+        },
+        "negative_A_roundoff_screen": {
+          "meaning": "Conservative f32 composition-roundoff screen; not proof of correct stage binding or a quality tolerance",
+          "max_particle_layers": 256,
+          "operation_budget": 2056,
+          "f32_unit_roundoff": 5.960464477539063e-08,
+          "gamma_n": 0.0001225621693027071,
+          "formula": "gamma_n*(abs(post)+abs(pre)); negative A is never clipped",
+          "maximum_channel_tolerance": 4.555400101122188e-05
+        },
+        "original_recomposition": {
+          "float64_max_abs_error": 0.0,
+          "f32_bitwise_equal_post": true,
+          "stable_delta_form_exact_float64": true
+        },
+        "zero_coverage": {
+          "post_pre_bitwise_equal": true,
+          "A_exact_zero": true
+        },
+        "accepted_for_CPU_OIDN": true
+      },
+      "rain_A_difference_sumY": -2.6420253738843704,
+      "images": {
+        "baseline_original": "../../20261016_rain_separated_oidn/comparison/frame_000000/original.png",
+        "candidate_original": "frame_000000/original.png",
+        "baseline_separated": "../../20261016_rain_separated_oidn/comparison/frame_000000/separated.png",
+        "candidate_separated": "frame_000000/separated.png"
+      }
+    },
+    {
+      "frame_index": 1,
+      "source_files": {
+        "baseline": {
+          "scene": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_scene.raw",
+          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\capture\\frame_000001_effects_pre_rain.raw"
+        },
+        "candidate": {
+          "scene": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000001_scene.raw",
+          "effects_pre_rain": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\capture\\frame_000001_effects_pre_rain.raw"
+        }
+      },
+      "reused_denoised_pre": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\denoised_pre.raw",
+      "coverage_current_stage": "rain_history0",
+      "non_rain_pixels": 230039,
+      "non_rain_post_bitwise_unchanged": true,
+      "non_rain_separated_bitwise_unchanged": true,
+      "changed_HDR_pixels": 361,
+      "changed_non_rain_pixels": 0,
+      "coverage_unchanged": true,
+      "old_source_decomposition": {
+        "coverage": {
+          "min": 0.0,
+          "max": 0.4288833737373352,
+          "nonzero_pixels": 361,
+          "zero_pixels": 230039,
+          "sum": 53.990780137552065
+        },
+        "transmission_range": [
+          0.5711166262626648,
+          1.0
+        ],
+        "effective_rain_color_diagnostic": {
+          "mask": "currentCoverage > 1e-4",
+          "pixels": 361,
+          "rain_pixels_any_positive_coverage": 361,
+          "max_aggregate_coverage_alpha": 0.4288833737373352,
+          "configured_particle_alpha": null,
+          "configured_particle_radiance_RGB": null,
+          "meaning": "A/coverage is the effective captured premultiplied rain-source color, including actual air-prefix/composition effects; it is not albedo or an invented guide.",
+          "A_over_coverage_RGB_percentiles": {
+            "p05": [
+              0.04999999613612763,
+              0.05499999533430994,
+              0.0699999943041029
+            ],
+            "median": [
+              0.05000000083909147,
+              0.054999999885973185,
+              0.0700000000432167
+            ],
+            "p95": [
+              0.05000000474842378,
+              0.055000004989909944,
+              0.07000000617402402
+            ]
+          },
+          "A_over_coverage_RGB_max": [
+            0.05000001449241624,
+            0.055000056018538204,
+            0.07000001742554275
+          ],
+          "A_times_EV8_exposure_pre_tone_RGB_percentiles": {
+            "p05": [
+              0.2539074620062593,
+              0.2792982039784627,
+              0.3554704133968145
+            ],
+            "median": [
+              1.8865814370174974,
+              2.075239512746748,
+              2.6412140868571896
+            ],
+            "p95": [
+              3.7129847741369257,
+              4.084283833315525,
+              5.198178937950292
+            ]
+          },
+          "A_times_EV8_exposure_pre_tone_RGB_max": [
+            5.489707618639952,
+            6.038678554051178,
+            7.685590890835181
+          ],
+          "A_times_EV8_exposure_pre_tone_Y_percentiles": [
+            0.2793997657551773,
+            2.075994170097483,
+            4.085768879888785,
+            6.040874403898557
+          ],
+          "exposed_Y_percentile_order": [
+            "p05",
+            "median",
+            "p95",
+            "max"
+          ]
+        },
+        "A": {
+          "negative_channels": 0,
+          "large_negative_channels": 0,
+          "minimum_RGB": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_RGB": [
+            0.021444170385312312,
+            0.023588588101762415,
+            0.030021839417324926
+          ],
+          "sum_Y": 2.97057272785971,
+          "negative_Y_sum": 0.0,
+          "max_negative_channel_magnitude": 0.0,
+          "clipped": false
+        },
+        "negative_A_roundoff_screen": {
+          "meaning": "Conservative f32 composition-roundoff screen; not proof of correct stage binding or a quality tolerance",
+          "max_particle_layers": 256,
+          "operation_budget": 2056,
+          "f32_unit_roundoff": 5.960464477539063e-08,
+          "gamma_n": 0.0001225621693027071,
+          "formula": "gamma_n*(abs(post)+abs(pre)); negative A is never clipped",
+          "maximum_channel_tolerance": 5.02322805789422e-05
+        },
+        "original_recomposition": {
+          "float64_max_abs_error": 0.0,
+          "f32_bitwise_equal_post": true,
+          "stable_delta_form_exact_float64": true
+        },
+        "zero_coverage": {
+          "post_pre_bitwise_equal": true,
+          "A_exact_zero": true
+        },
+        "accepted_for_CPU_OIDN": true
+      },
+      "new_source_decomposition": {
+        "coverage": {
+          "min": 0.0,
+          "max": 0.4288833737373352,
+          "nonzero_pixels": 361,
+          "zero_pixels": 230039,
+          "sum": 53.990780137552065
+        },
+        "transmission_range": [
+          0.5711166262626648,
+          1.0
+        ],
+        "effective_rain_color_diagnostic": {
+          "mask": "currentCoverage > 1e-4",
+          "pixels": 361,
+          "rain_pixels_any_positive_coverage": 361,
+          "max_aggregate_coverage_alpha": 0.4288833737373352,
+          "configured_particle_alpha": null,
+          "configured_particle_radiance_RGB": null,
+          "meaning": "A/coverage is the effective captured premultiplied rain-source color, including actual air-prefix/composition effects; it is not albedo or an invented guide.",
+          "A_over_coverage_RGB_percentiles": {
+            "p05": [
+              0.0024103361636503826,
+              0.0022107173162074388,
+              0.0019348172294998325
+            ],
+            "median": [
+              0.002513458249038074,
+              0.00230602605314485,
+              0.002019044098209742
+            ],
+            "p95": [
+              0.002683836088927234,
+              0.0024623700272394765,
+              0.0021566191791703155
+            ]
+          },
+          "A_over_coverage_RGB_max": [
+            0.0027514832829803625,
+            0.0025252232412531677,
+            0.0022131425559774793
+          ],
+          "A_times_EV8_exposure_pre_tone_RGB_percentiles": {
+            "p05": [
+              0.0125192304903749,
+              0.011485874714228364,
+              0.01005915986789236
+            ],
+            "median": [
+              0.09640480699735576,
+              0.08844086868089107,
+              0.0774423025516171
+            ],
+            "p95": [
+              0.18666091807065133,
+              0.17118712870074204,
+              0.14979537166802304
+            ]
+          },
+          "A_times_EV8_exposure_pre_tone_RGB_max": [
+            0.27787910180464337,
+            0.2549782341150637,
+            0.22337149638529075
+          ],
+          "A_times_EV8_exposure_pre_tone_Y_percentiles": [
+            0.011602552979514656,
+            0.08933990549243788,
+            0.17293237146302243,
+            0.2575649521217787
+          ],
+          "exposed_Y_percentile_order": [
+            "p05",
+            "median",
+            "p95",
+            "max"
+          ]
+        },
+        "A": {
+          "negative_channels": 0,
+          "large_negative_channels": 0,
+          "minimum_RGB": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "maximum_RGB": [
+            0.0010854652414243882,
+            0.0009960087270119676,
+            0.000872544907755042
+          ],
+          "sum_Y": 0.12632517625704903,
+          "negative_Y_sum": 0.0,
+          "max_negative_channel_magnitude": 0.0,
+          "clipped": false
+        },
+        "negative_A_roundoff_screen": {
+          "meaning": "Conservative f32 composition-roundoff screen; not proof of correct stage binding or a quality tolerance",
+          "max_particle_layers": 256,
+          "operation_budget": 2056,
+          "f32_unit_roundoff": 5.960464477539063e-08,
+          "gamma_n": 0.0001225621693027071,
+          "formula": "gamma_n*(abs(post)+abs(pre)); negative A is never clipped",
+          "maximum_channel_tolerance": 5.02322805789422e-05
+        },
+        "original_recomposition": {
+          "float64_max_abs_error": 0.0,
+          "f32_bitwise_equal_post": true,
+          "stable_delta_form_exact_float64": true
+        },
+        "zero_coverage": {
+          "post_pre_bitwise_equal": true,
+          "A_exact_zero": true
+        },
+        "accepted_for_CPU_OIDN": true
+      },
+      "rain_A_difference_sumY": -2.844247551602661,
+      "images": {
+        "baseline_original": "../../20261016_rain_separated_oidn/comparison/frame_000001/original.png",
+        "candidate_original": "frame_000001/original.png",
+        "baseline_separated": "../../20261016_rain_separated_oidn/comparison/frame_000001/separated.png",
+        "candidate_separated": "frame_000001/separated.png"
+      }
+    }
+  ],
+  "execution": {
+    "baseline": {
+      "run": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2",
+      "receipt": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\output.run.json",
+      "gpu_frames": 2,
+      "gpu_timed_frames": 2,
+      "gpu_timing_status": "available",
+      "gpu_pass_sum_ns": 11791346560,
+      "gpu_per_frame": [
+        {
+          "frame": 0,
+          "gpu_pass_sum_ns": 6108503904
+        },
+        {
+          "frame": 1,
+          "gpu_pass_sum_ns": 5682842656
+        }
+      ],
+      "wall_seconds": 326.9220000000205,
+      "whole_device_peak_used_mib": 3906.0
+    },
+    "candidate": {
+      "run": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2",
+      "receipt": "E:\\rurix_quality_runs\\20261016_rain_lighting\\weather2\\output.run.json",
+      "gpu_frames": 2,
+      "gpu_timed_frames": 2,
+      "gpu_timing_status": "available",
+      "gpu_pass_sum_ns": 11794384512,
+      "gpu_per_frame": [
+        {
+          "frame": 0,
+          "gpu_pass_sum_ns": 6070124288
+        },
+        {
+          "frame": 1,
+          "gpu_pass_sum_ns": 5724260224
+        }
+      ],
+      "wall_seconds": 371.7970000000205,
+      "whole_device_peak_used_mib": 4032.0
+    }
+  },
+  "formula": "post + (1-currentCoverage) * (same_cached_OIDN_pre - pre)",
+  "display": "All images use EV8, existing wide-C1 and sRGB; no per-image normalization.",
+  "OIDN_executed": false,
+  "renderer_executed": false,
+  "derived_HDR_saved": false,
+  "actual_TSR_replay": false,
+  "original_HDR_modified": false,
+  "limits": [
+    "Two adjacent frames only, not a weather-motion stability acceptance.",
+    "GPU P1 is the captured candidate source; background OIDN/recomposition remains offline CPU.",
+    "A and A/coverage include actual air prefix and sorted composition; they are not albedo.",
+    "Signed decomposition roundoff is retained; no clipping of A."
+  ],
+  "contacts": {
+    "full": "full_two_frames_native.png",
+    "rain": "rain_two_frames_native.png"
+  }
+}

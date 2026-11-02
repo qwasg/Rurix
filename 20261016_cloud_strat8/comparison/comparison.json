@@ -1,0 +1,1207 @@
+{
+  "status": "EXPORTED_MATCHED_INPUT_REVIEW_NOT_QUALITY_ACCEPTANCE",
+  "dimensions": [
+    640,
+    360
+  ],
+  "checks": {
+    "configuration_only_added_strat8": true,
+    "water_samples_remain_8": true,
+    "render_arguments_match_except_binary_bundle_output": true,
+    "actual_cloud71_camera128_clock_and_samples_bitwise_equal": true,
+    "descriptors_and_resource_numbers_not_compared": true,
+    "dt_s": 0.01666666753590107,
+    "frames": [
+      {
+        "frame_index": 0,
+        "sample_frame": 0,
+        "physical_step": 0,
+        "physical_time_s": 0.0,
+        "camera_eye": [
+          22.0,
+          2.0280001163482666,
+          -84.0
+        ],
+        "jitter_pixels": [
+          -0.26788330078125,
+          -0.03442057967185974
+        ]
+      },
+      {
+        "frame_index": 1,
+        "sample_frame": 1,
+        "physical_step": 1,
+        "physical_time_s": 0.01666666753590107,
+        "camera_eye": [
+          21.981773376464844,
+          2.0289595127105713,
+          -83.96929931640625
+        ],
+        "jitter_pixels": [
+          0.23211669921875,
+          0.29891276359558105
+        ]
+      },
+      {
+        "frame_index": 2,
+        "sample_frame": 2,
+        "physical_step": 2,
+        "physical_time_s": 0.03333333507180214,
+        "camera_eye": [
+          21.963546752929688,
+          2.029918670654297,
+          -83.93860626220703
+        ],
+        "jitter_pixels": [
+          -0.01788330078125,
+          -0.25664278864860535
+        ]
+      },
+      {
+        "frame_index": 3,
+        "sample_frame": 3,
+        "physical_step": 3,
+        "physical_time_s": 0.05000000260770321,
+        "camera_eye": [
+          21.9453182220459,
+          2.0308780670166016,
+          -83.90790557861328
+        ],
+        "jitter_pixels": [
+          0.48211669921875,
+          0.07669055461883545
+        ]
+      },
+      {
+        "frame_index": 4,
+        "sample_frame": 4,
+        "physical_step": 4,
+        "physical_time_s": 0.06666667014360428,
+        "camera_eye": [
+          21.927091598510742,
+          2.0318374633789062,
+          -83.87720489501953
+        ],
+        "jitter_pixels": [
+          -0.47100830078125,
+          0.41002386808395386
+        ]
+      },
+      {
+        "frame_index": 5,
+        "sample_frame": 5,
+        "physical_step": 5,
+        "physical_time_s": 0.08333333767950535,
+        "camera_eye": [
+          21.908864974975586,
+          2.032796621322632,
+          -83.84651184082031
+        ],
+        "jitter_pixels": [
+          0.02899169921875,
+          -0.4418279826641083
+        ]
+      },
+      {
+        "frame_index": 6,
+        "sample_frame": 6,
+        "physical_step": 6,
+        "physical_time_s": 0.10000000521540642,
+        "camera_eye": [
+          21.89063835144043,
+          2.0337560176849365,
+          -83.81581115722656
+        ],
+        "jitter_pixels": [
+          -0.22100830078125,
+          -0.10849463939666748
+        ]
+      },
+      {
+        "frame_index": 7,
+        "sample_frame": 7,
+        "physical_step": 7,
+        "physical_time_s": 0.11666667275130749,
+        "camera_eye": [
+          21.872411727905273,
+          2.034715414047241,
+          -83.78511047363281
+        ],
+        "jitter_pixels": [
+          0.27899169921875,
+          0.22483867406845093
+        ]
+      }
+    ]
+  },
+  "execution": {
+    "baseline": {
+      "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+      "receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
+      "config": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+      "command": [
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "--spv-dir",
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "--capture-dir",
+        "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture",
+        "--profile",
+        "desktop_sdr_high",
+        "--contract",
+        "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+        "--gltf",
+        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "--scene",
+        "bistro-interior",
+        "--width",
+        "640",
+        "--height",
+        "360",
+        "--tier",
+        "100",
+        "--frames",
+        "8",
+        "--warmup",
+        "0",
+        "--seed",
+        "7312026601",
+        "--normal-mode",
+        "full",
+        "--textures",
+        "on",
+        "--reflection",
+        "on",
+        "--camera-motion",
+        "dolly",
+        "--camera-distance",
+        "0.25",
+        "--object-motion",
+        "static",
+        "--object-distance",
+        "0.25",
+        "--ev-offset",
+        "8.0",
+        "--auto-exposure",
+        "off",
+        "--bloom",
+        "0",
+        "--capture-every",
+        "1",
+        "--diagnostics",
+        "checkpoint_hdr",
+        "--history-probe",
+        "off",
+        "--frame-origin",
+        "0",
+        "--present",
+        "off",
+        "--clouds",
+        "on",
+        "--water",
+        "on",
+        "--rain",
+        "on",
+        "--capture-raw-profile",
+        "scene_presented_v1",
+        "--optical-tail-bundle",
+        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "--sampling-seed",
+        "7312026601",
+        "--capture-sequence-stages",
+        "presented,scene",
+        "--optical-journal-sync",
+        "region"
+      ],
+      "gpu_frames": 8,
+      "gpu_timed_frames": 8,
+      "gpu_pass_sum_s": 48.605995712,
+      "gpu_timing_status": "recorded_pass_sum",
+      "wall_s": 707.75,
+      "whole_device_peak_used_mib": 3904.0
+    },
+    "candidate": {
+      "run": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8",
+      "receipt": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\output.run.json",
+      "config": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\config.json",
+      "command": [
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\cloud_strat8_v1\\candidate_hq_quality_lane.exe",
+        "--spv-dir",
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\cloud_strat8_v1\\shaders_complete",
+        "--capture-dir",
+        "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture",
+        "--profile",
+        "desktop_sdr_high",
+        "--contract",
+        "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\config.json",
+        "--gltf",
+        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "--scene",
+        "bistro-interior",
+        "--width",
+        "640",
+        "--height",
+        "360",
+        "--tier",
+        "100",
+        "--frames",
+        "8",
+        "--warmup",
+        "0",
+        "--seed",
+        "7312026601",
+        "--normal-mode",
+        "full",
+        "--textures",
+        "on",
+        "--reflection",
+        "on",
+        "--camera-motion",
+        "dolly",
+        "--camera-distance",
+        "0.25",
+        "--object-motion",
+        "static",
+        "--object-distance",
+        "0.25",
+        "--ev-offset",
+        "8.0",
+        "--auto-exposure",
+        "off",
+        "--bloom",
+        "0",
+        "--capture-every",
+        "1",
+        "--diagnostics",
+        "checkpoint_hdr",
+        "--history-probe",
+        "off",
+        "--frame-origin",
+        "0",
+        "--present",
+        "off",
+        "--clouds",
+        "on",
+        "--water",
+        "on",
+        "--rain",
+        "on",
+        "--capture-raw-profile",
+        "scene_presented_v1",
+        "--optical-tail-bundle",
+        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "--sampling-seed",
+        "7312026601",
+        "--capture-sequence-stages",
+        "presented,scene",
+        "--optical-journal-sync",
+        "region"
+      ],
+      "gpu_frames": 8,
+      "gpu_timed_frames": 8,
+      "gpu_pass_sum_s": 48.603983104,
+      "gpu_timing_status": "recorded_pass_sum",
+      "wall_s": 478.0470000000205,
+      "whole_device_peak_used_mib": 3904.0
+    }
+  },
+  "frames": [
+    {
+      "frame_index": 0,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000000/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000000/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000000_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000000/original.png",
+        "presented": "candidate/frame_000000/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000000_scene.raw"
+      }
+    },
+    {
+      "frame_index": 1,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000001/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000001/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000001_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000001/original.png",
+        "presented": "candidate/frame_000001/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000001_scene.raw"
+      }
+    },
+    {
+      "frame_index": 2,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000002/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000002/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000002_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000002/original.png",
+        "presented": "candidate/frame_000002/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000002_scene.raw"
+      }
+    },
+    {
+      "frame_index": 3,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000003/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000003/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000003_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000003/original.png",
+        "presented": "candidate/frame_000003/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000003_scene.raw"
+      }
+    },
+    {
+      "frame_index": 4,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000004/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000004/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000004_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000004/original.png",
+        "presented": "candidate/frame_000004/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000004_scene.raw"
+      }
+    },
+    {
+      "frame_index": 5,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000005/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000005/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000005_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000005/original.png",
+        "presented": "candidate/frame_000005/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000005_scene.raw"
+      }
+    },
+    {
+      "frame_index": 6,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000006/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000006/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000006_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000006/original.png",
+        "presented": "candidate/frame_000006/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000006_scene.raw"
+      }
+    },
+    {
+      "frame_index": 7,
+      "baseline": {
+        "original": "../../20261015_weather_motion/weather8/preview_motion/frame_000007/original.png",
+        "presented": "../../20261015_weather_motion/weather8/preview_motion/frame_000007/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture\\frame_000007_scene.raw"
+      },
+      "candidate": {
+        "original": "candidate/frame_000007/original.png",
+        "presented": "candidate/frame_000007/presented.png",
+        "source_HDR": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture\\frame_000007_scene.raw"
+      }
+    }
+  ],
+  "ROI_xywh": {
+    "sky": [
+      300,
+      0,
+      140,
+      100
+    ],
+    "water_road": [
+      230,
+      204,
+      250,
+      120
+    ],
+    "rain_center": [
+      160,
+      80,
+      300,
+      180
+    ]
+  },
+  "ROI_images": {
+    "original/sky": "original_sky_8frames_native1to1.png",
+    "original/water_road": "original_water_road_8frames_native1to1.png",
+    "original/rain_center": "original_rain_center_8frames_native1to1.png",
+    "presented/sky": "presented_sky_8frames_native1to1.png",
+    "presented/water_road": "presented_water_road_8frames_native1to1.png",
+    "presented/rain_center": "presented_rain_center_8frames_native1to1.png"
+  },
+  "previews": {
+    "baseline": {
+      "directory": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion",
+      "reused_existing": true
+    },
+    "candidate": {
+      "directory": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\comparison\\candidate",
+      "reused_existing": false
+    }
+  },
+  "linear_HDR_metrics_by_frame": [
+    {
+      "frame_index": 0,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 167584,
+        "baseline": {
+          "mean_Y": 0.0011272465654503297,
+          "p99_Y": 0.017313091805918144,
+          "max_Y": 0.14015527586787938
+        },
+        "candidate": {
+          "mean_Y": 0.0011272835506781075,
+          "p99_Y": 0.017313091805918144,
+          "max_Y": 0.14015527586787938
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": 3.698522777777259e-08,
+          "minimum": -0.003086186775253736,
+          "maximum": 0.0027093301712040555,
+          "absolute_mean": 7.163785357291757e-07,
+          "absolute_p95": 1.6181897188653193e-06,
+          "absolute_p99": 7.954429995734342e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 4407,
+          "baseline": {
+            "mean_Y": 0.01001720457488801,
+            "p99_Y": 0.01915112166271731,
+            "max_Y": 0.035354451931267974
+          },
+          "candidate": {
+            "mean_Y": 0.01001719848637824,
+            "p99_Y": 0.01915112166271731,
+            "max_Y": 0.03535457633137702
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -6.088509771966799e-09,
+            "minimum": -0.0005472793393884784,
+            "maximum": 0.0007348169730394148,
+            "absolute_mean": 4.644430951807019e-07,
+            "absolute_p95": 1.3319013774523797e-06,
+            "absolute_p99": 4.720032945537223e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 22123,
+          "baseline": {
+            "mean_Y": 0.0004766698059937661,
+            "p99_Y": 0.0030490723847388258,
+            "max_Y": 0.014882516366615892
+          },
+          "candidate": {
+            "mean_Y": 0.00047677257526324165,
+            "p99_Y": 0.0030508380993800213,
+            "max_Y": 0.014882599630020558
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 1.0276926947552503e-07,
+            "minimum": -0.00039181978429041913,
+            "maximum": 0.0023861037837661567,
+            "absolute_mean": 5.443983627723316e-07,
+            "absolute_p95": 1.0411749805643818e-06,
+            "absolute_p99": 7.166486701695229e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 37838,
+          "baseline": {
+            "mean_Y": 0.0012421292197769592,
+            "p99_Y": 0.017709702295677747,
+            "max_Y": 0.14015527586787938
+          },
+          "candidate": {
+            "mean_Y": 0.0012421234756580554,
+            "p99_Y": 0.017709702295677747,
+            "max_Y": 0.14015527586787938
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -5.744118903654563e-09,
+            "minimum": -0.0014915755827911176,
+            "maximum": 0.0023861037837661567,
+            "absolute_mean": 1.0102297427970063e-06,
+            "absolute_p95": 2.4114415299846056e-06,
+            "absolute_p99": 1.0922085828424342e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 1,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 194720,
+        "baseline": {
+          "mean_Y": 0.0011236615760511124,
+          "p99_Y": 0.017310523624377336,
+          "max_Y": 0.15577919400334356
+        },
+        "candidate": {
+          "mean_Y": 0.001123623811466371,
+          "p99_Y": 0.017310523624377336,
+          "max_Y": 0.1557790886968374
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": -3.776458474155398e-08,
+          "minimum": -0.006315138915926219,
+          "maximum": 0.0011930519288347568,
+          "absolute_mean": 7.022360500171254e-07,
+          "absolute_p95": 1.6002518450842246e-06,
+          "absolute_p99": 7.844785545865652e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 4918,
+          "baseline": {
+            "mean_Y": 0.009983161783236202,
+            "p99_Y": 0.019133196678556504,
+            "max_Y": 0.032884203849732875
+          },
+          "candidate": {
+            "mean_Y": 0.009983217697839544,
+            "p99_Y": 0.019133196678556504,
+            "max_Y": 0.032884203849732875
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 5.591460334197614e-08,
+            "minimum": -0.00027363838480086997,
+            "maximum": 0.0005479391182307155,
+            "absolute_mean": 4.120487987434908e-07,
+            "absolute_p95": 1.2828273570630964e-06,
+            "absolute_p99": 4.6223322531442546e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 26104,
+          "baseline": {
+            "mean_Y": 0.00047585849177310787,
+            "p99_Y": 0.003015429887588134,
+            "max_Y": 0.015184991575032473
+          },
+          "candidate": {
+            "mean_Y": 0.0004759419194842726,
+            "p99_Y": 0.003014924584467427,
+            "max_Y": 0.015184991575032473
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 8.342771116470604e-08,
+            "minimum": -0.00025071534150047226,
+            "maximum": 0.0011930519288347568,
+            "absolute_mean": 5.046385981448059e-07,
+            "absolute_p95": 1.0400097272213458e-06,
+            "absolute_p99": 7.747063560527718e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 42118,
+          "baseline": {
+            "mean_Y": 0.0012405264872017603,
+            "p99_Y": 0.017774939080111688,
+            "max_Y": 0.15577919400334356
+          },
+          "candidate": {
+            "mean_Y": 0.0012404951711885036,
+            "p99_Y": 0.017774939080111688,
+            "max_Y": 0.1557790886968374
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -3.131601325670793e-08,
+            "minimum": -0.000934784788073739,
+            "maximum": 0.0011930519288347568,
+            "absolute_mean": 9.380971780662088e-07,
+            "absolute_p95": 2.340233489812811e-06,
+            "absolute_p99": 1.0511498396400942e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 2,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 200596,
+        "baseline": {
+          "mean_Y": 0.001128754817884986,
+          "p99_Y": 0.017334161478487778,
+          "max_Y": 0.11508983900547028
+        },
+        "candidate": {
+          "mean_Y": 0.0011287022738217484,
+          "p99_Y": 0.017334161478487778,
+          "max_Y": 0.11508983900547028
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": -5.2544063237361986e-08,
+          "minimum": -0.004210093098692596,
+          "maximum": 0.001882860237918789,
+          "absolute_mean": 6.989889005659079e-07,
+          "absolute_p95": 1.605476890254061e-06,
+          "absolute_p99": 7.672481365647467e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 4935,
+          "baseline": {
+            "mean_Y": 0.010050493676038965,
+            "p99_Y": 0.019172759912345558,
+            "max_Y": 0.0326153199583292
+          },
+          "candidate": {
+            "mean_Y": 0.010050430519727361,
+            "p99_Y": 0.019172759912345558,
+            "max_Y": 0.0326153199583292
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -6.315631160336682e-08,
+            "minimum": -0.0011191854268457974,
+            "maximum": 0.00036522560168523316,
+            "absolute_mean": 4.3849397196472644e-07,
+            "absolute_p95": 1.2311865376249978e-06,
+            "absolute_p99": 4.724871298240031e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 26626,
+          "baseline": {
+            "mean_Y": 0.0004796668872500363,
+            "p99_Y": 0.002995234658929983,
+            "max_Y": 0.015481535366363822
+          },
+          "candidate": {
+            "mean_Y": 0.00047960925473681366,
+            "p99_Y": 0.002995234658929983,
+            "max_Y": 0.015482106282003224
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -5.763251322270212e-08,
+            "minimum": -0.0015989464229671285,
+            "maximum": 0.0007953679294121685,
+            "absolute_mean": 6.235932057222013e-07,
+            "absolute_p95": 1.1251768030342814e-06,
+            "absolute_p99": 8.033651966397825e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 42739,
+          "baseline": {
+            "mean_Y": 0.0012555205503677334,
+            "p99_Y": 0.01775966360444017,
+            "max_Y": 0.11508983900547028
+          },
+          "candidate": {
+            "mean_Y": 0.0012554627889338969,
+            "p99_Y": 0.01775966360444017,
+            "max_Y": 0.11508983900547028
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -5.7761433836790756e-08,
+            "minimum": -0.0011651752225938252,
+            "maximum": 0.001882860237918789,
+            "absolute_mean": 9.847848308139558e-07,
+            "absolute_p95": 2.325668251869459e-06,
+            "absolute_p99": 1.0796859656344107e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 3,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 202541,
+        "baseline": {
+          "mean_Y": 0.0011316356151783136,
+          "p99_Y": 0.01732825445554592,
+          "max_Y": 1.5375865454196929
+        },
+        "candidate": {
+          "mean_Y": 0.0011316688025678554,
+          "p99_Y": 0.01732825445554592,
+          "max_Y": 1.5375865454196929
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": 3.318738954153327e-08,
+          "minimum": -0.0028070847802795455,
+          "maximum": 0.0034558274855837224,
+          "absolute_mean": 7.080684334338578e-07,
+          "absolute_p95": 1.6043805735534577e-06,
+          "absolute_p99": 7.5411235280917145e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 4948,
+          "baseline": {
+            "mean_Y": 0.010033318209187903,
+            "p99_Y": 0.01916778927855939,
+            "max_Y": 0.03267918884456158
+          },
+          "candidate": {
+            "mean_Y": 0.01003355828248233,
+            "p99_Y": 0.01916778927855939,
+            "max_Y": 0.03267918884456158
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 2.4007329442801e-07,
+            "minimum": -0.0005597933691635262,
+            "maximum": 0.0034558274855837224,
+            "absolute_mean": 6.407068067900934e-07,
+            "absolute_p95": 1.2453158531572847e-06,
+            "absolute_p99": 4.304147102288208e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 27365,
+          "baseline": {
+            "mean_Y": 0.00048206556317028883,
+            "p99_Y": 0.0029702149885266547,
+            "max_Y": 0.01508013972695917
+          },
+          "candidate": {
+            "mean_Y": 0.0004820449880760947,
+            "p99_Y": 0.002969832078044069,
+            "max_Y": 0.0150800959456712
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -2.0575094194128537e-08,
+            "minimum": -0.0008529450800386258,
+            "maximum": 0.0005300446906891011,
+            "absolute_mean": 5.059728208443453e-07,
+            "absolute_p95": 1.0739071164788669e-06,
+            "absolute_p99": 7.76149490723033e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 43195,
+          "baseline": {
+            "mean_Y": 0.0012708855521109156,
+            "p99_Y": 0.017715439689800144,
+            "max_Y": 1.5375865454196929
+          },
+          "candidate": {
+            "mean_Y": 0.0012709232155240005,
+            "p99_Y": 0.017715439689800144,
+            "max_Y": 1.5375865454196929
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 3.7663413084873655e-08,
+            "minimum": -0.0005597933691635262,
+            "maximum": 0.0008801091697067023,
+            "absolute_mean": 8.900692532215453e-07,
+            "absolute_p95": 2.3334216972578946e-06,
+            "absolute_p99": 1.0638959608681027e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 4,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 203516,
+        "baseline": {
+          "mean_Y": 0.001126465173309862,
+          "p99_Y": 0.01732724525034241,
+          "max_Y": 1.0441854532718657
+        },
+        "candidate": {
+          "mean_Y": 0.001126458201495215,
+          "p99_Y": 0.01732724525034241,
+          "max_Y": 1.0441854532718657
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": -6.971814647151132e-09,
+          "minimum": -0.00533142558671534,
+          "maximum": 0.0024346423314884303,
+          "absolute_mean": 7.643651221194244e-07,
+          "absolute_p95": 1.5903194424754227e-06,
+          "absolute_p99": 7.855154794815609e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 5093,
+          "baseline": {
+            "mean_Y": 0.010006864643023975,
+            "p99_Y": 0.019111249325945972,
+            "max_Y": 0.03266428011134267
+          },
+          "candidate": {
+            "mean_Y": 0.01000700202212334,
+            "p99_Y": 0.019111249325945972,
+            "max_Y": 0.03266428011134267
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 1.3737909936300578e-07,
+            "minimum": -0.00010137025355361413,
+            "maximum": 0.0017279113555327052,
+            "absolute_mean": 4.26546362211428e-07,
+            "absolute_p95": 1.1830059436034472e-06,
+            "absolute_p99": 4.416640973351576e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 27346,
+          "baseline": {
+            "mean_Y": 0.00048487911487525733,
+            "p99_Y": 0.002976997332103539,
+            "max_Y": 0.013021356082521378
+          },
+          "candidate": {
+            "mean_Y": 0.00048492622255463683,
+            "p99_Y": 0.002977017328082573,
+            "max_Y": 0.01302095195595175
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 4.710767937945175e-08,
+            "minimum": -0.00022125040758401134,
+            "maximum": 0.0012746813379460945,
+            "absolute_mean": 5.346516664509755e-07,
+            "absolute_p95": 1.104980197560504e-06,
+            "absolute_p99": 8.188020483357725e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 43537,
+          "baseline": {
+            "mean_Y": 0.0012534116292805858,
+            "p99_Y": 0.01774208906541579,
+            "max_Y": 1.0441854532718657
+          },
+          "candidate": {
+            "mean_Y": 0.001253375250807817,
+            "p99_Y": 0.01774208906541579,
+            "max_Y": 1.0441854532718657
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -3.6378472768959646e-08,
+            "minimum": -0.00533142558671534,
+            "maximum": 0.0005874757067300387,
+            "absolute_mean": 9.430847275898252e-07,
+            "absolute_p95": 2.2407606733030122e-06,
+            "absolute_p99": 1.1092625443358128e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 5,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 204326,
+        "baseline": {
+          "mean_Y": 0.0011293203256143136,
+          "p99_Y": 0.017339634479954843,
+          "max_Y": 0.14988663939386607
+        },
+        "candidate": {
+          "mean_Y": 0.0011292745748506465,
+          "p99_Y": 0.017339634479954843,
+          "max_Y": 0.14988663939386607
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": -4.5750763667437615e-08,
+          "minimum": -0.0035542846859432757,
+          "maximum": 0.0026301280559040603,
+          "absolute_mean": 7.930225700734894e-07,
+          "absolute_p95": 1.5865503858367378e-06,
+          "absolute_p99": 8.031037555025412e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 4946,
+          "baseline": {
+            "mean_Y": 0.01004667452845927,
+            "p99_Y": 0.01920349902680516,
+            "max_Y": 0.03282944020107388
+          },
+          "candidate": {
+            "mean_Y": 0.010046710023591478,
+            "p99_Y": 0.01920349902680516,
+            "max_Y": 0.03282944020107388
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 3.5495132210060905e-08,
+            "minimum": -0.00010513063541147815,
+            "maximum": 0.0001692031855694946,
+            "absolute_mean": 3.089245963970722e-07,
+            "absolute_p95": 1.1270677302672626e-06,
+            "absolute_p99": 4.410826114955886e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 28347,
+          "baseline": {
+            "mean_Y": 0.00048733720238730745,
+            "p99_Y": 0.0029752903053336622,
+            "max_Y": 0.01547295370772481
+          },
+          "candidate": {
+            "mean_Y": 0.0004873445453518238,
+            "p99_Y": 0.0029757764587933044,
+            "max_Y": 0.01547295370772481
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 7.342964516329535e-09,
+            "minimum": -0.0008983749041726697,
+            "maximum": 0.001556093993905233,
+            "absolute_mean": 5.67678592505389e-07,
+            "absolute_p95": 1.1756803507160026e-06,
+            "absolute_p99": 8.040611791366227e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 44200,
+          "baseline": {
+            "mean_Y": 0.0012716485526660653,
+            "p99_Y": 0.01776811557920465,
+            "max_Y": 0.14988663939386607
+          },
+          "candidate": {
+            "mean_Y": 0.0012714604406173801,
+            "p99_Y": 0.01776811557920465,
+            "max_Y": 0.14988663939386607
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -1.881120486851382e-07,
+            "minimum": -0.0035542846859432757,
+            "maximum": 0.0008637170926638646,
+            "absolute_mean": 1.031949765960414e-06,
+            "absolute_p95": 2.325531262322148e-06,
+            "absolute_p99": 1.1439130892832536e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 6,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 203587,
+        "baseline": {
+          "mean_Y": 0.001123456019419783,
+          "p99_Y": 0.01734624337044731,
+          "max_Y": 0.15728439119160176
+        },
+        "candidate": {
+          "mean_Y": 0.0011233901287483253,
+          "p99_Y": 0.01734624337044731,
+          "max_Y": 0.15728439119160176
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": -6.589067145785865e-08,
+          "minimum": -0.004134244676306844,
+          "maximum": 0.0013150639947969466,
+          "absolute_mean": 7.28086508760895e-07,
+          "absolute_p95": 1.5759890284971675e-06,
+          "absolute_p99": 7.922425470998858e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 5007,
+          "baseline": {
+            "mean_Y": 0.010016681157702023,
+            "p99_Y": 0.019129143277913332,
+            "max_Y": 0.03267250964269042
+          },
+          "candidate": {
+            "mean_Y": 0.010016784913048728,
+            "p99_Y": 0.019129143277913332,
+            "max_Y": 0.03267250964269042
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 1.037553467059823e-07,
+            "minimum": -0.00034102282507810747,
+            "maximum": 0.0007032445617485792,
+            "absolute_mean": 4.688704125690479e-07,
+            "absolute_p95": 1.2051995348884549e-06,
+            "absolute_p99": 4.24021728022492e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 27522,
+          "baseline": {
+            "mean_Y": 0.00048710798533651434,
+            "p99_Y": 0.0029605852400423002,
+            "max_Y": 0.014878806910291314
+          },
+          "candidate": {
+            "mean_Y": 0.0004871122008145831,
+            "p99_Y": 0.0029591728630769046,
+            "max_Y": 0.014878783736564219
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 4.2154780688683324e-09,
+            "minimum": -0.0008607739378232509,
+            "maximum": 0.00015706101166142612,
+            "absolute_mean": 4.930968032701253e-07,
+            "absolute_p95": 1.1281335400417422e-06,
+            "absolute_p99": 7.926484331954254e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 43610,
+          "baseline": {
+            "mean_Y": 0.0012573786968633955,
+            "p99_Y": 0.01779674892571384,
+            "max_Y": 0.15728439119160176
+          },
+          "candidate": {
+            "mean_Y": 0.0012571767499677277,
+            "p99_Y": 0.01779674892571384,
+            "max_Y": 0.15728439119160176
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -2.019468956679735e-07,
+            "minimum": -0.004134244676306844,
+            "maximum": 0.0007032445617485792,
+            "absolute_mean": 1.0569470136604013e-06,
+            "absolute_p95": 2.309178604918984e-06,
+            "absolute_p99": 1.1543543578416648e-05
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 7,
+      "full_frame": {
+        "pixels": 230400,
+        "changed_RGB_pixels": 203291,
+        "baseline": {
+          "mean_Y": 0.0011248019547685424,
+          "p99_Y": 0.017337102015960962,
+          "max_Y": 0.15535276221483943
+        },
+        "candidate": {
+          "mean_Y": 0.0011247861406085738,
+          "p99_Y": 0.017337102015960962,
+          "max_Y": 0.15535276221483943
+        },
+        "delta_Y_candidate_minus_baseline": {
+          "mean": -1.5814159968525946e-08,
+          "minimum": -0.002755667421594263,
+          "maximum": 0.005097469746126443,
+          "absolute_mean": 7.26255431897075e-07,
+          "absolute_p95": 1.5768986364128212e-06,
+          "absolute_p99": 7.807052733725886e-06
+        }
+      },
+      "ROIs": {
+        "sky": {
+          "pixels": 14000,
+          "changed_RGB_pixels": 4987,
+          "baseline": {
+            "mean_Y": 0.009976562407530217,
+            "p99_Y": 0.019082655983291567,
+            "max_Y": 0.034429926335811614
+          },
+          "candidate": {
+            "mean_Y": 0.009976574728334705,
+            "p99_Y": 0.019082655983291567,
+            "max_Y": 0.034429926335811614
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 1.2320804485018123e-08,
+            "minimum": -0.0001705113752628677,
+            "maximum": 0.00012903169738128785,
+            "absolute_mean": 2.910385503225527e-07,
+            "absolute_p95": 1.2058919519040693e-06,
+            "absolute_p99": 3.7580908333766833e-06
+          }
+        },
+        "water_road": {
+          "pixels": 30000,
+          "changed_RGB_pixels": 27618,
+          "baseline": {
+            "mean_Y": 0.000490478887583417,
+            "p99_Y": 0.0029869112493256084,
+            "max_Y": 0.01910817016363144
+          },
+          "candidate": {
+            "mean_Y": 0.0004905058526136507,
+            "p99_Y": 0.0029869105980400907,
+            "max_Y": 0.019108134499937295
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": 2.6965030233739906e-08,
+            "minimum": -0.00036366876268584735,
+            "maximum": 0.0002353149661445059,
+            "absolute_mean": 4.803370248239129e-07,
+            "absolute_p95": 1.1489628639901739e-06,
+            "absolute_p99": 8.416510034032366e-06
+          }
+        },
+        "rain_center": {
+          "pixels": 54000,
+          "changed_RGB_pixels": 43384,
+          "baseline": {
+            "mean_Y": 0.0012789832386787118,
+            "p99_Y": 0.017862277681203558,
+            "max_Y": 0.15535276221483943
+          },
+          "candidate": {
+            "mean_Y": 0.0012788750503597325,
+            "p99_Y": 0.017862277681203558,
+            "max_Y": 0.15535276221483943
+          },
+          "delta_Y_candidate_minus_baseline": {
+            "mean": -1.0818831897922434e-07,
+            "minimum": -0.002755667421594263,
+            "maximum": 0.001111446169577538,
+            "absolute_mean": 1.0181167666016855e-06,
+            "absolute_p95": 2.338410106022278e-06,
+            "absolute_p99": 1.1195012325304298e-05
+          }
+        }
+      }
+    }
+  ],
+  "HDR_metric_units": "original scene-linear units, before EV8/display transform",
+  "metric_limit": "Same-frame differences are descriptive, not noise/error estimates; no ground truth or pure temporal flicker metric.",
+  "source_HDR_modified": false,
+  "OIDN": false,
+  "review_fps": 5,
+  "review_fps_is_render_performance": false,
+  "display": {
+    "original": "scene HDR *256 once -> wide-C1 -> sRGB8",
+    "presented": "captured BGRA8 channel reorder only"
+  }
+}

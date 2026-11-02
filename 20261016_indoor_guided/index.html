@@ -1,0 +1,9 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>室内推荐离线导出</title>
+<style>body{background:#111820;color:#edf2f7;font:16px/1.6 system-ui;margin:24px;max-width:1600px}a{color:#abd6ff}img{width:100%;height:auto}table{border-collapse:collapse}td,th{padding:8px 14px;text-align:left;border-bottom:1px solid #42515f}pre{white-space:pre-wrap;background:#202c38;padding:16px}</style>
+<h1>室内 · 原生1080推荐离线导出</h1>
+<section id="recommended-indoor-motion"><h2>室内短动态 · 有限历史可选项</h2>
+<p>640×360、8帧、平移0.15m的对照中，可靠不透明表面的明暗跳变有所减少，检查区域未见明显新增拖影或接缝。玻璃、水与灯白区仍未解决；不代表长动态或实时达标。</p>
+<p><a href="../20261016_indoor_guided_motion/export8/index.html">逐帧原尺寸对照</a> · <a href="../20261016_indoor_guided_motion/USAGE.md">一条命令复现</a> · <a href="../20261016_indoor_guided_motion/result.json">实测与范围</a></p></section><p>材质与法线引导与同输入颜色去噪对照已完成。地板纹理、吧台板缝及部分墙顶细节更清楚；玻璃、水与灯白区仍是余项。</p>
+<p><a href="export1080/index.html">1080全部分支与四个局部</a> · <a href="export640/index.html">640先行对照</a> · <a href="USAGE.md">可运行命令</a> · <a href="result.json">实际结果</a> · <a href="../20261015_current_delivery/index.html">统一入口</a></p>
+<a href="export1080/guided_normal.png"><img src="export1080/guided_normal.png" alt="实际原生1080推荐结果"></a><ul><li>同输入比较中，材质与法线引导保留了地砖花纹、吧台板缝与木纹、画内细节；颜色去噪把这些细节明显抹平。</li><li>1080中，单独材质引导在左侧大画下方红墙留下浅色横向残粒；加入真实Ns后显著减轻，画框与画内细节仍保留。</li><li>所看墙顶和局部边缘未见明显新增长接缝、光晕或颗粒爆发；这不等于全局无偏或收敛参考证明。</li><li>瓶杯与反射/透射细节仍偏软，水内颗粒斑块和灯白区层次未解决。</li></ul>
+<table><tr><th>分辨率</th><th>GPU时间戳合计</th><th>着色器准备</th><th>捕获总耗时</th><th>整卡观测峰值</th></tr><tr><td>640×360</td><td>1.409s</td><td>2829.483ms</td><td>199.437s</td><td>2200MiB</td></tr><tr><td>1920×1080</td><td>15.568s</td><td>1783.728ms</td><td>190.640s</td><td>6567MiB</td></tr></table><p>GPU数值来自实际时间戳，不包含CPU准备和OIDN。每个分辨率均只补采一帧；首次旧SPV检查失败发生在提交前。此结果是离线静态改进，不证明实时帧率或动态稳定。</p></html>

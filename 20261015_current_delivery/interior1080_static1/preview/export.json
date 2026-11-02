@@ -1,0 +1,144 @@
+{
+  "label": "Current interior 1080 v8 water coverage v3",
+  "input_path": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\capture\\frame_000000_scene.raw",
+  "dimensions": [
+    1920,
+    1080
+  ],
+  "mode": "executed_official_CPU_OIDN",
+  "reused_denoised_path": null,
+  "OIDN_preset": {
+    "device": "cpu",
+    "filter": "RT",
+    "hdr": true,
+    "quality": "high",
+    "threads": 8,
+    "type": "float",
+    "auxiliary_inputs": "color_only"
+  },
+  "variants": {
+    "original": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\capture\\frame_000000_scene.raw",
+      "display_PNG": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\original.png",
+      "source_reference_only": true,
+      "HDR_stats": {
+        "shape": [
+          1080,
+          1920,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          1.3650944232940674,
+          0.9733990430831909,
+          0.9942941069602966
+        ],
+        "mean_Y": 0.0012349912964301363
+      }
+    },
+    "oidn100": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\oidn100.raw",
+      "display_PNG": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\oidn100.png",
+      "source_reference_only": false,
+      "HDR_stats": {
+        "shape": [
+          1080,
+          1920,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          1.253537654876709,
+          1.3338842391967773,
+          1.3901216983795166
+        ],
+        "mean_Y": 0.0012440120110337467
+      }
+    },
+    "mix50": {
+      "linear_RAW": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\mix50.raw",
+      "display_PNG": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\mix50.png",
+      "source_reference_only": false,
+      "HDR_stats": {
+        "shape": [
+          1080,
+          1920,
+          3
+        ],
+        "finite": true,
+        "negative_values": 0,
+        "minimum": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "maximum": [
+          1.0957993268966675,
+          1.1163580417633057,
+          1.1260753870010376
+        ],
+        "mean_Y": 0.0012395016538293833
+      }
+    }
+  },
+  "linear_format": "u32le width,height header + RGBf32le; original HDR units",
+  "mix50_formula": "float32(original*0.5) + float32(oidn100*0.5); no clamp",
+  "display": {
+    "ev": 10,
+    "exposure_multiplier": 1024,
+    "curve": "wide_c1_rgb_v1",
+    "formula": "x=max(HDR,0)*2^EV; y=x/(1+x) for x<=1; y=1-0.5/sqrt(sqrt(2*x-1)) otherwise; fixed sRGB8 encoding",
+    "per_image_normalization": false,
+    "actual_TSR_replay": false
+  },
+  "source_HDR_modified": false,
+  "CPU_OIDN_wall_s_this_export": 1.8071252999361604,
+  "export_command": [
+    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "-B",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\export_hdr_triplet.py",
+    "--input",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\capture\\frame_000000_scene.raw",
+    "--out",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview",
+    "--ev",
+    "10",
+    "--label",
+    "Current interior 1080 v8 water coverage v3"
+  ],
+  "command": [
+    "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+    "--device",
+    "cpu",
+    "--filter",
+    "RT",
+    "--hdr",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\oidn_m6ppvkjg\\input.pfm",
+    "--output",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\oidn_m6ppvkjg\\output.pfm",
+    "--type",
+    "float",
+    "--quality",
+    "high",
+    "--threads",
+    "8",
+    "-n",
+    "1",
+    "--verbose",
+    "1"
+  ],
+  "oidn_version": "2.5.1",
+  "source_receipt": null
+}

@@ -1,0 +1,708 @@
+{
+  "status": "EXPORTED_OFFLINE_PREVIEW_NOT_QUALITY_ACCEPTANCE",
+  "dimensions": [
+    640,
+    360
+  ],
+  "frame_indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "camera": "New matched dolly0.25m, t=frame/7; previous exterior8 was static",
+  "execution": {
+    "off": {
+      "run": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off",
+      "receipt": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\output.run.json",
+      "config": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\config.json",
+      "command": [
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "--spv-dir",
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "--capture-dir",
+        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture",
+        "--profile",
+        "desktop_sdr_high",
+        "--contract",
+        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\config.json",
+        "--gltf",
+        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "--scene",
+        "bistro-interior",
+        "--width",
+        "640",
+        "--height",
+        "360",
+        "--tier",
+        "100",
+        "--frames",
+        "8",
+        "--warmup",
+        "0",
+        "--seed",
+        "7312026601",
+        "--normal-mode",
+        "full",
+        "--textures",
+        "on",
+        "--reflection",
+        "on",
+        "--camera-motion",
+        "dolly",
+        "--camera-distance",
+        "0.25",
+        "--object-motion",
+        "static",
+        "--object-distance",
+        "0.25",
+        "--ev-offset",
+        "8.0",
+        "--auto-exposure",
+        "off",
+        "--bloom",
+        "0",
+        "--capture-every",
+        "1",
+        "--diagnostics",
+        "checkpoint_hdr",
+        "--history-probe",
+        "off",
+        "--frame-origin",
+        "0",
+        "--present",
+        "off",
+        "--clouds",
+        "off",
+        "--water",
+        "on",
+        "--rain",
+        "off",
+        "--capture-raw-profile",
+        "scene_presented_v1",
+        "--optical-tail-bundle",
+        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "--sampling-seed",
+        "7312026601",
+        "--capture-sequence-stages",
+        "presented,scene",
+        "--optical-journal-sync",
+        "region"
+      ],
+      "normal_support": false,
+      "gpu_frames": 8,
+      "gpu_timed_frames": 8,
+      "gpu_pass_sum_s": 34.920476192,
+      "gpu_timing_status": "recorded_pass_sum",
+      "wall_s": 415.64100000006147,
+      "whole_device_peak_used_mib": 3367.0,
+      "gpu_per_frame": [
+        {
+          "frame": 0,
+          "gpu_pass_sum_ns": 4691695968
+        },
+        {
+          "frame": 1,
+          "gpu_pass_sum_ns": 4234980288
+        },
+        {
+          "frame": 2,
+          "gpu_pass_sum_ns": 4274167328
+        },
+        {
+          "frame": 3,
+          "gpu_pass_sum_ns": 4323440672
+        },
+        {
+          "frame": 4,
+          "gpu_pass_sum_ns": 4316029408
+        },
+        {
+          "frame": 5,
+          "gpu_pass_sum_ns": 4363821152
+        },
+        {
+          "frame": 6,
+          "gpu_pass_sum_ns": 4386840256
+        },
+        {
+          "frame": 7,
+          "gpu_pass_sum_ns": 4329501120
+        }
+      ],
+      "shader_prepare_ms": [
+        1554.866
+      ],
+      "shader_prepare_total_ms": 1554.866
+    },
+    "on": {
+      "run": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on",
+      "receipt": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\output.run.json",
+      "config": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+      "command": [
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "--spv-dir",
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "--capture-dir",
+        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture",
+        "--profile",
+        "desktop_sdr_high",
+        "--contract",
+        "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+        "--gltf",
+        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "--scene",
+        "bistro-interior",
+        "--width",
+        "640",
+        "--height",
+        "360",
+        "--tier",
+        "100",
+        "--frames",
+        "8",
+        "--warmup",
+        "0",
+        "--seed",
+        "7312026601",
+        "--normal-mode",
+        "full",
+        "--textures",
+        "on",
+        "--reflection",
+        "on",
+        "--camera-motion",
+        "dolly",
+        "--camera-distance",
+        "0.25",
+        "--object-motion",
+        "static",
+        "--object-distance",
+        "0.25",
+        "--ev-offset",
+        "8.0",
+        "--auto-exposure",
+        "off",
+        "--bloom",
+        "0",
+        "--capture-every",
+        "1",
+        "--diagnostics",
+        "checkpoint_hdr",
+        "--history-probe",
+        "off",
+        "--frame-origin",
+        "0",
+        "--present",
+        "off",
+        "--clouds",
+        "off",
+        "--water",
+        "on",
+        "--rain",
+        "off",
+        "--capture-raw-profile",
+        "scene_presented_v1",
+        "--optical-tail-bundle",
+        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "--sampling-seed",
+        "7312026601",
+        "--capture-sequence-stages",
+        "presented,scene",
+        "--optical-journal-sync",
+        "region"
+      ],
+      "normal_support": true,
+      "gpu_frames": 8,
+      "gpu_timed_frames": 8,
+      "gpu_pass_sum_s": 35.280143552,
+      "gpu_timing_status": "recorded_pass_sum",
+      "wall_s": 414.43699999991804,
+      "whole_device_peak_used_mib": 3367.0,
+      "gpu_per_frame": [
+        {
+          "frame": 0,
+          "gpu_pass_sum_ns": 4659864608
+        },
+        {
+          "frame": 1,
+          "gpu_pass_sum_ns": 4354365760
+        },
+        {
+          "frame": 2,
+          "gpu_pass_sum_ns": 4437742368
+        },
+        {
+          "frame": 3,
+          "gpu_pass_sum_ns": 4253425024
+        },
+        {
+          "frame": 4,
+          "gpu_pass_sum_ns": 4336786176
+        },
+        {
+          "frame": 5,
+          "gpu_pass_sum_ns": 4335880544
+        },
+        {
+          "frame": 6,
+          "gpu_pass_sum_ns": 4450578208
+        },
+        {
+          "frame": 7,
+          "gpu_pass_sum_ns": 4451500864
+        }
+      ],
+      "shader_prepare_ms": [
+        1770.236
+      ],
+      "shader_prepare_total_ms": 1770.236
+    }
+  },
+  "preview_directories": {
+    "off": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\preview_motion",
+    "on": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion"
+  },
+  "display": "scene HDR -> fixed EV8 (256 once), wide_c1_rgb_v1 -> sRGB8; no per-frame normalization or presented/TSR replay",
+  "actual_presented": "Captured GPU final BGRA8 sRGB, lossless channel reorder; separate from the three scene HDR modes",
+  "offline_filter": "Official CPU OIDN RT HDR high8threads, complete frame, color-only; independent frames, no temporal denoising",
+  "oidn_versions": [
+    "2.5.1"
+  ],
+  "mix50": "float32(original*0.5)+float32(oidn100*0.5) in original linear HDR units",
+  "review_fps": 5,
+  "review_fps_is_render_performance": false,
+  "source_HDR_modified": false,
+  "static1080_used_as_motion_baseline": false,
+  "frames": [
+    {
+      "frame_index": 0,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000000_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000000/export.json",
+        "CPU_OIDN_wall_s": 0.48742750007659197,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000000/original.png",
+            "raw": "../motion8_off/capture/frame_000000_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000000/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000000/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000000/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000000/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000000/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000000_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000000_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000000/export.json",
+        "CPU_OIDN_wall_s": 0.4269351998809725,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000000/original.png",
+            "raw": "../motion8_on/capture/frame_000000_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000000/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000000/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000000/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000000/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000000/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000000_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 1,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000001_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000001/export.json",
+        "CPU_OIDN_wall_s": 0.46960069984197617,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000001/original.png",
+            "raw": "../motion8_off/capture/frame_000001_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000001/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000001/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000001/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000001/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000001/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000001_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000001_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000001/export.json",
+        "CPU_OIDN_wall_s": 0.4864464998245239,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000001/original.png",
+            "raw": "../motion8_on/capture/frame_000001_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000001/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000001/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000001/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000001/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000001/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000001_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 2,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000002_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000002/export.json",
+        "CPU_OIDN_wall_s": 0.45886170002631843,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000002/original.png",
+            "raw": "../motion8_off/capture/frame_000002_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000002/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000002/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000002/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000002/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000002/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000002_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000002_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000002/export.json",
+        "CPU_OIDN_wall_s": 0.4671479999087751,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000002/original.png",
+            "raw": "../motion8_on/capture/frame_000002_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000002/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000002/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000002/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000002/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000002/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000002_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 3,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000003_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000003/export.json",
+        "CPU_OIDN_wall_s": 0.5347802999895066,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000003/original.png",
+            "raw": "../motion8_off/capture/frame_000003_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000003/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000003/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000003/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000003/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000003/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000003_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000003_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000003/export.json",
+        "CPU_OIDN_wall_s": 0.47400759998708963,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000003/original.png",
+            "raw": "../motion8_on/capture/frame_000003_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000003/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000003/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000003/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000003/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000003/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000003_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 4,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000004_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000004/export.json",
+        "CPU_OIDN_wall_s": 0.49308219994418323,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000004/original.png",
+            "raw": "../motion8_off/capture/frame_000004_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000004/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000004/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000004/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000004/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000004/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000004_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000004_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000004/export.json",
+        "CPU_OIDN_wall_s": 0.4748517000116408,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000004/original.png",
+            "raw": "../motion8_on/capture/frame_000004_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000004/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000004/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000004/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000004/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000004/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000004_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 5,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000005_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000005/export.json",
+        "CPU_OIDN_wall_s": 0.5260845001321286,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000005/original.png",
+            "raw": "../motion8_off/capture/frame_000005_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000005/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000005/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000005/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000005/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000005/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000005_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000005_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000005/export.json",
+        "CPU_OIDN_wall_s": 0.4796657001134008,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000005/original.png",
+            "raw": "../motion8_on/capture/frame_000005_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000005/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000005/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000005/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000005/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000005/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000005_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 6,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000006_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000006/export.json",
+        "CPU_OIDN_wall_s": 0.46643530018627644,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000006/original.png",
+            "raw": "../motion8_off/capture/frame_000006_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000006/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000006/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000006/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000006/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000006/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000006_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000006_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000006/export.json",
+        "CPU_OIDN_wall_s": 0.48548510018736124,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000006/original.png",
+            "raw": "../motion8_on/capture/frame_000006_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000006/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000006/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000006/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000006/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000006/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000006_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    },
+    {
+      "frame_index": 7,
+      "off": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture\\frame_000007_scene.raw",
+        "export": "../motion8_off/preview_motion/frame_000007/export.json",
+        "CPU_OIDN_wall_s": 0.4658620001282543,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_off/preview_motion/frame_000007/original.png",
+            "raw": "../motion8_off/capture/frame_000007_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_off/preview_motion/frame_000007/oidn100.png",
+            "raw": "../motion8_off/preview_motion/frame_000007/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_off/preview_motion/frame_000007/mix50.png",
+            "raw": "../motion8_off/preview_motion/frame_000007/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_off/preview_motion/frame_000007/actual_presented.png",
+            "raw": "../motion8_off/capture/frame_000007_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      },
+      "on": {
+        "source_hdr": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000007_scene.raw",
+        "export": "../motion8_on/preview_motion/frame_000007/export.json",
+        "CPU_OIDN_wall_s": 0.5045234998688102,
+        "oidn_version": "2.5.1",
+        "variants": {
+          "original": {
+            "png": "../motion8_on/preview_motion/frame_000007/original.png",
+            "raw": "../motion8_on/capture/frame_000007_scene.raw"
+          },
+          "oidn100": {
+            "png": "../motion8_on/preview_motion/frame_000007/oidn100.png",
+            "raw": "../motion8_on/preview_motion/frame_000007/oidn100.raw"
+          },
+          "mix50": {
+            "png": "../motion8_on/preview_motion/frame_000007/mix50.png",
+            "raw": "../motion8_on/preview_motion/frame_000007/mix50.raw"
+          },
+          "actual_presented": {
+            "png": "../motion8_on/preview_motion/frame_000007/actual_presented.png",
+            "raw": "../motion8_on/capture/frame_000007_presented.raw",
+            "format": "BGRA8 sRGB, not linear HDR"
+          }
+        }
+      }
+    }
+  ],
+  "CPU_OIDN_wall_sum_s": 7.70119750010781
+}

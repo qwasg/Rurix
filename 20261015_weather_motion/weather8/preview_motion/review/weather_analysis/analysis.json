@@ -1,0 +1,496 @@
+{
+  "status": "COMPLETED_DATA_DESCRIPTIVE_REVIEW",
+  "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+  "preview_motion": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion",
+  "execution": {
+    "exit_code": 0,
+    "frames": 8,
+    "gpu_frames": 8,
+    "wall_seconds": 707.75,
+    "gpu_pass_sum_ns": 48605995712,
+    "whole_device_peak_used_mib": 3904.0
+  },
+  "checks": {
+    "eight_actual_cloud_uploads_present": true,
+    "physical_steps_follow_mode": true,
+    "all_wind_clocks_exact": true,
+    "all_cloud_camera_packets_exact": true,
+    "all_samples_and_eyes_match": true,
+    "camera_really_translates": true
+  },
+  "dt_s": 0.01666666753590107,
+  "wind_m_per_s": [
+    1.2000000476837158,
+    0.30000001192092896
+  ],
+  "still_snapshot": false,
+  "frames": [
+    {
+      "frame_index": 0,
+      "sample_frame": 0,
+      "physical_step": 0,
+      "physical_time_s": 0.0,
+      "uploaded_wind_offset_m": [
+        0.0,
+        0.0
+      ],
+      "expected_wind_offset_m": [
+        0.0,
+        0.0
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        22.0,
+        2.0280001163482666,
+        -84.0
+      ],
+      "jitter_pixels": [
+        -0.26788330078125,
+        -0.03442057967185974
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 1,
+      "sample_frame": 1,
+      "physical_step": 1,
+      "physical_time_s": 0.01666666753590107,
+      "uploaded_wind_offset_m": [
+        0.020000001415610313,
+        0.005000000353902578
+      ],
+      "expected_wind_offset_m": [
+        0.020000001415610313,
+        0.005000000353902578
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.981773376464844,
+        2.0289595127105713,
+        -83.96929931640625
+      ],
+      "jitter_pixels": [
+        0.23211669921875,
+        0.29891276359558105
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 2,
+      "sample_frame": 2,
+      "physical_step": 2,
+      "physical_time_s": 0.03333333507180214,
+      "uploaded_wind_offset_m": [
+        0.04000000283122063,
+        0.010000000707805157
+      ],
+      "expected_wind_offset_m": [
+        0.04000000283122063,
+        0.010000000707805157
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.963546752929688,
+        2.029918670654297,
+        -83.93860626220703
+      ],
+      "jitter_pixels": [
+        -0.01788330078125,
+        -0.25664278864860535
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 3,
+      "sample_frame": 3,
+      "physical_step": 3,
+      "physical_time_s": 0.05000000447034836,
+      "uploaded_wind_offset_m": [
+        0.06000000610947609,
+        0.015000001527369022
+      ],
+      "expected_wind_offset_m": [
+        0.06000000610947609,
+        0.015000001527369022
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.9453182220459,
+        2.0308780670166016,
+        -83.90790557861328
+      ],
+      "jitter_pixels": [
+        0.48211669921875,
+        0.07669055461883545
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 4,
+      "sample_frame": 4,
+      "physical_step": 4,
+      "physical_time_s": 0.06666667014360428,
+      "uploaded_wind_offset_m": [
+        0.08000000566244125,
+        0.020000001415610313
+      ],
+      "expected_wind_offset_m": [
+        0.08000000566244125,
+        0.020000001415610313
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.927091598510742,
+        2.0318374633789062,
+        -83.87720489501953
+      ],
+      "jitter_pixels": [
+        -0.47100830078125,
+        0.41002386808395386
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 5,
+      "sample_frame": 5,
+      "physical_step": 5,
+      "physical_time_s": 0.0833333358168602,
+      "uploaded_wind_offset_m": [
+        0.10000000894069672,
+        0.02500000223517418
+      ],
+      "expected_wind_offset_m": [
+        0.10000000894069672,
+        0.02500000223517418
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.908864974975586,
+        2.032796621322632,
+        -83.84651184082031
+      ],
+      "jitter_pixels": [
+        0.02899169921875,
+        -0.4418279826641083
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 6,
+      "sample_frame": 6,
+      "physical_step": 6,
+      "physical_time_s": 0.10000000894069672,
+      "uploaded_wind_offset_m": [
+        0.12000001221895218,
+        0.030000003054738045
+      ],
+      "expected_wind_offset_m": [
+        0.12000001221895218,
+        0.030000003054738045
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.89063835144043,
+        2.0337560176849365,
+        -83.81581115722656
+      ],
+      "jitter_pixels": [
+        -0.22100830078125,
+        -0.10849463939666748
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    },
+    {
+      "frame_index": 7,
+      "sample_frame": 7,
+      "physical_step": 7,
+      "physical_time_s": 0.11666667461395264,
+      "uploaded_wind_offset_m": [
+        0.14000001549720764,
+        0.03500000387430191
+      ],
+      "expected_wind_offset_m": [
+        0.14000001549720764,
+        0.03500000387430191
+      ],
+      "wind_clock_bitwise_match": true,
+      "cloud_and_camera_frame128_bitwise_equal": true,
+      "sample_frame_matches_uploads": true,
+      "camera_eye_origin_relative": [
+        21.872411727905273,
+        2.034715414047241,
+        -83.78511047363281
+      ],
+      "jitter_pixels": [
+        0.27899169921875,
+        0.22483867406845093
+      ],
+      "cloud_eye_matches_camera": true,
+      "uploaded_sun_direction_RGB": [
+        -0.168458491563797,
+        0.6879746913909912,
+        0.7059125304222107,
+        0.009222929365932941,
+        0.008068234659731388,
+        0.00632817018777132
+      ]
+    }
+  ],
+  "physical_time_span_s": 0.11666667461395264,
+  "camera_translation_steps_m": [
+    0.035716413873678104,
+    0.03570984969906067,
+    0.03571738726005593,
+    0.035716413873678104,
+    0.03570984969906067,
+    0.035716413873678104,
+    0.035716413873678104
+  ],
+  "camera_first_last_displacement_m": 0.2500027418682003,
+  "validated_files": [
+    {
+      "frame": 0,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000000\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 1,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000001\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 2,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000002\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 3,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000003\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 4,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000004\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 5,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000005\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 6,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000006\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    },
+    {
+      "frame": 7,
+      "scene_dimensions": [
+        640,
+        360
+      ],
+      "scene_all_finite": true,
+      "negative_scene_channels": 0,
+      "original_png": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\frame_000007\\original.png",
+      "original_matches_EV8_wide_C1": true,
+      "export_receipt": null,
+      "presented_dimensions": [
+        640,
+        360
+      ],
+      "presented_format": "BGRA8; inherently finite"
+    }
+  ],
+  "ROIs_xywh": {
+    "sky": [
+      300,
+      0,
+      140,
+      100
+    ],
+    "water_road": [
+      230,
+      204,
+      250,
+      120
+    ],
+    "rain_center": [
+      160,
+      80,
+      300,
+      180
+    ]
+  },
+  "images": [
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\original_sky_8frames_native1to1.png",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\original_water_road_8frames_native1to1.png",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\original_rain_center_8frames_native1to1.png",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\presented_sky_8frames_native1to1.png",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\presented_water_road_8frames_native1to1.png",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\weather_motion\\weather_analysis\\presented_rain_center_8frames_native1to1.png"
+  ],
+  "display": {
+    "original": "Existing original PNG verified against scene HDR at fixed EV8 + wide-C1 + sRGB8",
+    "presented": "Actual GPU BGRA8; channel reorder only, no second exposure or tone mapping"
+  },
+  "limits": [
+    "Cloud records are actual pre-submit CPU uploads, not cloud GPU readback or visual acceptance.",
+    "Eight frames at dt=1/60 cover only 7/60 seconds; no long cloud evolution or rain-water impact proof.",
+    "Fixed screen ROIs include dolly parallax and sampling changes. No pure flicker/noise metric is reported.",
+    "No OIDN, new GPU rendering, intermediate dump or source-image modification."
+  ]
+}

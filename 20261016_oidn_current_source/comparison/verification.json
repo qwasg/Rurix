@@ -1,0 +1,221 @@
+{
+  "config_only_change_cloud_max_history": true,
+  "cloud_max_history_after": 1,
+  "frames": [
+    {
+      "frame": 0,
+      "same_inputs": {
+        "effects_pre_temporal": true,
+        "geometry": true,
+        "material": true,
+        "rain_history0": true,
+        "rain_history1": true
+      },
+      "opaque_current_max_absolute_difference": 0.0,
+      "full_output_bitwise_equal_to_baseline_png": true
+    },
+    {
+      "frame": 1,
+      "same_inputs": {
+        "effects_pre_temporal": true,
+        "geometry": true,
+        "material": true,
+        "rain_history0": true,
+        "rain_history1": true
+      },
+      "opaque_current_max_absolute_difference": 1.862645149230957e-09,
+      "full_output_bitwise_equal_to_baseline_png": false
+    },
+    {
+      "frame": 2,
+      "same_inputs": {
+        "effects_pre_temporal": true,
+        "geometry": true,
+        "material": true,
+        "rain_history0": true,
+        "rain_history1": true
+      },
+      "opaque_current_max_absolute_difference": 3.725290298461914e-09,
+      "full_output_bitwise_equal_to_baseline_png": false
+    },
+    {
+      "frame": 3,
+      "same_inputs": {
+        "effects_pre_temporal": true,
+        "geometry": true,
+        "material": true,
+        "rain_history0": true,
+        "rain_history1": true
+      },
+      "opaque_current_max_absolute_difference": 1.862645149230957e-09,
+      "full_output_bitwise_equal_to_baseline_png": false
+    }
+  ],
+  "GPU": {
+    "command": [
+      "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\oidn_pre_temporal_capture_v1\\candidate_hq_quality_lane.exe",
+      "--spv-dir",
+      "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_lighting_v1\\shaders_complete",
+      "--capture-dir",
+      "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\capture",
+      "--profile",
+      "desktop_sdr_high",
+      "--contract",
+      "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4\\config.json",
+      "--gltf",
+      "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+      "--scene",
+      "bistro-interior",
+      "--width",
+      "640",
+      "--height",
+      "360",
+      "--tier",
+      "100",
+      "--frames",
+      "4",
+      "--warmup",
+      "0",
+      "--seed",
+      "7312026601",
+      "--normal-mode",
+      "full",
+      "--textures",
+      "on",
+      "--reflection",
+      "on",
+      "--camera-motion",
+      "dolly",
+      "--camera-distance",
+      "0.10714285714285714",
+      "--object-motion",
+      "static",
+      "--object-distance",
+      "0.25",
+      "--ev-offset",
+      "8.0",
+      "--auto-exposure",
+      "off",
+      "--bloom",
+      "0",
+      "--capture-every",
+      "1",
+      "--diagnostics",
+      "checkpoint_hdr",
+      "--history-probe",
+      "off",
+      "--frame-origin",
+      "0",
+      "--present",
+      "off",
+      "--clouds",
+      "on",
+      "--water",
+      "on",
+      "--rain",
+      "on",
+      "--capture-raw-profile",
+      "scene_presented_v1",
+      "--optical-tail-bundle",
+      "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+      "--sampling-seed",
+      "7312026601",
+      "--capture-sequence-stages",
+      "effects_pre_rain,rain_history0,rain_history1,geometry,material,water_surface,effects_opaque_scene,effects_pre_temporal",
+      "--optical-journal-sync",
+      "region"
+    ],
+    "mode": "oidn_current_source_cap1",
+    "region_uses_default": false,
+    "config_source": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\motion4\\config.json",
+    "exit_code": 0,
+    "wall_seconds": 247.10900000017136,
+    "frames": 4,
+    "camera_distance_m": 0.10714285714285714,
+    "linear_scene_hdr_frames": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "whole_device_peak_used_mib": 3947.0,
+    "gpu_frames": 4,
+    "gpu_timed_frames": 4,
+    "gpu_timing_status": "available",
+    "gpu_timing_unavailable_frames": [],
+    "gpu_pass_sum_ns": 17505431072,
+    "gpu_per_frame": [
+      {
+        "frame": 0,
+        "gpu_pass_sum_ns": 4676062624
+      },
+      {
+        "frame": 1,
+        "gpu_pass_sum_ns": 4210500384
+      },
+      {
+        "frame": 2,
+        "gpu_pass_sum_ns": 4239704576
+      },
+      {
+        "frame": 3,
+        "gpu_pass_sum_ns": 4379163488
+      }
+    ],
+    "owner_frames": 4,
+    "owner_sum_ns": {
+      "owner_before_publication_ns": 60531298600,
+      "cpu_record_ns": 6433783700,
+      "cpu_submit_ns": 475066300,
+      "cpu_fence_wait_ns": 16615914300
+    },
+    "owner_per_frame": [
+      {
+        "sample": 0,
+        "regions": 939,
+        "schema": "rurix.hq.optical_owner_timing.v1",
+        "gpu_timing_status": "available",
+        "scope": "owner_entry_through_before_publication",
+        "owner_before_publication_ns": 34954398900,
+        "cpu_record_ns": 1713741800,
+        "cpu_submit_ns": 125153700,
+        "cpu_fence_wait_ns": 4468530300
+      },
+      {
+        "sample": 1,
+        "regions": 939,
+        "schema": "rurix.hq.optical_owner_timing.v1",
+        "gpu_timing_status": "available",
+        "scope": "owner_entry_through_before_publication",
+        "owner_before_publication_ns": 8371455000,
+        "cpu_record_ns": 1570040200,
+        "cpu_submit_ns": 113917700,
+        "cpu_fence_wait_ns": 3924731800
+      },
+      {
+        "sample": 2,
+        "regions": 939,
+        "schema": "rurix.hq.optical_owner_timing.v1",
+        "gpu_timing_status": "available",
+        "scope": "owner_entry_through_before_publication",
+        "owner_before_publication_ns": 8442033300,
+        "cpu_record_ns": 1498947700,
+        "cpu_submit_ns": 113579000,
+        "cpu_fence_wait_ns": 4115121600
+      },
+      {
+        "sample": 3,
+        "regions": 939,
+        "schema": "rurix.hq.optical_owner_timing.v1",
+        "gpu_timing_status": "available",
+        "scope": "owner_entry_through_before_publication",
+        "owner_before_publication_ns": 8763411400,
+        "cpu_record_ns": 1651054000,
+        "cpu_submit_ns": 122415900,
+        "cpu_fence_wait_ns": 4107530600
+      }
+    ],
+    "note": "Completed owner frames and fully timed frames are separate. Unavailable GPU time is null; no partial or zero substitute. Available sums are timestamp durations, not wall time."
+  },
+  "CPU": 3.5538116998504847
+}

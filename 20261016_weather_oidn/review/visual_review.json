@@ -1,0 +1,45 @@
+{
+  "assessment": "VISIBLE_GRAIN_REDUCTION_WITH_DETAIL_AND_WEATHER_TRADEOFF",
+  "reviewer": "road_bsdf_probe independent visual review",
+  "source_run": "E:/rurix_quality_runs/20261015_weather_motion/weather8",
+  "source_is_new_cloud_strat8_candidate": false,
+  "preview_directory": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/weather_oidn/results",
+  "viewed": [
+    "roi_full_f0_f7.png",
+    "roi_water_road_f0_f7.png",
+    "roi_rain_center_f0_f7.png",
+    "roi_sky_f0_f7.png",
+    "frame_000000/oidn100.png",
+    "frame_000007/oidn100.png",
+    "frame_000007/mix50.png"
+  ],
+  "comparison_layout": "ROI sheets: original / OIDN100 / mix50 columns; frame0 / frame7 rows, native pixels",
+  "observations": {
+    "road_grain": {
+      "OIDN100": "首尾帧路面及墙面密集细白粒大幅消失，场景主体更容易阅读。这是明确可见的颗粒抑制，但f0中央道路变成大面积平滑色面，部分材质细纹也丢失。",
+      "mix50": "亮粒对比明显低于原始，前景石材结构和道路边缘仍易辨；中央道路仍有密集细粒。局部视觉折中优于OIDN100的过度平滑，但不是颗粒问题已解决。"
+    },
+    "edges_and_architecture": "OIDN100保留路缘、前景台阶、灯杆和主要建筑轮廓，没有看到首尾帧新增大面积晕边；细窗框、店面细线和石材细纹明显变软。f7右墙出现较粗的波纹/块状纹理，不能将其称为忠实恢复的真实材质细节。mix50保留更多原始细线。",
+    "foliage": "OIDN100右侧树冠和低矮绿篱从细碎叶片/高光变成较连续的绿色软块，叶片层次明显损失；mix50保留较多细碎结构，也保留部分闪亮颗粒。",
+    "water_and_reflection": "三种版本的水面轮廓、位置和内部竖向建筑反射结构仍可辨，未见新增方形边界或轮廓断裂。OIDN100反射内部细节和细小亮点更软；mix50在反射清晰度和颗粒抑制之间更平衡。不能据此确认真实水纹或反射能量误差改善。",
+    "rain_points": "OIDN100中的点状天气观感显著减弱，画面更接近无明显雨点的街景；mix50仍有明显点状场。scene HDR已含雨，但缺少rain coverage原始dump，无法把每个消失点认定为雨，也无法证明mix50的真实雨保留率。原始版本本身的点状雨与采样颗粒也难以可靠分离。",
+    "sky": "三种版本天空仍近乎均匀浅灰；OIDN没有产生可辨云层细节，天空与屋顶交界在OIDN100更软。",
+    "first_last_variation": "OIDN100的f0中央道路比f7更平滑，f7右侧墙地纹理更粗。由于相机移动、抖动和原始输入也变化，这只能记录为首尾外观差异，不能直接称为纯时序闪烁或拖影。"
+  },
+  "judgment": "OIDN100带来强烈可见的颗粒减少，但细节及点状天气观感损失过大，不宜作为最终画质修复已完成的证据。mix50是这三列中更可用的预览折中，改善可见但有限，仍需保留原始对照。",
+  "processing_context_from_results": {
+    "OIDN": "2.5.1 RT HDR, CPU, color-only, high",
+    "guides_missing": ["albedo", "normal", "optical-hit features"],
+    "mix50": "0.5 original + 0.5 OIDN in linear HDR",
+    "display": "EV8 applied once, wide-C1 then sRGB8",
+    "new_GPU_frames": 0,
+    "temporal_denoising": false,
+    "source_HDR_modified": false
+  },
+  "limits": [
+    "仅实看640x360首尾帧和首尾ROI，不能证明1080p效果或八帧运动稳定。",
+    "无干净参考图，颗粒减少是视觉观察，不等于可量化真实噪声/误差下降。",
+    "无rain coverage原始数据，不能逐点判定消失的亮点是真实雨或噪声。",
+    "本次CPU离线预览不代表GPU渲染性能或实时能力。"
+  ]
+}

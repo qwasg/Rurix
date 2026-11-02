@@ -1,0 +1,488 @@
+{
+  "status": "EXPORTED_CANDIDATE_MOTION_REVIEW_NOT_QUALITY_ACCEPTANCE",
+  "run": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak",
+  "dimensions": [
+    640,
+    360
+  ],
+  "rendered_frames": 61,
+  "retained_frame_indices": [
+    0,
+    6,
+    12,
+    18,
+    24,
+    30,
+    36,
+    42,
+    48,
+    54,
+    60
+  ],
+  "frames": [
+    {
+      "frame_index": 0,
+      "sample_frame": 0,
+      "physical_step": 0,
+      "cloud_time_s": 0.0,
+      "rain_updates_completed": 1,
+      "rain_nominal_update_time_s": 0.01666666753590107,
+      "camera_eye_origin_relative": [
+        22.0,
+        2.0280001163482666,
+        -84.0
+      ],
+      "jitter_pixels": [
+        -0.26788330078125,
+        -0.03442057967185974
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000000_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000000_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000000/original.png",
+      "presented": "frame_000000/presented.png"
+    },
+    {
+      "frame_index": 6,
+      "sample_frame": 6,
+      "physical_step": 6,
+      "cloud_time_s": 0.10000000894069672,
+      "rain_updates_completed": 7,
+      "rain_nominal_update_time_s": 0.11666667275130749,
+      "camera_eye_origin_relative": [
+        21.987241744995117,
+        2.0286717414855957,
+        -83.97850799560547
+      ],
+      "jitter_pixels": [
+        -0.22100830078125,
+        -0.10849463939666748
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000006_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000006_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000006/original.png",
+      "presented": "frame_000006/presented.png"
+    },
+    {
+      "frame_index": 12,
+      "sample_frame": 12,
+      "physical_step": 12,
+      "cloud_time_s": 0.20000001788139343,
+      "rain_updates_completed": 13,
+      "rain_nominal_update_time_s": 0.2166666779667139,
+      "camera_eye_origin_relative": [
+        21.9744815826416,
+        2.0293431282043457,
+        -83.95702362060547
+      ],
+      "jitter_pixels": [
+        -0.40850830078125,
+        0.11372756958007812
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000012_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000012_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000012/original.png",
+      "presented": "frame_000012/presented.png"
+    },
+    {
+      "frame_index": 18,
+      "sample_frame": 18,
+      "physical_step": 18,
+      "cloud_time_s": 0.30000001192092896,
+      "rain_updates_completed": 19,
+      "rain_nominal_update_time_s": 0.3166666831821203,
+      "camera_eye_origin_relative": [
+        21.96172332763672,
+        2.030014753341675,
+        -83.93553161621094
+      ],
+      "jitter_pixels": [
+        -0.03350830078125,
+        0.039653480052948
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000018_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000018_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000018/original.png",
+      "presented": "frame_000018/presented.png"
+    },
+    {
+      "frame_index": 24,
+      "sample_frame": 24,
+      "physical_step": 24,
+      "cloud_time_s": 0.40000003576278687,
+      "rain_updates_completed": 25,
+      "rain_nominal_update_time_s": 0.41666668839752674,
+      "camera_eye_origin_relative": [
+        21.948965072631836,
+        2.030686140060425,
+        -83.91404724121094
+      ],
+      "jitter_pixels": [
+        -0.31475830078125,
+        -0.1331859827041626
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000024_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000024_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000024/original.png",
+      "presented": "frame_000024/presented.png"
+    },
+    {
+      "frame_index": 30,
+      "sample_frame": 30,
+      "physical_step": 30,
+      "cloud_time_s": 0.5,
+      "rain_updates_completed": 31,
+      "rain_nominal_update_time_s": 0.5166666936129332,
+      "camera_eye_origin_relative": [
+        21.93620491027832,
+        2.031357765197754,
+        -83.8925552368164
+      ],
+      "jitter_pixels": [
+        -0.12725830078125,
+        0.08903622627258301
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000030_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000030_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000030/original.png",
+      "presented": "frame_000030/presented.png"
+    },
+    {
+      "frame_index": 36,
+      "sample_frame": 36,
+      "physical_step": 36,
+      "cloud_time_s": 0.6000000238418579,
+      "rain_updates_completed": 37,
+      "rain_nominal_update_time_s": 0.6166666988283396,
+      "camera_eye_origin_relative": [
+        21.923446655273438,
+        2.032029151916504,
+        -83.8710708618164
+      ],
+      "jitter_pixels": [
+        -0.49639892578125,
+        0.01496213674545288
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000036_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000036_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000036/original.png",
+      "presented": "frame_000036/presented.png"
+    },
+    {
+      "frame_index": 42,
+      "sample_frame": 42,
+      "physical_step": 42,
+      "cloud_time_s": 0.7000000476837158,
+      "rain_updates_completed": 43,
+      "rain_nominal_update_time_s": 0.716666704043746,
+      "camera_eye_origin_relative": [
+        21.910688400268555,
+        2.032700777053833,
+        -83.84957885742188
+      ],
+      "jitter_pixels": [
+        -0.12139892578125,
+        -0.059111952781677246
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000042_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000042_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000042/original.png",
+      "presented": "frame_000042/presented.png"
+    },
+    {
+      "frame_index": 48,
+      "sample_frame": 48,
+      "physical_step": 48,
+      "cloud_time_s": 0.8000000715255737,
+      "rain_updates_completed": 49,
+      "rain_nominal_update_time_s": 0.8166667092591524,
+      "camera_eye_origin_relative": [
+        21.89792823791504,
+        2.033372163772583,
+        -83.82809448242188
+      ],
+      "jitter_pixels": [
+        -0.30889892578125,
+        0.16311031579971313
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000048_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000048_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000048/original.png",
+      "presented": "frame_000048/presented.png"
+    },
+    {
+      "frame_index": 54,
+      "sample_frame": 54,
+      "physical_step": 54,
+      "cloud_time_s": 0.9000000357627869,
+      "rain_updates_completed": 55,
+      "rain_nominal_update_time_s": 0.9166667144745588,
+      "camera_eye_origin_relative": [
+        21.885169982910156,
+        2.034043788909912,
+        -83.80660247802734
+      ],
+      "jitter_pixels": [
+        -0.21514892578125,
+        -0.0536249577999115
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000054_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000054_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000054/original.png",
+      "presented": "frame_000054/presented.png"
+    },
+    {
+      "frame_index": 60,
+      "sample_frame": 60,
+      "physical_step": 60,
+      "cloud_time_s": 1.0,
+      "rain_updates_completed": 61,
+      "rain_nominal_update_time_s": 1.0166667196899652,
+      "camera_eye_origin_relative": [
+        21.872411727905273,
+        2.034715414047241,
+        -83.78511047363281
+      ],
+      "jitter_pixels": [
+        -0.40264892578125,
+        -0.12769901752471924
+      ],
+      "source_scene_HDR": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000060_scene.raw",
+      "source_presented_BGRA8": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\frame_000060_presented.raw",
+      "HDR_finite": true,
+      "HDR_nonnegative": true,
+      "original": "frame_000060/original.png",
+      "presented": "frame_000060/presented.png"
+    }
+  ],
+  "dt_uploaded_f32_s": 0.01666666753590107,
+  "cloud_first_last_span_s": 1.0,
+  "nominal_first_last_span_s": 1.0000000521540642,
+  "checkpoint_interval_s": 0.10000000521540642,
+  "rain_clock_note": "Frame0 renders after sim(dt), then new particles emit at age0. Update count*time is nominal, not each particle age; repeated float32 age additions can round differently.",
+  "clock_source": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture\\cloud_transport_frames.jsonl",
+  "all_61_actual_physical_steps_sequential": true,
+  "comparison_scope": "这是独立的61帧候选动态检查，不是与旧8帧匹配的A/B。dolly总距离仍为0.25m，分散到60个时间间隔，因此相机速度比旧8帧轨迹慢。只保存每6帧的检查点，不能观察其间未保存的每一步重生/遮挡变化。",
+  "matched_old8_AB": false,
+  "camera": {
+    "motion": "dolly",
+    "total_distance_m": 0.25,
+    "old8_intervals": 7,
+    "current_intervals": 60,
+    "same_endpoints_slower_motion": true
+  },
+  "display": {
+    "ev": 8,
+    "exposure_multiplier": 256,
+    "curve": "wide_c1_rgb_v1 + sRGB8",
+    "presented": "Captured GPU BGRA8 to RGB; no repeated exposure"
+  },
+  "review_fps": 10,
+  "review_fps_is_render_performance": false,
+  "playback_wraps": false,
+  "ROI_xywh": {
+    "rain": [
+      184,
+      24,
+      280,
+      132
+    ],
+    "near_rain": [
+      272,
+      80,
+      96,
+      64
+    ],
+    "water_road": [
+      230,
+      204,
+      250,
+      120
+    ]
+  },
+  "contact_sheets": {
+    "original/rain": "original_rain_f0_18_36_54_60_native1to1.png",
+    "original/water_road": "original_water_road_f0_18_36_54_60_native1to1.png",
+    "presented/rain": "presented_rain_f0_18_36_54_60_native1to1.png",
+    "presented/water_road": "presented_water_road_f0_18_36_54_60_native1to1.png"
+  },
+  "source_HDR_modified": false,
+  "OIDN_calls": 0,
+  "GPU_calls": 0,
+  "links": {
+    "receipt": "../output.run.json",
+    "config": "../config.json"
+  },
+  "execution": {
+    "command": [
+      "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+      "--spv-dir",
+      "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+      "--capture-dir",
+      "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture",
+      "--profile",
+      "desktop_sdr_high",
+      "--contract",
+      "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\config.json",
+      "--gltf",
+      "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+      "--scene",
+      "bistro-interior",
+      "--width",
+      "640",
+      "--height",
+      "360",
+      "--tier",
+      "100",
+      "--frames",
+      "61",
+      "--warmup",
+      "0",
+      "--seed",
+      "7312026601",
+      "--normal-mode",
+      "full",
+      "--textures",
+      "on",
+      "--reflection",
+      "on",
+      "--camera-motion",
+      "dolly",
+      "--camera-distance",
+      "0.25",
+      "--object-motion",
+      "static",
+      "--object-distance",
+      "0.25",
+      "--ev-offset",
+      "8.0",
+      "--auto-exposure",
+      "off",
+      "--bloom",
+      "0",
+      "--capture-every",
+      "6",
+      "--diagnostics",
+      "checkpoint_hdr",
+      "--history-probe",
+      "off",
+      "--frame-origin",
+      "0",
+      "--present",
+      "off",
+      "--clouds",
+      "on",
+      "--water",
+      "on",
+      "--rain",
+      "on",
+      "--capture-raw-profile",
+      "scene_presented_v1",
+      "--optical-tail-bundle",
+      "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+      "--sampling-seed",
+      "7312026601",
+      "--optical-journal-sync",
+      "region"
+    ],
+    "gpu_frames": 61,
+    "gpu_timed_frames": 61,
+    "gpu_pass_sum_s": 362.762014624,
+    "gpu_timing_status": "recorded_pass_sum",
+    "gpu_pass_sum_ns": 362762014624,
+    "wall_s": 1008.7660000000615,
+    "whole_device_peak_used_mib": 3904.0
+  },
+  "actual_effects_configuration": {
+    "schema": "rurix.hq.effects.v1",
+    "clouds": true,
+    "water": true,
+    "rain": true,
+    "dt_s": 0.016666667,
+    "sky_preset": "clear",
+    "sky_intensity": 0.01,
+    "cloud_base_m": 30.0,
+    "cloud_top_m": 90.0,
+    "cloud_density": 0.8,
+    "cloud_coverage": 0.8,
+    "cloud_primary_steps": 16,
+    "cloud_light_steps": 2,
+    "cloud_noise_dims": [
+      32,
+      16
+    ],
+    "cloud_wind_m_s": [
+      1.2,
+      0.3
+    ],
+    "water_domain": {
+      "dim": 32,
+      "center_xz": [
+        18.0,
+        -77.0
+      ],
+      "extent_m": 3.0,
+      "level_m": 0.4,
+      "top_m": 2.8,
+      "bottom_m": -2.0,
+      "wave_speed_m_s": 0.2
+    },
+    "water_initial_drop": [
+      0.006,
+      0.35
+    ],
+    "rain_config": {
+      "capacity": 256,
+      "initial_count": 64,
+      "emit_per_frame": 2,
+      "emitter": [
+        18.0,
+        4.0,
+        -77.0
+      ],
+      "spread": [
+        2.0,
+        0.2,
+        2.0
+      ],
+      "velocity": [
+        0.15,
+        -3.0,
+        0.05
+      ],
+      "velocity_spread": [
+        0.15,
+        0.3,
+        0.1
+      ],
+      "life_s": 1.5,
+      "radius_m": 0.016,
+      "alpha": 0.4,
+      "radiance": [
+        0.05,
+        0.055,
+        0.07
+      ],
+      "gravity_m_s2": -1.0
+    }
+  }
+}

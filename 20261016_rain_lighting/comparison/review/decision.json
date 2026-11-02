@@ -1,0 +1,56 @@
+{
+  "available": true,
+  "quality_status": "quality_not_final",
+  "summary": "受光雨滴在两帧实际 GPU 对照中明显减轻固定雨源造成的白色短条和悬浮白屑，保留为可用候选。暗墙与窗面上的雨线仍偏弱，第二帧墙地原有颗粒和拆层背景软化仍在；尚未通过自然降雨、连续动态或整体画质验收。",
+  "configuration": {
+    "rain_config_lighting": "scene_sky_p1_v1",
+    "optional": true,
+    "default_selection_changed": false,
+    "previous_constant_mode_preserved": true,
+    "existing_separated_offline_option_retained": true
+  },
+  "implementation": {
+    "source": "Existing environment sky and direct sun, with geometry and cloud visibility at each drop fragment.",
+    "phase_function": "p(mu)=(1+0.75*mu)/(4*pi)",
+    "environment_approximation": "Six fixed world directions; constant incident radiance is preserved exactly by the quadrature.",
+    "compositing": "Preserve original coverage, alpha, occlusion and camera-to-drop air prefix. No background-dependent scaling, global exposure change, radiance clamp or added image blur.",
+    "offline_view": "Reuse the existing OIDN background only after actual pre-rain HDR equality; recompose with the actual new GPU rain contribution and unchanged coverage. No OIDN rerun.",
+    "display_finding": "EV +8 strongly exposes the old fixed rain RGB; WideC1 compresses highlights but is not a hard clip. Display mapping is unchanged."
+  },
+  "validation": {
+    "shader_variants_compiled_and_validated": 4,
+    "incremental_host_build_passed": true,
+    "full_CI_run": false,
+    "new_GPU_candidates": 1,
+    "actual_GPU_frames": [0, 1],
+    "dimensions": [640, 360],
+    "actual_frame_and_cloud_inputs_equal": true,
+    "pre_rain_HDR_bitwise_equal_both_frames": true,
+    "both_coverage_buffers_bitwise_equal_both_frames": true,
+    "changed_rain_pixels_by_frame": [336, 361],
+    "changed_nonrain_pixels_by_frame": [0, 0],
+    "GPU_pass_sum_ns": 11794384512,
+    "run_wall_seconds": 371.7970000000205,
+    "shader_preparation_ms": 1975.721,
+    "whole_device_peak_used_MiB": 4032,
+    "timing_interpretation": "GPU timestamp sum and end-to-end run time are distinct. One pair does not establish a performance gain or real-time throughput.",
+    "new_OIDN_calls": 0,
+    "comparison_report": "E:/rurix_quality_runs/20261016_rain_lighting/comparison/results.json",
+    "visual_review": "gpu_visual_review.json"
+  },
+  "limits": [
+    "Dark-background rain remains weak and is particularly difficult to distinguish in the noisy raw render.",
+    "Existing frame-1 wall and ground noise, background OIDN softness, sky/cloud detail and scene highlights remain unresolved.",
+    "This coarse bounded scattering model omits mesh-emitter illumination and full water refraction; six environment directions can miss narrow lighting features.",
+    "The actual configuration has zero live analytic point lights; inactive buffered records were not treated as lights.",
+    "Two 640x360 frames do not establish long-motion stability, 1080p quality or complete weather acceptance."
+  ],
+  "storage_readonly": {
+    "D_free_bytes": 55767531520,
+    "D_used_bytes": 536357040128,
+    "E_free_bytes": 144609968128,
+    "E_used_bytes": 879597121536,
+    "deleted_files": 0,
+    "action": "Read-only free-space report; no cleanup or storage-record maintenance."
+  }
+}

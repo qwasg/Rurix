@@ -1,0 +1,300 @@
+{
+  "status": "passed",
+  "capture": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture",
+  "scope": "14 strat8 calls, finite sample controls, actual cloud source bindings only",
+  "secondary_records": 14,
+  "family_counts": {
+    "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface": 12,
+    "hq_water_sun_ray_mesh_full_brdf_thin_shadow_ns_cloud_sun_finite_cloud_surface": 2
+  },
+  "finite_mesh_counts": {
+    "0": 1,
+    "8": 476
+  },
+  "finite_qp": 8,
+  "finite_stride": 128,
+  "records": [
+    {
+      "logical_pass": 2241,
+      "physical_pass": 4232,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 2422,
+      "physical_pass": 4470,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 2603,
+      "physical_pass": 4708,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 2800,
+      "physical_pass": 4966,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 2981,
+      "physical_pass": 5204,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 3162,
+      "physical_pass": 5442,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 3666,
+      "physical_pass": 6188,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 3847,
+      "physical_pass": 6426,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 4028,
+      "physical_pass": 6664,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 4225,
+      "physical_pass": 6922,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 4406,
+      "physical_pass": 7160,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 4587,
+      "physical_pass": 7398,
+      "parent": "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 42,
+      "physical_binding_count": 42,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 4790,
+      "physical_pass": 7664,
+      "parent": "hq_water_sun_ray_mesh_full_brdf_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_water_sun_ray_mesh_full_brdf_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 39,
+      "physical_binding_count": 39,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    },
+    {
+      "logical_pass": 4948,
+      "physical_pass": 7877,
+      "parent": "hq_water_sun_ray_mesh_full_brdf_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "variant": "hq_water_sun_ray_mesh_full_brdf_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "binding_count": 39,
+      "physical_binding_count": 39,
+      "finite_mesh": 8,
+      "control_resource": 1144,
+      "control_words": [
+        8,
+        8,
+        128,
+        0
+      ],
+      "cloud_owned": true
+    }
+  ],
+  "frames": [
+    {
+      "frame_index": 0,
+      "sample_frame": 0,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 1,
+      "sample_frame": 1,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 2,
+      "sample_frame": 2,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 3,
+      "sample_frame": 3,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 4,
+      "sample_frame": 4,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 5,
+      "sample_frame": 5,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 6,
+      "sample_frame": 6,
+      "matched_calls": 14
+    },
+    {
+      "frame_index": 7,
+      "sample_frame": 7,
+      "matched_calls": 14
+    }
+  ],
+  "failures": [],
+  "limitation": "Runtime metadata/binding check only; no image quality or completed GPU execution claim."
+}

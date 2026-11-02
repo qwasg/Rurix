@@ -1,0 +1,382 @@
+{
+  "status": "CURRENT_OFFLINE_OUTPUTS_READY_OVERALL_NOT_ACCEPTED_WAITING_REFERENCE",
+  "recorded_utc": "2026-10-16T07:16:12.610416+00:00",
+  "entry": "E:\\rurix_quality_runs\\20261015_current_delivery\\index.html",
+  "commands": "E:\\rurix_quality_runs\\20261015_current_delivery\\current_commands.txt",
+  "items": [
+    {
+      "id": "indoor1080",
+      "title": "室内 1080 静态",
+      "tag": "当前推荐静态 · 1920×1080",
+      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\index.html",
+      "image": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "frames": 1,
+      "config": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\config.json",
+      "capture": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
+      "export": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\export.json",
+      "source_HDR": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_scene.raw",
+      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_indoor.py",
+      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_indoor.py' '--output-root' 'E:/rurix_quality_runs/indoor1080_repeat_NEW' '--width' '1920' '--run'",
+      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+      "asset": "D:/Rurix/artifacts/day_1013_terminal_sampling/source_glass_roughness_candidate/BistroInterior_source_roughness_v8.gltf",
+      "source_files": [
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\capture_indoor.py",
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_indoor.py"
+      ],
+      "benefit": "真实材质与法线引导保留更多地板纹理、吧台板缝和部分墙顶细节。",
+      "limits": "玻璃亮点、水内颗粒、灯面白区及部分细节软化仍在。",
+      "gpu_s": 15.567764704,
+      "wall_s": 190.64000000013039,
+      "peak_MiB": 6567.0,
+      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+    },
+    {
+      "id": "indoor8",
+      "title": "室内 8 帧可选稳定",
+      "tag": "离线可选 · 640×360 · 8帧",
+      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\index.html",
+      "image": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\frame_000007\\output.png",
+      "dimensions": [
+        640,
+        360
+      ],
+      "frames": 8,
+      "config": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\config.json",
+      "capture": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\output.run.json",
+      "export": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\results.json",
+      "source_HDR": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\capture\\frame_000000_scene.raw",
+      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py",
+      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py' '--output-root' 'E:/rurix_quality_runs/indoor8_repeat_NEW' '--run'",
+      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+      "asset": "D:/Rurix/artifacts/day_1013_terminal_sampling/source_glass_roughness_candidate/BistroInterior_source_roughness_v8.gltf",
+      "source_files": [
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\capture_motion.py",
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_motion.py",
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\temporal_oidn\\reprojection.py"
+      ],
+      "benefit": "0.15m平移、静态物体：墙顶明暗跳变轻微减少，保留当帧无历史对照。",
+      "limits": "仅可靠不透明区域最多结合前两帧；玻璃、水、发光面回退。未证明长动态或1080动态稳定。",
+      "gpu_s": 11.013713664,
+      "wall_s": 171.6720000000205,
+      "peak_MiB": 2146.0,
+      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+    },
+    {
+      "id": "sunny1080",
+      "title": "室外晴天 1080 静态",
+      "tag": "当前查看 · 1920×1080",
+      "viewer": "E:\\rurix_quality_runs\\20261015_current_delivery\\sunny1080_current.html",
+      "image": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\oidn100.png",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "frames": 1,
+      "config": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+      "capture": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\output.run.json",
+      "export": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\export.json",
+      "source_HDR": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\frame_000000_scene.raw",
+      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_sunny.py",
+      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_sunny.py' '--output-root' 'E:/rurix_quality_runs/sunny1080_repeat_NEW' '--run'",
+      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+      "asset": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+      "source_files": [
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\capture_representatives.py",
+        "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\export_hdr_triplet.py"
+      ],
+      "benefit": "法线支持修正消除已检查道路的大块黑条；选用OIDN100查看，原图与50%混合保留。",
+      "limits": "远处铺地凹凸感减弱；门洞与绿篱暗部、叶片软化及水内颗粒仍在。",
+      "gpu_s": 41.124541632,
+      "wall_s": 416.094000000041,
+      "peak_MiB": 7015.0,
+      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+    },
+    {
+      "id": "rain1152",
+      "title": "雨天 1152 静态",
+      "tag": "当前天气代表帧 · 1152×648",
+      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\index.html",
+      "image": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/export/frame_000000/output.png",
+      "dimensions": [
+        1152,
+        648
+      ],
+      "frames": 1,
+      "config": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/run/config.json",
+      "capture": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/run/output.run.json",
+      "export": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/export/results.json",
+      "source_HDR": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run\\capture\\frame_000000_scene.raw",
+      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
+      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py' '--output-root' 'E:/rurix_quality_runs/rain1152_repeat_NEW' '--mode' 'still' '--still-width' '1152' '--still-height' '648' '--post-oidn-history' '1' '--run'",
+      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_lighting_v1\\shaders_complete",
+      "asset": "D:/Rurix/artifacts/day_1004_quality_repair/assets/exterior/BistroExterior_rough_glass_optical_v6.gltf",
+      "source_files": [
+        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/export_temporal.py",
+        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/noise_fullframe/export_fullframe.py"
+      ],
+      "benefit": "受光短雨丝与背景分离，背景使用当前帧OIDN和真实引导，雨按实际捕获信号重组。",
+      "limits": "天气1080尚未完成；水内碎纹、暗部雨偏弱和细纹理软化仍在。",
+      "gpu_s": 14.074238688,
+      "wall_s": 219.76600000006147,
+      "peak_MiB": 6158.0,
+      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+    },
+    {
+      "id": "rain24",
+      "title": "雨天 24 帧可选稳定",
+      "tag": "离线可选 · 640×360 · 24帧",
+      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\index.html",
+      "image": "E:/rurix_quality_runs/20261016_recommended_weather/motion_temporal/export/frame_000012/output.png",
+      "dimensions": [
+        640,
+        360
+      ],
+      "frames": 24,
+      "config": "E:/rurix_quality_runs/20261016_recommended_weather/motion/run/config.json",
+      "capture": "E:/rurix_quality_runs/20261016_recommended_weather/motion/run/output.run.json",
+      "export": "E:/rurix_quality_runs/20261016_recommended_weather/motion_temporal/export/results.json",
+      "source_HDR": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run\\capture\\frame_000000_scene.raw",
+      "script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
+      "command": "& 'C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe' '-B' 'C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py' '--output-root' 'E:/rurix_quality_runs/rain24_repeat_NEW' '--mode' 'motion' '--motion-frames' '24' '--post-oidn-history' '3' '--run'",
+      "spv": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_lighting_v1\\shaders_complete",
+      "asset": "D:/Rurix/artifacts/day_1004_quality_repair/assets/exterior/BistroExterior_rough_glass_optical_v6.gltf",
+      "source_files": [
+        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/export_temporal.py",
+        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/temporal_oidn/reprojection.py",
+        "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/noise_fullframe/export_fullframe.py"
+      ],
+      "benefit": "远窗与店面变化有轻微缓和；最多结合前两帧的空间结果，非递归，保留无历史对照。",
+      "limits": "24帧仅覆盖0.383秒；透明、水与雨不使用该历史。细纹理略软，未证明长动态或快速运动稳定。",
+      "gpu_s": 102.6656496,
+      "wall_s": 411.81300000008196,
+      "peak_MiB": 3938.0,
+      "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe"
+    }
+  ],
+  "common_dependencies": {
+    "python": "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "python_packages": {
+      "numpy": "2.3.5",
+      "Pillow": "12.3.0"
+    },
+    "OIDN": "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+    "OIDN_version": "2.5.1 CPU",
+    "current_host": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+    "runtime": "Windows + Vulkan GPU driver for capture; existing renderer/shader sources and source-referenced assets must remain available.",
+    "renderer_source_root": "D:/Rurix/src/rurix-render",
+    "shader_source_root": "D:/Rurix/src/rurix-render/kernels",
+    "optical_tail_bundle": "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+    "source_asset_roots": [
+      "E:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroInterior",
+      "E:/rurix_g10_cache/bistro-orca/v5_2/derived/BistroExterior"
+    ],
+    "no_OpenCV_needed_for_recommended_outputs": true
+  },
+  "resource_optimization_17": {
+    "source": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/scratch_certificates.rs",
+    "entries_list_source": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/memory_focus/new_variant_entries.json",
+    "exact_17_variant_names": [
+      "hq_sun_direct_light_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_sun_geometry_reflection_nee_partition_thin_shadow_ns_specular_mis_canonical_air_cloud_sun_finite_cloud_surface",
+      "hq_glass_sun_terminal_partition_thin_shadow_ns_specular_mis_canonical_air_cloud_sun_finite_cloud_surface",
+      "hq_primary_one_r_sun_terminal_mesh_full_brdf_capture_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_glass_sun_primary_terminal_mesh_full_brdf_capture_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_primary_terminal_sun_reflection_direct_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_glass_sun_terminal_partition_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_sun_diffuse_path_material_nee_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_primary_partition_reflected_sun_ray_direct_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_water_sun_ray_mesh_full_brdf_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_water_glass_sun_terminal_mesh_full_brdf_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+      "hq_cloud_finite_factor_guard",
+      "hq_reflection_prepare_vndf_triangle_origin_specular_mis_canonical_air",
+      "hq_emissive_nee_full_brdf_thin_shadow_ns_specular_mis_canonical_air_surface",
+      "hq_glass_secondary_step_rough_thin_shadow_ns_triangle_origin_record_specular_mis_canonical_air_surface",
+      "hq_mis_air_side_guard",
+      "hq_mis_air_positive_add"
+    ],
+    "all_names_still_present_in_current_source": true,
+    "change": "Extend existing full-first-write compatibility records for exact variants; existing device-local lifetime reuse/packing. No shader, sample, precision, pass-order or packing-algorithm change.",
+    "verified_scope": "One matched native1152x648 frame0, identical config/logical graph/resources; nine HDR/aux stages bitwise equal, maxabs0; validation errors0.",
+    "device_heap0_required_before_bytes": 5961313424,
+    "device_heap0_required_after_bytes": 4772893072,
+    "actual_device_heap0_saved_bytes": 1188420352,
+    "planned_buffer_bytes": {
+      "baseline_planned_buffer_bytes": 6098502980,
+      "candidate_planned_buffer_bytes": 4910081668,
+      "CPU_replay_candidate_planned_buffer_bytes": 4910081668,
+      "candidate_minus_CPU_replay_bytes": 0,
+      "candidate_matches_CPU_replay": true,
+      "saved_planned_buffer_bytes": 1188421312,
+      "scope": "Logical requested buffer sizes; includes host-visible buffers and excludes separate Vulkan/AS overhead, so this total is not heap0 persistent bytes."
+    },
+    "whole_device_peak_MiB_before_after": [
+      6158.0,
+      5080.0
+    ],
+    "GPU_seconds_before_after": [
+      14.074238688,
+      14.345098272
+    ],
+    "timing_caveat": "One frame each; no speedup claim. Requested buffers and actual Vulkan heap requirements are different measures.",
+    "factor_allocations_stayed_device_local": [
+      {
+        "label": "resource[1137]",
+        "phase": "persistent",
+        "requested_bytes": 191102976,
+        "required_bytes": 191102976,
+        "alignment": 16,
+        "memory_type_bits": 31,
+        "memory_type_index": 1,
+        "memory_property_flags": 1,
+        "heap_index": 0
+      },
+      {
+        "label": "resource[1141]",
+        "phase": "persistent",
+        "requested_bytes": 382205952,
+        "required_bytes": 382205952,
+        "alignment": 16,
+        "memory_type_bits": 31,
+        "memory_type_index": 1,
+        "memory_property_flags": 1,
+        "heap_index": 0
+      }
+    ],
+    "current_source_evidence": [
+      "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/finite_cloud.rs:51",
+      "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/finite_cloud.rs:65",
+      "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/mis_canonical_air.rs:132"
+    ],
+    "evidence": {
+      "allocation": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\memory_focus\\actual_allocation_comparison.json",
+      "HDR_comparison": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\memory_focus\\frame_equivalence_retry1.json",
+      "launcher_journal": "E:\\rurix_quality_runs\\20261016_scratch_variant_compat\\verify1152_retry1_launcher.jsonl",
+      "receipt": "E:\\rurix_quality_runs\\20261016_scratch_variant_compat\\verify1152_retry1\\output.run.json",
+      "summary": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/memory_focus/verification_result.json",
+      "readable": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/current_delivery/memory_focus/verification.md",
+      "actual_ledger": "E:/rurix_quality_runs/20261016_scratch_variant_compat/verify1152_retry1/capture/session_capacity_preflight.json"
+    },
+    "native1080_weather": {
+      "rendered": false,
+      "estimated_device_heap_bytes": 8642731792,
+      "observed_available_budget_bytes": 7421251584,
+      "gap_bytes": 1221480208,
+      "scope": "Forecast, not an executed1080 allocation."
+    }
+  },
+  "scope": [
+    "This handoff changes presentation and adds only a sunny capture/export orchestration wrapper.",
+    "No new render, algorithm, filter, build, hash or repository-wide review.",
+    "GPU times below are the original capture pass timestamp sums, not full frame latency or a new measurement of the restored host.",
+    "Fresh output directories and one GPU queue are required. Omit --run to inspect commands only."
+  ],
+  "issues": [
+    {
+      "id": "1",
+      "goal": "室内红墙、天花、吧台、地面与室外叶片、墙面反射密集噪点",
+      "status": "部分改善",
+      "finding": "室内1080真实材质/法线引导改善平面噪点与地板、木面细节；室外晴天与雨天保留离线OIDN。玻璃亮点、水内颗粒和部分纹理软化仍在，原始采样未证明收敛。",
+      "evidence": [
+        "indoor1080",
+        "sunny1080",
+        "rain1152"
+      ]
+    },
+    {
+      "id": "2",
+      "goal": "材质普遍油亮、粗糙度同质化",
+      "status": "部分改善",
+      "finding": "室内v8保留有来源的玻璃与瓶体感知粗糙度，室外沿用独立optical_v6资产。旧187/202同粗糙度记录不能作为当前结论；地板油亮和部分高光外观仍未解决。",
+      "evidence": [
+        "indoor1080",
+        "sunny1080"
+      ]
+    },
+    {
+      "id": "3",
+      "goal": "玻璃透明透射",
+      "status": "物理路径存在；画质未完成",
+      "finding": "OPAQUE与transmission可并存，现有透射/反射路径不是alpha BLEND替代。玻璃细节、亮点和动态闪烁仍在；唯一两帧图像光流候选无明确净收益，已否决并停止。",
+      "evidence": [
+        "indoor1080",
+        "indoor8"
+      ]
+    },
+    {
+      "id": "4",
+      "goal": "植物alpha轮廓及阴影",
+      "status": "轮廓部分可见；阴影仍缺证据",
+      "finding": "室外代表帧有不规则叶片轮廓，未见明显整块贴图矩形；全部植物alpha阴影与半透明语义尚无隔离参考验证。",
+      "evidence": [
+        "sunny1080"
+      ]
+    },
+    {
+      "id": "5",
+      "goal": "店面、门洞、立柱、绿篱底部暗部细节",
+      "status": "道路局部修复；暗部仍不足",
+      "finding": "晴天原始HDR同配置对照中道路大黑条消除，已有8帧局部动态证据；远处铺地凹凸感减弱。门洞、店面、绿篱底部暗部和水内碎纹仍在，未靠提高曝光称为修复。",
+      "evidence": [
+        "sunny1080"
+      ]
+    },
+    {
+      "id": "6",
+      "goal": "水洼方形边界与地板油亮分别处理",
+      "status": "边界部分改善；内部仍未解决",
+      "finding": "已有世界空间自然边界与水岸覆盖率v3，边缘部分亮颗粒略柔和；水内颗粒、暗形及残留闪烁仍明显。地板油亮继续按材质/光照问题保留。",
+      "evidence": [
+        "indoor1080",
+        "sunny1080",
+        "rain1152"
+      ]
+    },
+    {
+      "id": "7",
+      "goal": "灯具与高光层次，不能只加曝光",
+      "status": "未解决；原因已定位",
+      "finding": "选定室内主吊灯面超过99.9%的亮度来自自发光，原始HDR有纹理变化，显示后集中约240–246码值。固定局部减半仅略暗、无清楚结构收益，已否决；不继续反复调曝光，等待用户参考。",
+      "evidence": [
+        "indoor1080"
+      ]
+    },
+    {
+      "id": "8",
+      "goal": "分辨率细节与顶部灯裁切构图",
+      "status": "两类1080静态已交付；天气1080未达",
+      "finding": "室内与晴天均为原生1920×1080；室内主灯罩/吊扇完整入画。雨天当前为1152×648；两个可选序列均为640×360。没有将小图冒充1080，细节质量和天气1080仍有缺口。",
+      "evidence": [
+        "indoor1080",
+        "sunny1080",
+        "rain1152",
+        "indoor8",
+        "rain24"
+      ]
+    }
+  ],
+  "capability_gaps": [
+    {
+      "id": "A",
+      "goal": "有限光传输能力",
+      "status": "未证明完整光传输",
+      "finding": "当前2 spp、最多3次漫反射反弹与有限光学界面/延续预算仍是受限解；不是收敛室内GI或复杂多次玻璃参考。"
+    },
+    {
+      "id": "B",
+      "goal": "动态闪烁、拖影、水面稳定",
+      "status": "不透明短动态小幅改善；透明闪烁未解决",
+      "finding": "室内8帧、雨天24帧有限历史仅为离线可选。玻璃、水及高光残留闪烁仍在；玻璃图像历史候选已否决。未验证长序列、快速运动或动态物体，也未完成1080动态。"
+    },
+    {
+      "id": "C",
+      "goal": "执行PASS与视觉质量验收之间的证据缺口",
+      "status": "仍缺收敛/用户画质参考；整体未验收",
+      "finding": "现有HDR、同配置局部对照与视觉结论可审阅，执行成功不等于整体画质PASS。天气1080、实时帧预算与UE5级效果均未达成或未证明；任务暂停新增候选，等待用户画质参考。"
+    }
+  ],
+  "overall": "整体画质未验收；等待用户画质参考，不再自行新增候选。"
+}

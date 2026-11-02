@@ -1,0 +1,17 @@
+{
+  "status": "APPLIED",
+  "files": [
+    "core.rs",
+    "effects_lane.rs"
+  ],
+  "scope": "Explicit capture only; existing pre-rain HDR and both coverage histories.",
+  "GPU_calls": 0,
+  "new_GPU_buffers": 0,
+  "shader_changes": 0,
+  "selected_stages": [
+    "effects_pre_rain",
+    "rain_history0",
+    "rain_history1"
+  ],
+  "meaning": "Pre-rain includes water, geometry lighting and camera air. Coverage is diagnostic data; pre-rain is scene-linear HDR."
+}

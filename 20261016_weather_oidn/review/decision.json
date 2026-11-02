@@ -1,0 +1,43 @@
+{
+  "status": "REVIEW_COMPLETE_ONE_RAIN_FOOTPRINT_CHANGE_RECOMMENDED_NOT_IMPLEMENTED",
+  "summary": "OIDN100%明显抑制亮粒，但损失路面细纹、窗框、植物与点状天气观感；50%线性混合保留结构较好，颗粒仍明显。两者均未恢复可辨雨丝或云层。",
+  "observation": "实际查看原始/OIDN100/mix50的首尾帧及路面水域、街道中央、天空原尺寸ROI。OIDN100右墙粗波纹与道路软块不能作为细节恢复证据。",
+  "rain_limit": "scene HDR实际已包含雨合成；没有单独rain coverage RAW，无法逐点识别被去掉的亮点属于雨还是采样噪声，也不能量化真实雨保留率。",
+  "recommendation": "下一项只改现有雨粒子的短曝光覆盖：用当前与真实上一粒子位置，在同一当前相机下投影为短扫掠圆盘/胶囊雨丝，处理曝光及覆盖面积归一；新生粒子保留点形。保持几何遮挡、空气前缀、透明MV/reactive语义。",
+  "reason": "当前雨核的形状是最小0.75像素半径圆点，已有真实上一位置却未用于形状。这是可定点改善雨形可读性的入口，不声称能解决占主导的传输采样噪点。",
+  "edit_entry": "D:/Rurix/ci/hq_effects_codegen.py::rain_sorted；同步现有surface与camera_relative派生kernel，避免只改运行时生成文件。",
+  "scope_preserved": "不增加粒子/采样/辐亮度，不改云尺度或曝光，不默认采用OIDN100/mix50；等待父线程选择GPU修改范围。",
+  "future_motion": "8帧仅覆盖7/60秒。若后续检查约1秒自然运动，需61个连续模拟/渲染帧；capture-every6保存11帧，移除强制逐帧capture-sequence-stages。稀疏保存不跳过物理模拟，也不减少全部渲染帧。",
+  "source_run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+  "source_is_cloud_strat8_candidate": false,
+  "dimensions": [
+    640,
+    360
+  ],
+  "frames": 8,
+  "CPU_OIDN_wall_sum_s": 3.6183179006911814,
+  "OIDN": "2.5.1 RT HDR color-only high float32 CPU8threads; independent frames",
+  "mix": "float32 0.5 original + 0.5 OIDN before display; EV8 once, wide-C1/sRGB",
+  "new_GPU_frames": 0,
+  "source_HDR_modified": false,
+  "renderer_source_changed": false,
+  "quality_accepted": false,
+  "preset_selection_changed": false,
+  "storage": {
+    "effective_policy": "D/E: retain at least 50GiB AND10%; legacy script15% warning retained",
+    "deleted_files": 0,
+    "bulk_destination": "E:\\rurix_quality_runs\\20261016_weather_oidn",
+    "growth_control": "Reuse original8 HDR; publish only CPU derivatives and small review files; no rerender.",
+    "D": {
+      "free_bytes": 55767269376,
+      "free_percent": 9.42,
+      "meets_effective_floor": false
+    },
+    "E": {
+      "free_bytes": 145889234944,
+      "free_percent": 14.24,
+      "meets_effective_floor": true
+    },
+    "recorded_utc": "2026-10-16T00:59:35.796741+00:00"
+  }
+}

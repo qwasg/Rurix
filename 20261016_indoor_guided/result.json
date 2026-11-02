@@ -1,0 +1,148 @@
+{
+  "status": "RECOMMENDED_OFFLINE_INDOOR_LIMITED_STATIC",
+  "recorded_utc": "2026-10-16T06:28:51.601537+00:00",
+  "selected_variant": "guided_normal",
+  "selected_image": {
+    "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+    "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+    "RAW_is_source_reference": false,
+    "HDR_min": 0.0,
+    "HDR_max": 1.376158356666565,
+    "finite": true
+  },
+  "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\index.html",
+  "runs": {
+    "640": {
+      "status": "COMPLETED_OFFLINE_EXPORT",
+      "selected": "guided_normal",
+      "selected_image": {
+        "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\guided_normal.png",
+        "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\guided_normal.raw",
+        "RAW_is_source_reference": false,
+        "HDR_min": 7.729640287834627e-07,
+        "HDR_max": 1.122358798980713,
+        "finite": true
+      },
+      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\index.html",
+      "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture640\\output.run.json",
+      "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\export.json",
+      "native_resolution": [
+        640,
+        360
+      ],
+      "GPU_frames": 1,
+      "GPU_pass_sum_seconds": 1.408939904,
+      "shader_prepare_ms": 2829.483,
+      "capture_wall_seconds": 199.43700000015087,
+      "whole_device_peak_used_MiB": 2200.0,
+      "device_heap_required_bytes": 1723064832,
+      "observed_device_heap_available_bytes": 7421251584,
+      "CPU_OIDN_three_branches_wall_seconds": 1.6750733996741474,
+      "CPU_export_wall_seconds": 2.4593261000700295,
+      "guided_nonzero_pixels": 174608,
+      "guided_effective_coverage_fraction": 0.5283219401041667,
+      "transparent_water_emission_output": "same-input color-only fallback",
+      "global_runtime_denoiser_changed": false,
+      "real_time": false,
+      "notes": [
+        "GPU timestamps exclude CPU preparation and export.",
+        "One static frame does not establish dynamic stability.",
+        "Glass, water detail and flat lamp emission remain unresolved."
+      ]
+    },
+    "1080": {
+      "status": "COMPLETED_OFFLINE_EXPORT",
+      "selected": "guided_normal",
+      "selected_image": {
+        "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+        "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+        "RAW_is_source_reference": false,
+        "HDR_min": 0.0,
+        "HDR_max": 1.376158356666565,
+        "finite": true
+      },
+      "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\index.html",
+      "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
+      "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\export.json",
+      "native_resolution": [
+        1920,
+        1080
+      ],
+      "GPU_frames": 1,
+      "GPU_pass_sum_seconds": 15.567764704,
+      "shader_prepare_ms": 1783.728,
+      "capture_wall_seconds": 190.64000000013039,
+      "whole_device_peak_used_MiB": 6567.0,
+      "device_heap_required_bytes": 6360586560,
+      "observed_device_heap_available_bytes": 7421251584,
+      "CPU_OIDN_three_branches_wall_seconds": 4.8547829003073275,
+      "CPU_export_wall_seconds": 10.36497460003011,
+      "guided_nonzero_pixels": 1716360,
+      "guided_effective_coverage_fraction": 0.7094498396508487,
+      "transparent_water_emission_output": "same-input color-only fallback",
+      "global_runtime_denoiser_changed": false,
+      "real_time": false,
+      "notes": [
+        "GPU timestamps exclude CPU preparation and export.",
+        "One static frame does not establish dynamic stability.",
+        "Glass, water detail and flat lamp emission remain unresolved."
+      ]
+    }
+  },
+  "review": {
+    "recorded_utc": "2026-10-16T06:28:29.041276+00:00",
+    "net_benefit": true,
+    "selected_variant": "guided_normal",
+    "scope": "Two native single-frame captures at640 and1920 widths; same camera/preset and identical scene HDR within each three-arm CPU comparison. Static offline finding only.",
+    "findings": [
+      "同输入比较中，材质与法线引导保留了地砖花纹、吧台板缝与木纹、画内细节；颜色去噪把这些细节明显抹平。",
+      "1080中，单独材质引导在左侧大画下方红墙留下浅色横向残粒；加入真实Ns后显著减轻，画框与画内细节仍保留。",
+      "所看墙顶和局部边缘未见明显新增长接缝、光晕或颗粒爆发；这不等于全局无偏或收敛参考证明。",
+      "瓶杯与反射/透射细节仍偏软，水内颗粒斑块和灯白区层次未解决。"
+    ],
+    "views_inspected_by_root": [
+      "guided_albedo.png",
+      "guided_normal.png",
+      "color_only.png",
+      "comparison_wall.png",
+      "comparison_bar.png",
+      "comparison_floor.png",
+      "comparison_ceiling.png"
+    ],
+    "independent_review": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\independent_review1080.json",
+    "guide_nonzero_fraction": 0.8277199074074074,
+    "guide_effective_coverage_fraction": 0.7094498396508487,
+    "unsupported_outputs_bitwise_equal_to_color_only": true,
+    "GPU_validation_errors": 0,
+    "single_frame_not_dynamic_acceptance": true,
+    "no_converged_reference": true,
+    "official_method_reference": "https://www.openimagedenoise.org/documentation.html#rt",
+    "guide_policy": "Full-frame official OIDN with actual material RGB and Ns.2px inward rejection+16px feather controls writeback, not CNN context isolation. Exclude physical water, primary and extra glass coverage, emission and unreliable opaque materials."
+  },
+  "review640": "E:\\rurix_quality_runs\\20261016_indoor_guided\\review640.json",
+  "native1080_succeeded": true,
+  "new_completed_GPU_frames": 2,
+  "pre_submission_setup_failure": {
+    "path": "E:\\rurix_quality_runs\\20261016_indoor_guided\\verify640",
+    "reason": "Historical material shader no longer matches current source marker; existing compatible module bundle selected.",
+    "GPU_completed_frames": 0
+  },
+  "active_host": "E:/rurix_quality_build/day_1015_glass_reconstruction/restored_device_local_v1/candidate_hq_quality_lane.exe",
+  "shader_bundle": "E:/rurix_quality_build/day_1015_glass_reconstruction/normal_support_v1/shaders_complete",
+  "renderer_source_changes_this_round": false,
+  "current_indoor_normal_support_option_changed": false,
+  "timing_logging": "Existing GPU timestamp and shader preparation logs recorded; extra logging approved by user.",
+  "memory_estimate": "E:\\rurix_quality_runs\\20261016_indoor_guided\\memory_estimate.json",
+  "reproduce_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_indoor.py",
+  "CPU_only_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_indoor.py",
+  "global_runtime_denoiser_changed": false,
+  "overall_quality_accepted": false,
+  "dynamic_test_this_round": false,
+  "real_time": false,
+  "remaining": [
+    "Glass reflection/transmission fine detail remains soft or speckled.",
+    "Water interior remains a granular patch under color-only fallback.",
+    "Lamp emission white regions remain flat.",
+    "No dynamic validation of this guide composition or converged reference."
+  ]
+}

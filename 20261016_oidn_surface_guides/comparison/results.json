@@ -1,0 +1,263 @@
+{
+  "status": "CPU_ROI_GUIDE_TRIAL_COMPLETE_NOT_QUALITY_ACCEPTANCE",
+  "frame": 0,
+  "rectangles_xywh": [
+    [
+      0,
+      0,
+      143,
+      352
+    ],
+    [
+      554,
+      0,
+      85,
+      325
+    ]
+  ],
+  "OIDN_calls": 4,
+  "output": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison",
+  "CPU_only": true,
+  "clean_aux": false,
+  "same_crop_for_both_arms": true,
+  "actual_GPU_capture": {
+    "exit_code": 0,
+    "gpu_frames": 2,
+    "gpu_pass_sum_ns": 11598091168,
+    "wall_seconds": 314.25,
+    "whole_device_peak_used_mib": 3954.0
+  },
+  "baseline_HDR_bitwise_equal": true,
+  "fallback_pixels_bitwise_unchanged": true,
+  "guided_application_pixels": 26943,
+  "full_weight_pixels": 14793,
+  "CPU_OIDN_process_wall_sum_s": 1.253374399850145,
+  "CPU_guided_only_process_wall_sum_s": 0.6730268998071551,
+  "rows": [
+    {
+      "index": 0,
+      "xywh": [
+        0,
+        0,
+        143,
+        352
+      ],
+      "all_pixels_have_supported_guides": true,
+      "context_pixels": 32,
+      "composite_fade_pixels": 16,
+      "full_weight_pixels": 12032,
+      "OIDN_color_only": {
+        "label": "color_only",
+        "shape": [
+          352,
+          143,
+          3
+        ],
+        "device": "cpu",
+        "filter": "RT",
+        "hdr": true,
+        "quality": "high",
+        "type": "float",
+        "threads": 8,
+        "guides": {
+          "albedo": false,
+          "normal": false,
+          "clean_aux": false
+        },
+        "command": [
+          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "--device",
+          "cpu",
+          "--filter",
+          "RT",
+          "--hdr",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\color_only_oidn_04j1cc52\\color.pfm",
+          "--output",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\color_only_oidn_04j1cc52\\output.pfm",
+          "--type",
+          "float",
+          "--quality",
+          "high",
+          "--threads",
+          "8",
+          "-n",
+          "1",
+          "--verbose",
+          "1"
+        ],
+        "exit_code": 0,
+        "process_wall_s": 0.28706240002065897,
+        "log": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\color_only_4a9e9a065f44.oidn.log"
+      },
+      "OIDN_guided": {
+        "label": "albedo_normal",
+        "shape": [
+          352,
+          143,
+          3
+        ],
+        "device": "cpu",
+        "filter": "RT",
+        "hdr": true,
+        "quality": "high",
+        "type": "float",
+        "threads": 8,
+        "guides": {
+          "albedo": true,
+          "normal": true,
+          "clean_aux": false
+        },
+        "command": [
+          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "--device",
+          "cpu",
+          "--filter",
+          "RT",
+          "--hdr",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\albedo_normal_oidn_4h45r3qu\\color.pfm",
+          "--alb",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\albedo_normal_oidn_4h45r3qu\\albedo.pfm",
+          "--nrm",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\albedo_normal_oidn_4h45r3qu\\normal.pfm",
+          "--output",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\albedo_normal_oidn_4h45r3qu\\output.pfm",
+          "--type",
+          "float",
+          "--quality",
+          "high",
+          "--threads",
+          "8",
+          "-n",
+          "1",
+          "--verbose",
+          "1"
+        ],
+        "exit_code": 0,
+        "process_wall_s": 0.3631615999620408,
+        "log": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_0\\albedo_normal_ded0c8ef235e.oidn.log"
+      },
+      "guide_model": "actual linear baseRGB and world-space shading Ns; clean_aux=false",
+      "scale": "Both arms receive identical scene-linear color and the same official automatic inputScale policy. No exposure or radiance rescaling outside OIDN.",
+      "comparison": "roi_0/comparison_native.png",
+      "interior": "roi_0/interior_native.png"
+    },
+    {
+      "index": 1,
+      "xywh": [
+        554,
+        0,
+        85,
+        325
+      ],
+      "all_pixels_have_supported_guides": true,
+      "context_pixels": 32,
+      "composite_fade_pixels": 5,
+      "full_weight_pixels": 2761,
+      "OIDN_color_only": {
+        "label": "color_only",
+        "shape": [
+          325,
+          85,
+          3
+        ],
+        "device": "cpu",
+        "filter": "RT",
+        "hdr": true,
+        "quality": "high",
+        "type": "float",
+        "threads": 8,
+        "guides": {
+          "albedo": false,
+          "normal": false,
+          "clean_aux": false
+        },
+        "command": [
+          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "--device",
+          "cpu",
+          "--filter",
+          "RT",
+          "--hdr",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\color_only_oidn_vzasjyoq\\color.pfm",
+          "--output",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\color_only_oidn_vzasjyoq\\output.pfm",
+          "--type",
+          "float",
+          "--quality",
+          "high",
+          "--threads",
+          "8",
+          "-n",
+          "1",
+          "--verbose",
+          "1"
+        ],
+        "exit_code": 0,
+        "process_wall_s": 0.2932851000223309,
+        "log": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\color_only_bb35f70c1243.oidn.log"
+      },
+      "OIDN_guided": {
+        "label": "albedo_normal",
+        "shape": [
+          325,
+          85,
+          3
+        ],
+        "device": "cpu",
+        "filter": "RT",
+        "hdr": true,
+        "quality": "high",
+        "type": "float",
+        "threads": 8,
+        "guides": {
+          "albedo": true,
+          "normal": true,
+          "clean_aux": false
+        },
+        "command": [
+          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "--device",
+          "cpu",
+          "--filter",
+          "RT",
+          "--hdr",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\albedo_normal_oidn__jne88oc\\color.pfm",
+          "--alb",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\albedo_normal_oidn__jne88oc\\albedo.pfm",
+          "--nrm",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\albedo_normal_oidn__jne88oc\\normal.pfm",
+          "--output",
+          "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\albedo_normal_oidn__jne88oc\\output.pfm",
+          "--type",
+          "float",
+          "--quality",
+          "high",
+          "--threads",
+          "8",
+          "-n",
+          "1",
+          "--verbose",
+          "1"
+        ],
+        "exit_code": 0,
+        "process_wall_s": 0.30986529984511435,
+        "log": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\roi_1\\albedo_normal_90b57c4d064f.oidn.log"
+      },
+      "guide_model": "actual linear baseRGB and world-space shading Ns; clean_aux=false",
+      "scale": "Both arms receive identical scene-linear color and the same official automatic inputScale policy. No exposure or radiance rescaling outside OIDN.",
+      "comparison": "roi_1/comparison_native.png",
+      "interior": "roi_1/interior_native.png"
+    }
+  ],
+  "source_capture": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\weather2",
+  "baseline_denoised_background": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\denoised_pre.raw",
+  "fallback": "Cached color-only OIDN everywhere outside the selected interiors, including glass, water, sky and unsupported boundaries. Actual rain signal recomposed unchanged.",
+  "limits": [
+    "First reset frame only; second frame retained for capture continuity, not guided temporal validation.",
+    "All OIDN guide inputs are real supported rectangles. No fabricated full-image auxiliary buffer is passed to OIDN.",
+    "The context ring and fade are composition choices, not evidence that OIDN receptive-field boundary effects vanish.",
+    "ROI color-only control distinguishes guide effects from crop-context effects. No ground-truth error or noise-power metric is inferred.",
+    "Offline CPU output; no shader, host, sampling, exposure, material or rain behavior change."
+  ],
+  "official_guide_reference": "https://www.openimagedenoise.org/documentation.html#rt"
+}

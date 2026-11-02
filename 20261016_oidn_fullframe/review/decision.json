@@ -1,0 +1,33 @@
+{
+  "summary": "自动全图离线导出已完成；静态保留为有限候选。真实材质与96像素上下文限制下，每帧仅5%像素使用引导，其余回退。四帧当帧颜色诊断已完成，但右侧回退区域仍有明显颗粒变化，动态仅保留试验记录。",
+  "available": {"static": true, "dynamic": false},
+  "quality_status": "quality_not_final",
+  "views": {
+    "static": {
+      "quality_status": "limited_static_candidate",
+      "summary": "首帧实际全图和同块颜色控制已查看；左侧细线略有保留，未见明显硬接缝。引导支持11,520/230,400像素，不能称整体画质提升。"
+    },
+    "dynamic": {
+      "quality_status": "diagnostic_only_temporal_quality_unresolved",
+      "summary": "四帧使用真实effects_pre_temporal与当前guides、固定公共可靠域和正确雨层合成。左侧边界未见明显长拖影，但f1–f3右侧原fallback仍明显斑驳；只跨0.05秒，不通过动态画质验收。"
+    }
+  },
+  "source_check": "capture_source_check.json: first two frames match the existing baseline bitwise; frame0 guide core current/history equal, frames1-3 differ, neutral-air equality holds throughout.",
+  "timings": {
+    "static_CPU_export_wall_s": 1.6966201001778245,
+    "dynamic_CPU_export_wall_s": 4.684837699867785,
+    "dynamic_GPU_pass_sum_s": 24.3821336,
+    "dynamic_capture_wall_s": 349.31199999991804,
+    "shader_prepare_ms": 1934.095,
+    "whole_device_peak_used_MiB": 3944
+  },
+  "next_focus": "Inspect the existing opaque temporal/fallback source for frame1-onward residual grain before increasing guide coverage or adding stronger filtering. No additional GPU run is requested here.",
+  "defaults_changed": false,
+  "new_GPU_runs": 1,
+  "new_shaders": 0,
+  "host_files": [
+    "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/effects_lane.rs",
+    "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs"
+  ],
+  "build": "E:/rurix_quality_build/day_1015_glass_reconstruction/oidn_pre_temporal_capture_v1/build_result.json"
+}

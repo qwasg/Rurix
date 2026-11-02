@@ -1,0 +1,53 @@
+{
+  "assessment": "LOCAL_SHORT_STREAK_SHAPE_VISIBLE_ON_TARGETED_INSPECTION_NOT_CLEAR_FULL_FRAME_GAIN",
+  "reviewer": "road_bsdf_probe independent visual review",
+  "comparison_directory": "E:/rurix_quality_runs/20261016_rain_streak/comparison",
+  "dimensions": [640, 360],
+  "duration_seconds": 0.11666667275130749,
+  "viewed_native": [
+    "original_rain_f0_f7_native1to1.png",
+    "original_near_rain_f0_f7_native1to1.png",
+    "presented_rain_f0_f7_native1to1.png",
+    "presented_near_rain_f0_f7_native1to1.png",
+    "baseline/frame_000000/original.png",
+    "candidate/frame_000000/original.png",
+    "baseline/frame_000007/original.png",
+    "candidate/frame_000007/original.png",
+    "candidate/frame_000000/presented.png",
+    "candidate/frame_000007/presented.png"
+  ],
+  "supplementary_inspection": {
+    "file": "visual_detail_nearest4x.png",
+    "method": "Existing RGB previews cropped to 48x48 around f0 (234,90) and f7 (362,122), nearest-neighbor 4x. Baseline/candidate original and presented shown together. No filtering or radiance modification.",
+    "purpose": "Inspect local shape, not demonstrate native-size visibility or overall quality gain"
+  },
+  "observations": {
+    "native_rain_readability": "正常整图及原尺寸ROI观看，候选与基线差别很小，尚不能一眼辨认为更自然、更明显的雨。现有墙面和道路密集细粒仍主导画面；不能把这些大面积旧颗粒当成本次雨丝。",
+    "local_shape": "定点补看可确认少量集中点块转为细窄、接近竖向的短段，f7约(362,122)附近尤其可辨。actual presented也保留少量方向性，但细小雨丝仍容易混入建筑纹理和旧颗粒。",
+    "bright_spots_and_trails": "未见候选新增大白块、宽光晕或跨大范围的长拖尾。局部亮度沿短段重新分布，不能据此声称能量在离散像素上完全不变或真实噪声下降。",
+    "occlusion": "所看首尾帧未见明显新增穿透整块建筑、物体边缘大面积发白或边缘断裂。短段投在墙面前本身不等于遮挡错误；缺少独立rain coverage/depth记录，无法逐粒子验证遮挡。",
+    "broader_image": "水面、道路、路缘与主体构图没有可见整体变化。本候选是上方局部粒子形状变化，不是地面/建筑颗粒修复。",
+    "temporal_limit": "0.117秒首尾和联系图不足以确认下落方向的连续可读性、粒子出生/消失跳变或跨遮挡边缘时的稳定性。没有从相机视差推断纯flicker。"
+  },
+  "metadata_context": {
+    "configuration_equal": true,
+    "secondary_strat8_enabled": false,
+    "camera128_cloud71_clock_sample_uploads_equal": true,
+    "rain_simulation_settings_equal": true,
+    "rain_shape_shader_is_the_candidate_change": true,
+    "original_display": "scene HDR *256 once -> wide-C1 -> sRGB8",
+    "presented_display": "Captured final BGRA8 -> RGB channels only",
+    "OIDN": false
+  },
+  "decision": "有局部点到短线的形状收益，未见明显大范围视觉退化；原尺寸整体收益仍弱，不能按运行成功或性能数字接受为雨画质目标完成。",
+  "one_second_dynamic_recommendation": {
+    "recommended": true,
+    "reason": "若继续此候选，建议约1秒同配置动态观察雨丝运动可读性、粒子出生及遮挡切换是否跳变。当前八帧不足以作动态接受结论；长片段也不能替代现有密集颗粒问题的修复。",
+    "action_taken": "Recommendation only; no GPU run started by this reviewer"
+  },
+  "remaining_limits": [
+    "仅640x360，未证明1080p native可见性。",
+    "没有独立rain coverage RAW，不能逐个判断亮点来源。",
+    "变化位置统计仅用于定位补看，未当作画质收益或噪声估计。"
+  ]
+}

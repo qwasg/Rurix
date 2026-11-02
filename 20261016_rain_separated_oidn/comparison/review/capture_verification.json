@@ -1,0 +1,62 @@
+{
+  "status": "PASS",
+  "actual_coverage": [
+    {
+      "frame": 0,
+      "reset_reasons": [
+        "FirstFrame"
+      ],
+      "history_reused": false,
+      "actual_rain_pass": 8103,
+      "pre_resource": 1027,
+      "post_resource": 1054,
+      "previous_coverage_resource": 1052,
+      "current_coverage_resource": 1053,
+      "current_coverage_stage": "rain_history1"
+    },
+    {
+      "frame": 1,
+      "reset_reasons": [],
+      "history_reused": true,
+      "actual_rain_pass": 8103,
+      "pre_resource": 1027,
+      "post_resource": 1054,
+      "previous_coverage_resource": 1053,
+      "current_coverage_resource": 1052,
+      "current_coverage_stage": "rain_history0"
+    }
+  ],
+  "coverage_map": {
+    "0": "rain_history1",
+    "1": "rain_history0"
+  },
+  "pre_rain_later_writers": [],
+  "original_weather8_first2_comparison": [
+    {
+      "frame": 0,
+      "actual_frame128_words_bitwise_equal": true,
+      "different_frame_word_indices": [],
+      "sample_frame_equal": true,
+      "physical_step_equal": true,
+      "scene_raw_bitwise_equal": true
+    },
+    {
+      "frame": 1,
+      "actual_frame128_words_bitwise_equal": true,
+      "different_frame_word_indices": [],
+      "sample_frame_equal": true,
+      "physical_step_equal": true,
+      "scene_raw_bitwise_equal": true
+    }
+  ],
+  "execution": {
+    "exit_code": 0,
+    "gpu_frames": 2,
+    "gpu_timed_frames": 2,
+    "gpu_pass_sum_ns": 11791346560,
+    "wall_seconds": 326.9220000000205,
+    "whole_device_peak_used_mib": 3906.0
+  },
+  "GPU_calls": 0,
+  "note": "Actual descriptor roles verified; no TSR-parity inference. Frame0/1 only, not frame60."
+}

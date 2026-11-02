@@ -1,0 +1,1026 @@
+{
+  "command": [
+    "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+    "--spv-dir",
+    "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+    "--capture-dir",
+    "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture",
+    "--profile",
+    "desktop_sdr_high",
+    "--contract",
+    "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\config.json",
+    "--gltf",
+    "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+    "--scene",
+    "bistro-interior",
+    "--width",
+    "640",
+    "--height",
+    "360",
+    "--tier",
+    "100",
+    "--frames",
+    "61",
+    "--warmup",
+    "0",
+    "--seed",
+    "7312026601",
+    "--normal-mode",
+    "full",
+    "--textures",
+    "on",
+    "--reflection",
+    "on",
+    "--camera-motion",
+    "dolly",
+    "--camera-distance",
+    "0.25",
+    "--object-motion",
+    "static",
+    "--object-distance",
+    "0.25",
+    "--ev-offset",
+    "8.0",
+    "--auto-exposure",
+    "off",
+    "--bloom",
+    "0",
+    "--capture-every",
+    "6",
+    "--diagnostics",
+    "checkpoint_hdr",
+    "--history-probe",
+    "off",
+    "--frame-origin",
+    "0",
+    "--present",
+    "off",
+    "--clouds",
+    "on",
+    "--water",
+    "on",
+    "--rain",
+    "on",
+    "--capture-raw-profile",
+    "scene_presented_v1",
+    "--optical-tail-bundle",
+    "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+    "--sampling-seed",
+    "7312026601",
+    "--optical-journal-sync",
+    "region"
+  ],
+  "mode": "rain_streak_weather61_sparse",
+  "region_uses_default": false,
+  "config_source": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\config.json",
+  "exit_code": 0,
+  "wall_seconds": 1008.7660000000615,
+  "frames": 61,
+  "camera_distance_m": 0.25,
+  "linear_scene_hdr_frames": [
+    0,
+    6,
+    12,
+    18,
+    24,
+    30,
+    36,
+    42,
+    48,
+    54,
+    60
+  ],
+  "whole_device_peak_used_mib": 3904.0,
+  "gpu_frames": 61,
+  "gpu_timed_frames": 61,
+  "gpu_timing_status": "available",
+  "gpu_timing_unavailable_frames": [],
+  "gpu_pass_sum_ns": 362762014624,
+  "gpu_per_frame": [
+    {
+      "frame": 0,
+      "gpu_pass_sum_ns": 6448703008
+    },
+    {
+      "frame": 1,
+      "gpu_pass_sum_ns": 6003886304
+    },
+    {
+      "frame": 2,
+      "gpu_pass_sum_ns": 6040793760
+    },
+    {
+      "frame": 3,
+      "gpu_pass_sum_ns": 6009983712
+    },
+    {
+      "frame": 4,
+      "gpu_pass_sum_ns": 6049533120
+    },
+    {
+      "frame": 5,
+      "gpu_pass_sum_ns": 6035660096
+    },
+    {
+      "frame": 6,
+      "gpu_pass_sum_ns": 6047587136
+    },
+    {
+      "frame": 7,
+      "gpu_pass_sum_ns": 5898607456
+    },
+    {
+      "frame": 8,
+      "gpu_pass_sum_ns": 5959792160
+    },
+    {
+      "frame": 9,
+      "gpu_pass_sum_ns": 5844517824
+    },
+    {
+      "frame": 10,
+      "gpu_pass_sum_ns": 5884209248
+    },
+    {
+      "frame": 11,
+      "gpu_pass_sum_ns": 6044757440
+    },
+    {
+      "frame": 12,
+      "gpu_pass_sum_ns": 5837555072
+    },
+    {
+      "frame": 13,
+      "gpu_pass_sum_ns": 5824382208
+    },
+    {
+      "frame": 14,
+      "gpu_pass_sum_ns": 5880017568
+    },
+    {
+      "frame": 15,
+      "gpu_pass_sum_ns": 5818979584
+    },
+    {
+      "frame": 16,
+      "gpu_pass_sum_ns": 5899683744
+    },
+    {
+      "frame": 17,
+      "gpu_pass_sum_ns": 5905109824
+    },
+    {
+      "frame": 18,
+      "gpu_pass_sum_ns": 5848777504
+    },
+    {
+      "frame": 19,
+      "gpu_pass_sum_ns": 5944705184
+    },
+    {
+      "frame": 20,
+      "gpu_pass_sum_ns": 5983031744
+    },
+    {
+      "frame": 21,
+      "gpu_pass_sum_ns": 5939813696
+    },
+    {
+      "frame": 22,
+      "gpu_pass_sum_ns": 5848739424
+    },
+    {
+      "frame": 23,
+      "gpu_pass_sum_ns": 5883168704
+    },
+    {
+      "frame": 24,
+      "gpu_pass_sum_ns": 5801945504
+    },
+    {
+      "frame": 25,
+      "gpu_pass_sum_ns": 5929352544
+    },
+    {
+      "frame": 26,
+      "gpu_pass_sum_ns": 5974402080
+    },
+    {
+      "frame": 27,
+      "gpu_pass_sum_ns": 5910922912
+    },
+    {
+      "frame": 28,
+      "gpu_pass_sum_ns": 5963504544
+    },
+    {
+      "frame": 29,
+      "gpu_pass_sum_ns": 6009966784
+    },
+    {
+      "frame": 30,
+      "gpu_pass_sum_ns": 5988206208
+    },
+    {
+      "frame": 31,
+      "gpu_pass_sum_ns": 5860087776
+    },
+    {
+      "frame": 32,
+      "gpu_pass_sum_ns": 5826846336
+    },
+    {
+      "frame": 33,
+      "gpu_pass_sum_ns": 5942883808
+    },
+    {
+      "frame": 34,
+      "gpu_pass_sum_ns": 5969369600
+    },
+    {
+      "frame": 35,
+      "gpu_pass_sum_ns": 6005991872
+    },
+    {
+      "frame": 36,
+      "gpu_pass_sum_ns": 5956455680
+    },
+    {
+      "frame": 37,
+      "gpu_pass_sum_ns": 5983069600
+    },
+    {
+      "frame": 38,
+      "gpu_pass_sum_ns": 5967559328
+    },
+    {
+      "frame": 39,
+      "gpu_pass_sum_ns": 5920686240
+    },
+    {
+      "frame": 40,
+      "gpu_pass_sum_ns": 6066828768
+    },
+    {
+      "frame": 41,
+      "gpu_pass_sum_ns": 5950499648
+    },
+    {
+      "frame": 42,
+      "gpu_pass_sum_ns": 5991141248
+    },
+    {
+      "frame": 43,
+      "gpu_pass_sum_ns": 5981019136
+    },
+    {
+      "frame": 44,
+      "gpu_pass_sum_ns": 6015446112
+    },
+    {
+      "frame": 45,
+      "gpu_pass_sum_ns": 5979880896
+    },
+    {
+      "frame": 46,
+      "gpu_pass_sum_ns": 5901699072
+    },
+    {
+      "frame": 47,
+      "gpu_pass_sum_ns": 6024888736
+    },
+    {
+      "frame": 48,
+      "gpu_pass_sum_ns": 5982584832
+    },
+    {
+      "frame": 49,
+      "gpu_pass_sum_ns": 5915679584
+    },
+    {
+      "frame": 50,
+      "gpu_pass_sum_ns": 5931502912
+    },
+    {
+      "frame": 51,
+      "gpu_pass_sum_ns": 5681029728
+    },
+    {
+      "frame": 52,
+      "gpu_pass_sum_ns": 5937845920
+    },
+    {
+      "frame": 53,
+      "gpu_pass_sum_ns": 5980466688
+    },
+    {
+      "frame": 54,
+      "gpu_pass_sum_ns": 6004137600
+    },
+    {
+      "frame": 55,
+      "gpu_pass_sum_ns": 6026135424
+    },
+    {
+      "frame": 56,
+      "gpu_pass_sum_ns": 5798778848
+    },
+    {
+      "frame": 57,
+      "gpu_pass_sum_ns": 5958991104
+    },
+    {
+      "frame": 58,
+      "gpu_pass_sum_ns": 5945613312
+    },
+    {
+      "frame": 59,
+      "gpu_pass_sum_ns": 5978284928
+    },
+    {
+      "frame": 60,
+      "gpu_pass_sum_ns": 5816313792
+    }
+  ],
+  "owner_frames": 61,
+  "owner_sum_ns": {
+    "owner_before_publication_ns": 702106561700,
+    "cpu_record_ns": 113706165000,
+    "cpu_submit_ns": 9386385200,
+    "cpu_fence_wait_ns": 350303249100
+  },
+  "owner_per_frame": [
+    {
+      "sample": 0,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 48183289000,
+      "cpu_record_ns": 1854707300,
+      "cpu_submit_ns": 155989500,
+      "cpu_fence_wait_ns": 6153347800
+    },
+    {
+      "sample": 1,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10643639000,
+      "cpu_record_ns": 1772972900,
+      "cpu_submit_ns": 161295900,
+      "cpu_fence_wait_ns": 5701056500
+    },
+    {
+      "sample": 2,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10721061200,
+      "cpu_record_ns": 1799069600,
+      "cpu_submit_ns": 152962800,
+      "cpu_fence_wait_ns": 5736839200
+    },
+    {
+      "sample": 3,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10794791300,
+      "cpu_record_ns": 1835258200,
+      "cpu_submit_ns": 149470500,
+      "cpu_fence_wait_ns": 5710705700
+    },
+    {
+      "sample": 4,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11001472200,
+      "cpu_record_ns": 1914936300,
+      "cpu_submit_ns": 155089900,
+      "cpu_fence_wait_ns": 5748936300
+    },
+    {
+      "sample": 5,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10928369200,
+      "cpu_record_ns": 1869394000,
+      "cpu_submit_ns": 152186100,
+      "cpu_fence_wait_ns": 5746683600
+    },
+    {
+      "sample": 6,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10958926400,
+      "cpu_record_ns": 1878969400,
+      "cpu_submit_ns": 162194500,
+      "cpu_fence_wait_ns": 5754776000
+    },
+    {
+      "sample": 7,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10834741300,
+      "cpu_record_ns": 1886417700,
+      "cpu_submit_ns": 156770800,
+      "cpu_fence_wait_ns": 5611195300
+    },
+    {
+      "sample": 8,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10829912800,
+      "cpu_record_ns": 1852802600,
+      "cpu_submit_ns": 154763200,
+      "cpu_fence_wait_ns": 5675704200
+    },
+    {
+      "sample": 9,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10728254300,
+      "cpu_record_ns": 1883473800,
+      "cpu_submit_ns": 154917000,
+      "cpu_fence_wait_ns": 5538783300
+    },
+    {
+      "sample": 10,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11303330800,
+      "cpu_record_ns": 1869046100,
+      "cpu_submit_ns": 153460300,
+      "cpu_fence_wait_ns": 6139739800
+    },
+    {
+      "sample": 11,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11030214100,
+      "cpu_record_ns": 1877787900,
+      "cpu_submit_ns": 161050400,
+      "cpu_fence_wait_ns": 5810094900
+    },
+    {
+      "sample": 12,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10871825400,
+      "cpu_record_ns": 1893572500,
+      "cpu_submit_ns": 142156500,
+      "cpu_fence_wait_ns": 5711943500
+    },
+    {
+      "sample": 13,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10795061600,
+      "cpu_record_ns": 1890412600,
+      "cpu_submit_ns": 159102900,
+      "cpu_fence_wait_ns": 5576187900
+    },
+    {
+      "sample": 14,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10890340300,
+      "cpu_record_ns": 1855497600,
+      "cpu_submit_ns": 154147100,
+      "cpu_fence_wait_ns": 5747543800
+    },
+    {
+      "sample": 15,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11100983600,
+      "cpu_record_ns": 1872560600,
+      "cpu_submit_ns": 145158900,
+      "cpu_fence_wait_ns": 5922433600
+    },
+    {
+      "sample": 16,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10997286000,
+      "cpu_record_ns": 1863919000,
+      "cpu_submit_ns": 153334300,
+      "cpu_fence_wait_ns": 5836675200
+    },
+    {
+      "sample": 17,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10755898300,
+      "cpu_record_ns": 1831029400,
+      "cpu_submit_ns": 149873600,
+      "cpu_fence_wait_ns": 5661402400
+    },
+    {
+      "sample": 18,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10751324100,
+      "cpu_record_ns": 1883888000,
+      "cpu_submit_ns": 149018200,
+      "cpu_fence_wait_ns": 5565925000
+    },
+    {
+      "sample": 19,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10733383900,
+      "cpu_record_ns": 1831282800,
+      "cpu_submit_ns": 149887100,
+      "cpu_fence_wait_ns": 5627687000
+    },
+    {
+      "sample": 20,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10987705200,
+      "cpu_record_ns": 1922172700,
+      "cpu_submit_ns": 163197800,
+      "cpu_fence_wait_ns": 5653971300
+    },
+    {
+      "sample": 21,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10867581400,
+      "cpu_record_ns": 1889917200,
+      "cpu_submit_ns": 152993300,
+      "cpu_fence_wait_ns": 5619390700
+    },
+    {
+      "sample": 22,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10888004000,
+      "cpu_record_ns": 1864033800,
+      "cpu_submit_ns": 153216100,
+      "cpu_fence_wait_ns": 5673859100
+    },
+    {
+      "sample": 23,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10956527700,
+      "cpu_record_ns": 1905435000,
+      "cpu_submit_ns": 155161000,
+      "cpu_fence_wait_ns": 5755507100
+    },
+    {
+      "sample": 24,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11082484900,
+      "cpu_record_ns": 1920697000,
+      "cpu_submit_ns": 149877100,
+      "cpu_fence_wait_ns": 5768398700
+    },
+    {
+      "sample": 25,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10811520500,
+      "cpu_record_ns": 1827931800,
+      "cpu_submit_ns": 149046700,
+      "cpu_fence_wait_ns": 5713884600
+    },
+    {
+      "sample": 26,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10893357300,
+      "cpu_record_ns": 1845471600,
+      "cpu_submit_ns": 153066800,
+      "cpu_fence_wait_ns": 5774303500
+    },
+    {
+      "sample": 27,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10978046200,
+      "cpu_record_ns": 1904711900,
+      "cpu_submit_ns": 158661400,
+      "cpu_fence_wait_ns": 5701325300
+    },
+    {
+      "sample": 28,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10875008000,
+      "cpu_record_ns": 1857036700,
+      "cpu_submit_ns": 152492900,
+      "cpu_fence_wait_ns": 5733199800
+    },
+    {
+      "sample": 29,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10945088000,
+      "cpu_record_ns": 1866654600,
+      "cpu_submit_ns": 143611500,
+      "cpu_fence_wait_ns": 5847245500
+    },
+    {
+      "sample": 30,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10911163100,
+      "cpu_record_ns": 1883098200,
+      "cpu_submit_ns": 153237000,
+      "cpu_fence_wait_ns": 5756129500
+    },
+    {
+      "sample": 31,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10739677900,
+      "cpu_record_ns": 1864792200,
+      "cpu_submit_ns": 148520000,
+      "cpu_fence_wait_ns": 5597673500
+    },
+    {
+      "sample": 32,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10725916100,
+      "cpu_record_ns": 1850877100,
+      "cpu_submit_ns": 142161900,
+      "cpu_fence_wait_ns": 5727582600
+    },
+    {
+      "sample": 33,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10820169000,
+      "cpu_record_ns": 1846368800,
+      "cpu_submit_ns": 156013100,
+      "cpu_fence_wait_ns": 5673916800
+    },
+    {
+      "sample": 34,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10837604800,
+      "cpu_record_ns": 1839363200,
+      "cpu_submit_ns": 150903700,
+      "cpu_fence_wait_ns": 5746575100
+    },
+    {
+      "sample": 35,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10889352200,
+      "cpu_record_ns": 1841256900,
+      "cpu_submit_ns": 155323400,
+      "cpu_fence_wait_ns": 5770192900
+    },
+    {
+      "sample": 36,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10951196000,
+      "cpu_record_ns": 1871971400,
+      "cpu_submit_ns": 152985300,
+      "cpu_fence_wait_ns": 5711249900
+    },
+    {
+      "sample": 37,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11001975700,
+      "cpu_record_ns": 1913387400,
+      "cpu_submit_ns": 166267400,
+      "cpu_fence_wait_ns": 5702475300
+    },
+    {
+      "sample": 38,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10888989900,
+      "cpu_record_ns": 1857922700,
+      "cpu_submit_ns": 156057900,
+      "cpu_fence_wait_ns": 5710394800
+    },
+    {
+      "sample": 39,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10917225800,
+      "cpu_record_ns": 1871569200,
+      "cpu_submit_ns": 151072200,
+      "cpu_fence_wait_ns": 5767187500
+    },
+    {
+      "sample": 40,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11187972500,
+      "cpu_record_ns": 1893638900,
+      "cpu_submit_ns": 159224000,
+      "cpu_fence_wait_ns": 5964415400
+    },
+    {
+      "sample": 41,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11018416500,
+      "cpu_record_ns": 1873672800,
+      "cpu_submit_ns": 155246200,
+      "cpu_fence_wait_ns": 5830794700
+    },
+    {
+      "sample": 42,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11172824600,
+      "cpu_record_ns": 1906927700,
+      "cpu_submit_ns": 153554400,
+      "cpu_fence_wait_ns": 5921669000
+    },
+    {
+      "sample": 43,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10971062900,
+      "cpu_record_ns": 1869050500,
+      "cpu_submit_ns": 157072600,
+      "cpu_fence_wait_ns": 5813764100
+    },
+    {
+      "sample": 44,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11063910800,
+      "cpu_record_ns": 1902649100,
+      "cpu_submit_ns": 161761800,
+      "cpu_fence_wait_ns": 5790438000
+    },
+    {
+      "sample": 45,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10713131500,
+      "cpu_record_ns": 1786630200,
+      "cpu_submit_ns": 146184300,
+      "cpu_fence_wait_ns": 5736678900
+    },
+    {
+      "sample": 46,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10835156100,
+      "cpu_record_ns": 1857814700,
+      "cpu_submit_ns": 168185800,
+      "cpu_fence_wait_ns": 5658052800
+    },
+    {
+      "sample": 47,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10846306700,
+      "cpu_record_ns": 1830539100,
+      "cpu_submit_ns": 147322800,
+      "cpu_fence_wait_ns": 5757914400
+    },
+    {
+      "sample": 48,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10633420800,
+      "cpu_record_ns": 1747452500,
+      "cpu_submit_ns": 142190200,
+      "cpu_fence_wait_ns": 5699324600
+    },
+    {
+      "sample": 49,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10673424900,
+      "cpu_record_ns": 1817074600,
+      "cpu_submit_ns": 153659900,
+      "cpu_fence_wait_ns": 5605808700
+    },
+    {
+      "sample": 50,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10616337500,
+      "cpu_record_ns": 1789717300,
+      "cpu_submit_ns": 146398500,
+      "cpu_fence_wait_ns": 5623797800
+    },
+    {
+      "sample": 51,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10857743300,
+      "cpu_record_ns": 1877517400,
+      "cpu_submit_ns": 149712000,
+      "cpu_fence_wait_ns": 5700918900
+    },
+    {
+      "sample": 52,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10865356400,
+      "cpu_record_ns": 1839408400,
+      "cpu_submit_ns": 158163100,
+      "cpu_fence_wait_ns": 5755496800
+    },
+    {
+      "sample": 53,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11150022000,
+      "cpu_record_ns": 1933879200,
+      "cpu_submit_ns": 161071600,
+      "cpu_fence_wait_ns": 5800566500
+    },
+    {
+      "sample": 54,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11073780900,
+      "cpu_record_ns": 1863528400,
+      "cpu_submit_ns": 159119400,
+      "cpu_fence_wait_ns": 5861561900
+    },
+    {
+      "sample": 55,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11100011200,
+      "cpu_record_ns": 1874139900,
+      "cpu_submit_ns": 165495100,
+      "cpu_fence_wait_ns": 5859468700
+    },
+    {
+      "sample": 56,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10793427100,
+      "cpu_record_ns": 1852397600,
+      "cpu_submit_ns": 149355400,
+      "cpu_fence_wait_ns": 5667377700
+    },
+    {
+      "sample": 57,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11109656900,
+      "cpu_record_ns": 1899809300,
+      "cpu_submit_ns": 158341900,
+      "cpu_fence_wait_ns": 5853173500
+    },
+    {
+      "sample": 58,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10899586400,
+      "cpu_record_ns": 1873445200,
+      "cpu_submit_ns": 156264200,
+      "cpu_fence_wait_ns": 5697221500
+    },
+    {
+      "sample": 59,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10944732800,
+      "cpu_record_ns": 1874033500,
+      "cpu_submit_ns": 151889400,
+      "cpu_fence_wait_ns": 5762095300
+    },
+    {
+      "sample": 60,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10757581400,
+      "cpu_record_ns": 1881171000,
+      "cpu_submit_ns": 149476600,
+      "cpu_fence_wait_ns": 5560585400
+    }
+  ],
+  "note": "Completed owner frames and fully timed frames are separate. Unavailable GPU time is null; no partial or zero substitute. Available sums are timestamp durations, not wall time."
+}

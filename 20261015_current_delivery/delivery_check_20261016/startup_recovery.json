@@ -1,0 +1,19 @@
+{
+  "status": "ACTIVE",
+  "recorded_utc": "2026-10-16T05:54:40.409367+00:00",
+  "active_executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+  "shared_release": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\release\\hq_quality_lane.exe",
+  "ordinary_D_release": "D:\\Rurix\\target\\release\\hq_quality_lane.exe",
+  "previous_D_binary_backup": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\previous_D_target_release_hq_quality_lane.exe",
+  "launch_scripts": [
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\capture_representatives.py"
+  ],
+  "source_build": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\delivery_check\\restored_build_result.json",
+  "factor_HOST_trial_enabled": false,
+  "finite_wait_trial_enabled": false,
+  "existing_verified_filter_partition_placement_preserved": true,
+  "historical_receipts_modified": false,
+  "GPU_calls": 0,
+  "ordinary_and_shared_release_match_built_executable": true
+}

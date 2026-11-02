@@ -1,0 +1,230 @@
+{
+  "command": [
+    "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+    "--spv-dir",
+    "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+    "--capture-dir",
+    "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture",
+    "--profile",
+    "desktop_sdr_high",
+    "--contract",
+    "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+    "--gltf",
+    "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+    "--scene",
+    "bistro-interior",
+    "--width",
+    "640",
+    "--height",
+    "360",
+    "--tier",
+    "100",
+    "--frames",
+    "8",
+    "--warmup",
+    "0",
+    "--seed",
+    "7312026601",
+    "--normal-mode",
+    "full",
+    "--textures",
+    "on",
+    "--reflection",
+    "on",
+    "--camera-motion",
+    "dolly",
+    "--camera-distance",
+    "0.25",
+    "--object-motion",
+    "static",
+    "--object-distance",
+    "0.25",
+    "--ev-offset",
+    "8.0",
+    "--auto-exposure",
+    "off",
+    "--bloom",
+    "0",
+    "--capture-every",
+    "1",
+    "--diagnostics",
+    "checkpoint_hdr",
+    "--history-probe",
+    "off",
+    "--frame-origin",
+    "0",
+    "--present",
+    "off",
+    "--clouds",
+    "on",
+    "--water",
+    "on",
+    "--rain",
+    "on",
+    "--capture-raw-profile",
+    "scene_presented_v1",
+    "--optical-tail-bundle",
+    "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+    "--sampling-seed",
+    "7312026601",
+    "--capture-sequence-stages",
+    "presented,scene",
+    "--optical-journal-sync",
+    "region"
+  ],
+  "mode": "weather8",
+  "region_uses_default": false,
+  "config_source": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+  "exit_code": 0,
+  "wall_seconds": 707.75,
+  "frames": 8,
+  "camera_distance_m": 0.25,
+  "linear_scene_hdr_frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "whole_device_peak_used_mib": 3904.0,
+  "gpu_frames": 8,
+  "gpu_timed_frames": 8,
+  "gpu_timing_status": "available",
+  "gpu_timing_unavailable_frames": [],
+  "gpu_pass_sum_ns": 48605995712,
+  "gpu_per_frame": [
+    {
+      "frame": 0,
+      "gpu_pass_sum_ns": 6483236384
+    },
+    {
+      "frame": 1,
+      "gpu_pass_sum_ns": 6017282272
+    },
+    {
+      "frame": 2,
+      "gpu_pass_sum_ns": 5993363776
+    },
+    {
+      "frame": 3,
+      "gpu_pass_sum_ns": 6046124672
+    },
+    {
+      "frame": 4,
+      "gpu_pass_sum_ns": 6060959712
+    },
+    {
+      "frame": 5,
+      "gpu_pass_sum_ns": 5977542752
+    },
+    {
+      "frame": 6,
+      "gpu_pass_sum_ns": 6000522784
+    },
+    {
+      "frame": 7,
+      "gpu_pass_sum_ns": 6026963360
+    }
+  ],
+  "owner_frames": 8,
+  "owner_sum_ns": {
+    "owner_before_publication_ns": 126964422600,
+    "cpu_record_ns": 15321777100,
+    "cpu_submit_ns": 1222258800,
+    "cpu_fence_wait_ns": 47470938600
+  },
+  "owner_per_frame": [
+    {
+      "sample": 0,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 49113306500,
+      "cpu_record_ns": 1947731900,
+      "cpu_submit_ns": 151626000,
+      "cpu_fence_wait_ns": 6485568800
+    },
+    {
+      "sample": 1,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11012785600,
+      "cpu_record_ns": 1841760600,
+      "cpu_submit_ns": 147776100,
+      "cpu_fence_wait_ns": 5889645800
+    },
+    {
+      "sample": 2,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10960823300,
+      "cpu_record_ns": 1877981300,
+      "cpu_submit_ns": 152370000,
+      "cpu_fence_wait_ns": 5781133600
+    },
+    {
+      "sample": 3,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11123455600,
+      "cpu_record_ns": 1914504200,
+      "cpu_submit_ns": 155190100,
+      "cpu_fence_wait_ns": 5832201400
+    },
+    {
+      "sample": 4,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11477665400,
+      "cpu_record_ns": 1964066500,
+      "cpu_submit_ns": 159161100,
+      "cpu_fence_wait_ns": 6057450800
+    },
+    {
+      "sample": 5,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 10979048400,
+      "cpu_record_ns": 1899151200,
+      "cpu_submit_ns": 151620800,
+      "cpu_fence_wait_ns": 5772823200
+    },
+    {
+      "sample": 6,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11080927000,
+      "cpu_record_ns": 1953742400,
+      "cpu_submit_ns": 156769300,
+      "cpu_fence_wait_ns": 5737272600
+    },
+    {
+      "sample": 7,
+      "regions": 939,
+      "schema": "rurix.hq.optical_owner_timing.v1",
+      "gpu_timing_status": "available",
+      "scope": "owner_entry_through_before_publication",
+      "owner_before_publication_ns": 11216410800,
+      "cpu_record_ns": 1922839000,
+      "cpu_submit_ns": 147745400,
+      "cpu_fence_wait_ns": 5914842400
+    }
+  ],
+  "note": "Completed owner frames and fully timed frames are separate. Unavailable GPU time is null; no partial or zero substitute. Available sums are timestamp durations, not wall time."
+}

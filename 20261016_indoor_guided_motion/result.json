@@ -1,0 +1,135 @@
+{
+  "status": "RECOMMENDED_OPTION_OFFLINE_INDOOR_SHORT_DOLLY_ONLY",
+  "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\index.html",
+  "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\output.run.json",
+  "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\results.json",
+  "native_resolution": [
+    640,
+    360
+  ],
+  "frames": 8,
+  "camera_motion": "dolly",
+  "camera_distance_m": 0.15,
+  "objects": "static",
+  "GPU_pass_sum_seconds": 11.013713664,
+  "GPU_mean_seconds_per_frame": 1.376714208,
+  "shader_prepare_ms": 1101.049,
+  "validation_error_count": 0,
+  "capture_wall_seconds": 171.6720000000205,
+  "whole_device_peak_used_MiB": 2146.0,
+  "CPU_OIDN_wall_seconds": 5.972021498717368,
+  "CPU_export_wall_seconds": 16.811135900206864,
+  "protected_regions_bitwise_unchanged": true,
+  "history_weights": [
+    1,
+    0.6,
+    0.4
+  ],
+  "history_recursion": false,
+  "runtime_opaque_history_enabled": false,
+  "real_time": false,
+  "quality_review_required_for_new_capture": true,
+  "measured": "measured_local",
+  "recorded_utc": "2026-10-16T06:50:43.169867+00:00",
+  "review": {
+    "status": "RECOMMEND_LIMITED_OFFLINE_DYNAMIC_OPTION",
+    "net_benefit": true,
+    "dimensions": [
+      640,
+      360
+    ],
+    "frames": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "motion": "0.15m dolly, static objects",
+    "inspected": [
+      "frame_000004/comparison_native.png",
+      "frame_000007/comparison_native.png",
+      "review/wall_0_3.png",
+      "review/wall_4_7.png",
+      "review/bar_0_3.png",
+      "review/bar_4_7.png",
+      "review/ceiling_0_3.png",
+      "review/ceiling_4_7.png",
+      "review/chair_edges_0_3.png",
+      "review/chair_edges_4_7.png",
+      "review/floor_4_7.png"
+    ],
+    "findings": [
+      "Wall, ceiling and opaque floor show less patchy shading variation across inspected native-resolution strips.",
+      "Inspected chair legs, wall divisions and tabletop edges do not show obvious added trails or mask seams.",
+      "Residual spatial softness remains; no claim of reconstructed fine details.",
+      "Glass/sparkle and granular water remain visible and use current-frame fallback."
+    ],
+    "stability_proxy": {
+      "wall": {
+        "current_difference": 4.077335724515453,
+        "output_difference": 2.287392339762373,
+        "difference_ratio": 0.561001716392683,
+        "gradient_ratio": 0.9663342710991555
+      },
+      "bar": {
+        "current_difference": 6.256189433476386,
+        "output_difference": 4.461879047601231,
+        "difference_ratio": 0.7131943645641644,
+        "gradient_ratio": 0.9880956126122096
+      },
+      "ceiling": {
+        "current_difference": 2.32274664994669,
+        "output_difference": 1.3267303868932114,
+        "difference_ratio": 0.5711903133833652,
+        "gradient_ratio": 0.9832625859765817
+      },
+      "floor": {
+        "current_difference": 1.72510613073827,
+        "output_difference": 0.8712851994185205,
+        "difference_ratio": 0.5050617952680097,
+        "gradient_ratio": 0.9760961852813003
+      },
+      "chair_edges": {
+        "current_difference": 5.339640133734965,
+        "output_difference": 3.4409275876521908,
+        "difference_ratio": 0.6444118894666662,
+        "gradient_ratio": 0.9694768331500004
+      }
+    },
+    "metric_scope": "Geometrically accepted adjacent pairs; display-Y difference is a stability proxy, not a converged reference or independent quality proof.",
+    "selected": "Same current albedo+Ns spatial result plus at most two previous spatial results, direct geometric reprojection, weights 1/0.6/0.4.",
+    "protected_regions_bitwise_unchanged": true,
+    "limitations": [
+      "Only eight ordinary640 frames; no 1080 motion or long sequence.",
+      "Static objects only; no fast-motion, moving-object or disocclusion stress coverage.",
+      "Geometry agreement does not guarantee stable view-dependent radiance."
+    ],
+    "source_changes": false,
+    "overall_quality_accepted": false,
+    "real_time": false
+  },
+  "static_default_changed": false,
+  "runtime_source_changed": false,
+  "overall_quality_accepted": false,
+  "result": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\result.json",
+  "usage": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\USAGE.md",
+  "reproduce_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py",
+  "independent_review": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\independent_motion_review.json",
+  "stability_proxy": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\review\\comparison.json",
+  "lamp_analysis": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\lamp_analysis\\result.json",
+  "lamp_candidate": "Visible emission x0.5 rejected: slightly dimmer, no clear restored detail.",
+  "remaining": [
+    "Only eight 640x360 frames, static objects and 0.15m dolly were inspected.",
+    "No long sequence, dynamic objects, fast motion or 1080 motion validation.",
+    "Glass/water detail and lamp white-region appearance remain unresolved."
+  ],
+  "setup_failure": {
+    "path": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8",
+    "completed_GPU_frames": 0,
+    "reason": "Optional runtime history max=1 is outside existing parser bounds; omitted optional block instead."
+  }
+}

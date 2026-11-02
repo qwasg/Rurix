@@ -1,0 +1,1151 @@
+{
+  "run": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1",
+  "frame_index": 0,
+  "manifest": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\pixel_probe.json",
+  "probe_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\frame_000000_optical_pixel_probe_words.raw",
+  "RAW_header_WH": [
+    7776,
+    1
+  ],
+  "byte_offset_rule": "payload offset, excluding the 8-byte RAW header",
+  "snapshot_layouts": [
+    {
+      "label": "A_geometry",
+      "channels": 16,
+      "writer_kernel": "hq_geometry_surface_camera_relative_v1",
+      "dst_byte_offset": 0,
+      "pixel_xy": [
+        996,
+        701
+      ],
+      "extent": [
+        9,
+        9
+      ],
+      "source_extent": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "label": "A_material",
+      "channels": 16,
+      "writer_kernel": "hq_material_two_sided",
+      "dst_byte_offset": 5184,
+      "pixel_xy": [
+        996,
+        701
+      ],
+      "extent": [
+        9,
+        9
+      ],
+      "source_extent": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "label": "B_geometry",
+      "channels": 16,
+      "writer_kernel": "hq_geometry_surface_camera_relative_v1",
+      "dst_byte_offset": 10368,
+      "pixel_xy": [
+        896,
+        865
+      ],
+      "extent": [
+        9,
+        9
+      ],
+      "source_extent": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "label": "B_material",
+      "channels": 16,
+      "writer_kernel": "hq_material_two_sided",
+      "dst_byte_offset": 15552,
+      "pixel_xy": [
+        896,
+        865
+      ],
+      "extent": [
+        9,
+        9
+      ],
+      "source_extent": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "label": "C_geometry",
+      "channels": 16,
+      "writer_kernel": "hq_geometry_surface_camera_relative_v1",
+      "dst_byte_offset": 20736,
+      "pixel_xy": [
+        1096,
+        663
+      ],
+      "extent": [
+        9,
+        9
+      ],
+      "source_extent": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "label": "C_material",
+      "channels": 16,
+      "writer_kernel": "hq_material_two_sided",
+      "dst_byte_offset": 25920,
+      "pixel_xy": [
+        1096,
+        663
+      ],
+      "extent": [
+        9,
+        9
+      ],
+      "source_extent": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "reference": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\exterior_road\\filtered_point_inputs.json",
+  "enabled": true,
+  "actual_camera_packet_equal_to_reference": true,
+  "material_id_mapping": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\capture\\triangle_origin_material_ids.u32le",
+  "baseline_probe_run": null,
+  "points": [
+    {
+      "pixel": [
+        1000,
+        704
+      ],
+      "geometry_label": "A_geometry",
+      "material_label": "A_material",
+      "actual_geometry16": [
+        14.413961410522461,
+        0.33071696758270264,
+        -72.21675109863281,
+        1.0,
+        0.01661110855638981,
+        0.9997887015342712,
+        0.012108864262700081,
+        351252.0,
+        0.5449303984642029,
+        0.15260973572731018,
+        0.996516227722168,
+        13.954208374023438,
+        -0.13760007917881012,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.09912226349115372,
+        0.09246662259101868,
+        0.08224502950906754,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.08435308933258057,
+        0.9963692426681519,
+        0.011527826078236103,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351252,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.09912226349115372,
+        0.09246662259101868,
+        0.08224502950906754,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.09240710654669884,
+        0.9956551699103195,
+        0.011476466813428258
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.08435249328613281,
+        0.9963693022727966,
+        0.011528104543685913
+      ],
+      "actual_Ns": [
+        -0.08435308933258057,
+        0.9963692426681519,
+        0.011527826078236103
+      ],
+      "view": [
+        0.5373905897140503,
+        0.12023455649614334,
+        -0.8347185254096985
+      ],
+      "Ns_dot_V": 0.06484496759276132,
+      "Ng_dot_V": 0.11902831114639689,
+      "Ns_dot_Ng": 0.994897101317893,
+      "mirror_R": [
+        -0.5483303364022912,
+        0.008984506006337545,
+        0.8362135684266149
+      ],
+      "Ng_dot_mirror_R": 0.00999982943978498,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": -1.7056021502093177e-07,
+      "Ns_dot_actual_sun": 0.707824453300965,
+      "Ns_length": 1.0000000010945733,
+      "baseline_scene_RGB": [
+        0.0003586036909837276,
+        0.00025154947070404887,
+        0.00014417260535992682
+      ],
+      "candidate_scene_RGB": [
+        0.0003534361603669822,
+        0.0002480576222296804,
+        0.00014185468899086118
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 8.006545045013969e-10,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 5.960464477539062e-07,
+        "Ns_prediction_angle_degrees": 3.783672050088803e-05
+      }
+    },
+    {
+      "pixel": [
+        1000,
+        705
+      ],
+      "geometry_label": "A_geometry",
+      "material_label": "A_material",
+      "actual_geometry16": [
+        14.470232963562012,
+        0.33084022998809814,
+        -72.30413055419922,
+        1.0,
+        0.01661110855638981,
+        0.9997887015342712,
+        0.012108864262700081,
+        351252.0,
+        0.501549482345581,
+        0.1559130698442459,
+        0.9964900016784668,
+        13.850379943847656,
+        -0.1367676854133606,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.11219347268342972,
+        0.1035771295428276,
+        0.0836629644036293,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.047866109758615494,
+        0.9982039332389832,
+        0.036024242639541626,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351252,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.11219347268342972,
+        0.1035771295428276,
+        0.0836629644036293,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.14239055100485723,
+        0.9872660640763801,
+        0.07092707316438515
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.047866109758615494,
+        0.9982039332389832,
+        0.03602426499128342
+      ],
+      "actual_Ns": [
+        -0.047866109758615494,
+        0.9982039332389832,
+        0.036024242639541626
+      ],
+      "view": [
+        0.5373320579528809,
+        0.12111110240221024,
+        -0.834629476070404
+      ],
+      "Ns_dot_V": 0.06510668875392644,
+      "Ng_dot_V": 0.11990477784804013,
+      "Ns_dot_Ng": 0.9976341171813903,
+      "mirror_R": [
+        -0.5435648657727118,
+        0.008868403186461066,
+        0.8393203143766612
+      ],
+      "Ng_dot_mirror_R": 0.010000530067213811,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": 5.300672138112278e-07,
+      "Ns_dot_actual_sun": 0.7202324598405491,
+      "Ns_length": 1.0000000014274764,
+      "baseline_scene_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "candidate_scene_RGB": [
+        0.00034637856879271567,
+        0.0002468378806952387,
+        0.0001407409436069429
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 8.006545045013969e-10,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 2.2351741790771484e-08,
+        "Ns_prediction_angle_degrees": 1.2074182697257333e-06
+      }
+    },
+    {
+      "pixel": [
+        1000,
+        707
+      ],
+      "geometry_label": "A_geometry",
+      "material_label": "A_material",
+      "actual_geometry16": [
+        14.580301284790039,
+        0.3310815095901489,
+        -72.47505950927734,
+        1.0,
+        0.01661110855638981,
+        0.9997887015342712,
+        0.012108864262700081,
+        351252.0,
+        0.41669341921806335,
+        0.16237230598926544,
+        0.9964361190795898,
+        13.647293090820312,
+        -0.1351361870765686,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.11094210296869278,
+        0.10298335552215576,
+        0.08437621593475342,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.06147610768675804,
+        0.9979119300842285,
+        0.019812898710370064,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351252,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.11094210296869278,
+        0.10298335552215576,
+        0.08437621593475342,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.06147765750232568,
+        0.9979117924129677,
+        0.01981292989855139
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.0614776574075222,
+        0.997911810874939,
+        0.0198129303753376
+      ],
+      "actual_Ns": [
+        -0.06147610768675804,
+        0.9979119300842285,
+        0.019812898710370064
+      ],
+      "view": [
+        0.5372142195701599,
+        0.12286332249641418,
+        -0.8344492316246033
+      ],
+      "Ns_dot_V": 0.07304807797068047,
+      "Ng_dot_V": 0.12165685282910389,
+      "Ns_dot_Ng": 0.996919797610705,
+      "mirror_R": [
+        -0.5461956425854324,
+        0.02292777445691574,
+        0.8373438199642439
+      ],
+      "Ng_dot_mirror_R": 0.023989297383659666,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": 0.013989297383659666,
+      "Ns_dot_actual_sun": 0.7108804979668466,
+      "Ns_length": 1.0000000414880248,
+      "baseline_scene_RGB": [
+        0.0003467413189355284,
+        0.00023838247579988092,
+        0.0001348868536297232
+      ],
+      "candidate_scene_RGB": [
+        0.0003467413189355284,
+        0.00023838247579988092,
+        0.0001348868536297232
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 8.006545045013969e-10,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 1.5497207641601562e-06,
+        "Ns_prediction_angle_degrees": 8.907114018830591e-05
+      }
+    },
+    {
+      "pixel": [
+        900,
+        868
+      ],
+      "geometry_label": "B_geometry",
+      "material_label": "B_material",
+      "actual_geometry16": [
+        19.02769660949707,
+        0.31510770320892334,
+        -78.32249450683594,
+        1.0,
+        0.01759127900004387,
+        0.9998445510864258,
+        0.001198982703499496,
+        351228.0,
+        0.2901349663734436,
+        0.5085881948471069,
+        0.9922263622283936,
+        6.350982666015625,
+        0.1023535206913948,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.1043170765042305,
+        0.0971444845199585,
+        0.08437621593475342,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.041563935577869415,
+        0.9967381358146667,
+        0.06917820870876312,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351228,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.1043170765042305,
+        0.0971444845199585,
+        0.08437621593475342,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.04157050181589138,
+        0.9967370869933115,
+        0.06918867530790357
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.041570503264665604,
+        0.9967370629310608,
+        0.0691886767745018
+      ],
+      "actual_Ns": [
+        -0.041563935577869415,
+        0.9967381358146667,
+        0.06917820870876312
+      ],
+      "view": [
+        0.44807806611061096,
+        0.2582204341888428,
+        -0.8558902740478516
+      ],
+      "Ns_dot_V": 0.1795453103190805,
+      "Ng_dot_V": 0.265036360491,
+      "Ns_dot_Ng": 0.9959349661806886,
+      "mirror_R": [
+        -0.4630032855334326,
+        0.09969888161456952,
+        0.8807315199477176
+      ],
+      "Ng_dot_mirror_R": 0.09259454463006934,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": 0.08259454463006935,
+      "Ns_dot_actual_sun": 0.7415661736353087,
+      "Ns_length": 1.0000000483440845,
+      "baseline_scene_RGB": [
+        0.0001849470572778955,
+        0.0001345404889434576,
+        8.342874207301065e-05
+      ],
+      "candidate_scene_RGB": [
+        0.0001849470572778955,
+        0.0001345404889434576,
+        8.342874207301065e-05
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 8.489805081168811e-09,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 1.0468065738677979e-05,
+        "Ns_prediction_angle_degrees": 0.0007106997681710405
+      }
+    },
+    {
+      "pixel": [
+        900,
+        869
+      ],
+      "geometry_label": "B_geometry",
+      "material_label": "B_material",
+      "actual_geometry16": [
+        19.037281036376953,
+        0.3149608373641968,
+        -78.3408203125,
+        1.0,
+        0.01759127900004387,
+        0.9998445510864258,
+        0.001198982703499496,
+        351228.0,
+        0.2618064284324646,
+        0.5363467335700989,
+        0.9922022819519043,
+        6.3303375244140625,
+        0.10204333066940308,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.1310339719057083,
+        0.10581047087907791,
+        0.07099216431379318,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.05408770218491554,
+        0.9925069808959961,
+        0.10956505686044693,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351228,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.1310339719057083,
+        0.10581047087907791,
+        0.07099216431379318,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.17410655862952312,
+        0.9410790368758215,
+        0.28992611575203164
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.0540868304669857,
+        0.9925069808959961,
+        0.10956508666276932
+      ],
+      "actual_Ns": [
+        -0.05408770218491554,
+        0.9925069808959961,
+        0.10956505686044693
+      ],
+      "view": [
+        0.44797977805137634,
+        0.25902116298675537,
+        -0.8556997776031494
+      ],
+      "Ns_dot_V": 0.13909532085548604,
+      "Ng_dot_V": 0.26583546419897097,
+      "Ns_dot_Ng": 0.9915325830877261,
+      "mirror_R": [
+        -0.46302647063086994,
+        0.017084990931321264,
+        0.8861797510802563
+      ],
+      "Ng_dot_mirror_R": 0.009999621367541263,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": -3.7863245873695495e-07,
+      "Ns_dot_actual_sun": 0.7692745631417616,
+      "Ns_length": 1.0000000441698802,
+      "baseline_scene_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "candidate_scene_RGB": [
+        0.00019791658269241452,
+        0.00013694180233869702,
+        7.678961264900863e-05
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 8.489805081168811e-09,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 8.717179298400879e-07,
+        "Ns_prediction_angle_degrees": 4.990743324574459e-05
+      }
+    },
+    {
+      "pixel": [
+        900,
+        871
+      ],
+      "geometry_label": "B_geometry",
+      "material_label": "B_material",
+      "actual_geometry16": [
+        19.05626678466797,
+        0.3146704435348511,
+        -78.37712097167969,
+        1.0,
+        0.01759127900004387,
+        0.9998445510864258,
+        0.001198982703499496,
+        351228.0,
+        0.20569927990436554,
+        0.5913247466087341,
+        0.9921491146087646,
+        6.289436340332031,
+        0.1014275848865509,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.18758058547973633,
+        0.14644351601600647,
+        0.08889605104923248,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.10613241791725159,
+        0.9909321665763855,
+        0.08239757269620895,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351228,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.18758058547973633,
+        0.14644351601600647,
+        0.08889605104923248,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.22447654127517097,
+        0.9612884390273148,
+        0.1597961808353537
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.10613221675157547,
+        0.9909322261810303,
+        0.08239748328924179
+      ],
+      "actual_Ns": [
+        -0.10613241791725159,
+        0.9909321665763855,
+        0.08239757269620895
+      ],
+      "view": [
+        0.44778233766555786,
+        0.26062101125717163,
+        -0.8553172945976257
+      ],
+      "Ns_dot_V": 0.14025745218338015,
+      "Ng_dot_V": 0.2674320491227411,
+      "Ns_dot_Ng": 0.9890099071341892,
+      "mirror_R": [
+        -0.47755406272782874,
+        0.017350230683949752,
+        0.8784310418225559
+      ],
+      "Ng_dot_mirror_R": 0.009999970394784539,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": -2.960521546142847e-08,
+      "Ns_dot_actual_sun": 0.7577806375607827,
+      "Ns_length": 1.0000000044374793,
+      "baseline_scene_RGB": [
+        0.00022439514577854425,
+        0.00015888585767243057,
+        9.15220080059953e-05
+      ],
+      "candidate_scene_RGB": [
+        0.00022975681349635124,
+        0.00015419343253597617,
+        8.182477904483676e-05
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 8.489805081168811e-09,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 2.0116567611694336e-07,
+        "Ns_prediction_angle_degrees": 1.2919939687890481e-05
+      }
+    },
+    {
+      "pixel": [
+        1100,
+        663
+      ],
+      "geometry_label": "C_geometry",
+      "material_label": "C_material",
+      "actual_geometry16": [
+        9.18044662475586,
+        0.28069329261779785,
+        -67.5323257446289,
+        1.0,
+        -0.048379406332969666,
+        0.9983562231063843,
+        -0.03073270432651043,
+        351037.0,
+        0.19445571303367615,
+        0.4526776373386383,
+        0.9976789951324463,
+        20.650279998779297,
+        -0.6388871073722839,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.11702896654605865,
+        0.1092783734202385,
+        0.08890444785356522,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.10050579905509949,
+        0.9945237636566162,
+        -0.02865263633430004,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351037,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.11702896654605865,
+        0.1092783734202385,
+        0.08890444785356522,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.16492972301340428,
+        0.9859636984433013,
+        -0.025957114992398177
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.10050637274980545,
+        0.9945237636566162,
+        -0.028652578592300415
+      ],
+      "actual_Ns": [
+        -0.10050579905509949,
+        0.9945237636566162,
+        -0.02865263633430004
+      ],
+      "view": [
+        0.6121379733085632,
+        0.08343449234962463,
+        -0.7863370180130005
+      ],
+      "Ns_dot_V": 0.04398479782430598,
+      "Ng_dot_V": 0.0778487276510098,
+      "Ns_dot_Ng": 0.9986318653685042,
+      "mirror_R": [
+        -0.620979427811781,
+        0.00405336100218362,
+        0.7838164571804054
+      ],
+      "Ng_dot_mirror_R": 0.010000513747276608,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": 5.137472766075096e-07,
+      "Ns_dot_actual_sun": 0.6809119796668907,
+      "Ns_length": 0.9999999528451642,
+      "baseline_scene_RGB": [
+        0.00033604897907935083,
+        0.0002397655334789306,
+        0.00013913372822571546
+      ],
+      "candidate_scene_RGB": [
+        0.0004505148099269718,
+        0.0003169867559336126,
+        0.00017545680748298764
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 1.0705644015729376e-07,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 5.736947059631348e-07,
+        "Ns_prediction_angle_degrees": 3.28786003060816e-05
+      }
+    },
+    {
+      "pixel": [
+        1100,
+        667
+      ],
+      "geometry_label": "C_geometry",
+      "material_label": "C_material",
+      "actual_geometry16": [
+        9.734312057495117,
+        0.284967303276062,
+        -68.24341583251953,
+        1.0,
+        -0.0418599508702755,
+        0.9987168908119202,
+        -0.0284995399415493,
+        351291.0,
+        0.1755865067243576,
+        0.6129069328308105,
+        0.9975690841674805,
+        19.756515502929688,
+        -0.6188380122184753,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.10852876305580139,
+        0.10055617988109589,
+        0.08731810003519058,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.08971273899078369,
+        0.9957804679870605,
+        -0.01930876635015011,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351291,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.10852876305580139,
+        0.10055617988109589,
+        0.08731810003519058,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.15714457014363542,
+        0.9875560932192856,
+        -0.0062086085263723355
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.08971156179904938,
+        0.9957805871963501,
+        -0.019309062510728836
+      ],
+      "actual_Ns": [
+        -0.08971273899078369,
+        0.9957804679870605,
+        -0.01930876635015011
+      ],
+      "view": [
+        0.611943244934082,
+        0.0869610533118248,
+        -0.7861063480377197
+      ],
+      "Ns_dot_V": 0.046873757554182216,
+      "Ng_dot_V": 0.08363723175957767,
+      "Ns_dot_Ng": 0.9988084810400492,
+      "mirror_R": [
+        -0.6203535912880332,
+        0.006390891155406364,
+        0.7842961991725852
+      ],
+      "Ng_dot_mirror_R": 0.00999858140708686,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": -1.4185929131400182e-06,
+      "Ns_dot_actual_sun": 0.6865543327274531,
+      "Ns_length": 0.9999999722098609,
+      "baseline_scene_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "candidate_scene_RGB": [
+        0.0003326356236357242,
+        0.00023358469479717314,
+        0.00013161040260456502
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 4.66835107237884e-08,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 1.1771917343139648e-06,
+        "Ns_prediction_angle_degrees": 6.987395353526668e-05
+      }
+    },
+    {
+      "pixel": [
+        1100,
+        671
+      ],
+      "geometry_label": "C_geometry",
+      "material_label": "C_material",
+      "actual_geometry16": [
+        10.242591857910156,
+        0.28894197940826416,
+        -68.89598083496094,
+        1.0,
+        -0.04446537047624588,
+        0.9987191557884216,
+        -0.02414460852742195,
+        351215.0,
+        0.5680844783782959,
+        0.13456575572490692,
+        0.9974592924118042,
+        18.936309814453125,
+        -0.6000090837478638,
+        0.0,
+        31.0,
+        0.0
+      ],
+      "actual_material16": [
+        0.11003069579601288,
+        0.10334000736474991,
+        0.08812291920185089,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.8399999737739563,
+        -0.09142935276031494,
+        0.9956952929496765,
+        -0.015218968503177166,
+        0.0,
+        1.0,
+        0.0,
+        1.5,
+        0.0
+      ],
+      "actual_primitive": 351215,
+      "actual_mapped_material_id": 31,
+      "baseColor_RGBA": [
+        0.11003069579601288,
+        0.10334000736474991,
+        0.08812291920185089,
+        1.0
+      ],
+      "Le_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "roughness": 0.8399999737739563,
+      "metallic": 0.0,
+      "occlusion": 1.0,
+      "reference_authored_CPU_Ns": [
+        -0.12997207252624032,
+        0.9914866921446759,
+        -0.007835793721275013
+      ],
+      "predicted_adapter_f32_Ns": [
+        -0.09142856299877167,
+        0.9956953525543213,
+        -0.01521812193095684
+      ],
+      "actual_Ns": [
+        -0.09142935276031494,
+        0.9956952929496765,
+        -0.015218968503177166
+      ],
+      "view": [
+        0.6117410659790039,
+        0.0904836505651474,
+        -0.7858660817146301
+      ],
+      "Ns_dot_V": 0.04612312638258537,
+      "Ng_dot_V": 0.08214088744220809,
+      "Ns_dot_Ng": 0.9988528168090185,
+      "mirror_R": [
+        -0.6201750811638879,
+        0.0013655091053791785,
+        0.7844621888992609
+      ],
+      "Ng_dot_mirror_R": 0.009999541972359412,
+      "mirror_support_target": 0.01,
+      "mirror_support_target_margin": -4.580276405877909e-07,
+      "Ns_dot_actual_sun": 0.6896719521706796,
+      "Ns_length": 1.000000029975306,
+      "baseline_scene_RGB": [
+        0.0012365716975182295,
+        0.0008787204860709608,
+        0.00047793437261134386
+      ],
+      "candidate_scene_RGB": [
+        0.0004160930111538619,
+        0.00029688674840144813,
+        0.000171305873664096
+      ],
+      "checks": {
+        "primitive_matches_CPU": true,
+        "material_id_matches_CPU": true,
+        "Ng_max_abs_difference_CPU": 4.163924194333646e-08,
+        "roughness_expected_from_textureless_factor": 0.84,
+        "roughness_factor_f32_bit_equal": true,
+        "baseColor_unchanged_vs_previous_GPU": null,
+        "Ns_prediction_max_abs_error": 8.4657222032547e-07,
+        "Ns_prediction_angle_degrees": 6.64025163432501e-05
+      }
+    }
+  ],
+  "limits": [
+    "Prior source-LOD normal is CPU reconstruction, not pre-adapter GPU Ns; prediction error includes source mip/TBN/intersection rounding.",
+    "No old GPU material buffer: absent baseline-probe, baseColor and material bitwise invariance are not proved.",
+    "Ng dot mirror R checks the deterministic mirror direction only, not every sampled rough reflection.",
+    "The adapter is view dependent; these local measurements are not a reciprocity or global quality proof."
+  ]
+}

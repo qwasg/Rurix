@@ -1,0 +1,25 @@
+{
+  "status": "APPLIED",
+  "files": [
+    "ci\\hq_effects_codegen.py",
+    "src\\rurix-render\\kernels\\hq_rain_sorted.rx",
+    "src\\rurix-render\\kernels\\hq_rain_sorted_surface.rx",
+    "src\\rurix-render\\kernels\\hq_rain_sorted_camera_relative_v1.rx",
+    "src\\rurix-render\\kernels\\hq_rain_sorted_surface_camera_relative_v1.rx",
+    "ci\\hq_camera_relative_catalog_v1.json",
+    "ci\\hq_scratch_certificate_catalog.json",
+    "ci\\hq_texture_palette_consumers_v14.json",
+    "ci\\hq_scratch_catalogs\\camera_relative_v1.json",
+    "ci\\hq_texture_palette_consumers_v32_camera_relative.json",
+    "src\\rurix-render\\src\\bin\\hq_quality_lane\\scratch_certificates.rs",
+    "src\\rurix-render\\src\\bin\\hq_quality_lane\\camera_relative.rs",
+    "rfcs\\0052-desktop-sdr-high-quality-lane.md"
+  ],
+  "rain_sources": {
+    "hq_rain_sorted": "5b66fd3d591adae31ee5369a1797c733851ad650b1b2203bcf7c2a5ddcd4dfa8",
+    "hq_rain_sorted_surface": "7c892f7b8a09182ebf935aa152b7c9a75fbb0a4973a069e5bc33a942dd646fc8",
+    "hq_rain_sorted_camera_relative_v1": "714465c12de74bf4aeac31ba5fa049fe0a457304fc5cb409f3e3fc0805601816",
+    "hq_rain_sorted_surface_camera_relative_v1": "7dda37b28b0bd272b7e3a78d51befb5bb68c725421edbbba9b241ab447000ad4"
+  },
+  "scope": "Only rain footprint arithmetic and existing identity rows; outputs/bindings/depth order unchanged."
+}

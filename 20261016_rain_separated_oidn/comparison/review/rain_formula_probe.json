@@ -1,0 +1,28 @@
+{
+  "scope": "read_only_source_probe",
+  "sources": [
+    "D:\\Rurix\\ci\\hq_effects_codegen.py",
+    "D:\\Rurix\\src\\rurix-render\\kernels\\hq_rain_sorted_surface_camera_relative_v1.rx",
+    "D:\\Rurix\\src\\rurix-render\\src\\bin\\hq_quality_lane\\effects_lane.rs",
+    "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\config.json"
+  ],
+  "findings": [
+    "Generated shader reads surface_rgb as C_old (shader:81-83), sorts visible rain by descending depth (shader:131-135), and uses alpha=particle_alpha*soft_depth*visibility*shutter_footprint (shader:1303-1306; generator:868-869).",
+    "At each particle, prefix air integration yields L_prefix and T_prefix (shader:1910-1913); P=L_prefix+T_prefix*particle_RGB; output C_new=(1-alpha)*C_old+alpha*P (shader:1921-1929; generator:876-884). Thus rain alpha is ordinary over after incorporating the air prefix, not RGB addition. The shader stores coverage separately (shader:1929,1960).",
+    "Rain RGB is fixed input scene-linear radiance: host reads rain_config.radiance and copies to initial particle state (effects_lane.rs:857-869), copies same RGB to emit params (effects_lane.rs:941-946), and pack maps state RGB to particle RGB (hq_rain_pack.rx:14-18). There is no direct scene-light evaluation for rain in this path; only air-prefix L/T can respond to cloud/sky inputs (generator:872-880; shader:1910-1925).",
+    "Current config enables rain (config:876-880), with radius 0.016 m, alpha 0.4 and radiance [0.05,0.055,0.07] (config:914-945). Rain render params use softness 0.1 and enabled 1 (effects_lane.rs:948). Fixed radiance above a dark rear pixel produces a bright streak; alpha up to 0.4 and minimum projected radius 0.75 pixel (shader:126) allow compact, high-contrast flecks. This is a code-supported explanation, not a measured pixel attribution.",
+    "Source contract bistro-interior exposure ev100=-7 (config.json:118-120,379). This 61-frame invocation passes --ev-offset 8.0 and --auto-exposure off (output.run.json:22-23,42-45); CLI parses the offset into out.ev (core.rs:398-399) and uses it as manual EV offset (core.rs:834). The display exposure scale is 2^offset (display/post_chain.rs:203-207). Thus source contract EV-7 and runtime display EV offset +8 are distinct values; the prior EV8 caveat is resolved."
+  ],
+  "minimal_correct_decomposition": "For one rain element at depth d, write C_old=L_cam_to_d+T_cam_to_d*B_d, where B_d is rear radiance already including all rear transport. Then C_new=L_cam_to_d+T_cam_to_d*((1-alpha)*B_d+alpha*R_drop), equivalently (1-alpha)*C_old+alpha*(L_cam_to_d+T_cam_to_d*R_drop). A physically motivated R_drop may include background refraction/transmission and lighting-dependent scatter/reflection; do not replace it with fixed RGB or add RGB to C_old. For multiple sorted elements, update B/rear radiance consistently or use the equivalent per-element over relation with each element own prefix; never apply prefix T twice.",
+  "limitation": "Source-only inspection; no GPU render, pixel attribution, D/E writes, or experimental validation.",
+  "nominal_display_math": {
+    "assumptions": "Particle RGB=[0.05,0.055,0.07], nominal maximum alpha=0.4, shutter footprint=1, soft=1, visible=1, prefix T=1 and L=0, rear B=0; display EV offset +8 => factor 256. No pixel measured.",
+    "rain_rgb_times_alpha_times_256": [
+      5.12,
+      5.632,
+      7.168
+    ],
+    "interpretation": "This is the nominal exposed alpha*R term only. Actual per-pixel rain increment is 256*alpha*(L_prefix+T_prefix*R-C_old), with smaller alpha under shutter/depth/occlusion, cloud effects, and nonzero background; SDR mapping may clip."
+  },
+  "capture_configuration": "No capture/configuration.json exists under this run; output.run.json records the CLI command. capture/lane.json exists but is not needed to establish --ev-offset."
+}

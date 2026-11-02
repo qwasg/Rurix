@@ -1,0 +1,537 @@
+{
+  "status": "EXPORTED_AUTOMATIC_FULL_FRAME",
+  "source": "pre-temporal",
+  "frames": [
+    0
+  ],
+  "material_domains": {
+    "status": "OK",
+    "reason": null,
+    "asset": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+    "default_material_id": 132,
+    "captured_alpha_crosscheck": {
+      "status": "MATCHED",
+      "projection": "factor_words_4_5_6_17_20_22_15_3_18_12",
+      "used_known_materials": 132
+    }
+  },
+  "model": {
+    "OIDN": "2.5.1 CPU RT HDR HIGH",
+    "cleanAux": false,
+    "tileAlignment": 16,
+    "per_side_context": 96,
+    "fade": 16,
+    "inputScale": 256
+  },
+  "frame_plans": [
+    {
+      "frame": 0,
+      "tiles_xyxy": [
+        [
+          0,
+          0,
+          240,
+          608
+        ],
+        [
+          0,
+          0,
+          208,
+          648
+        ],
+        [
+          0,
+          0,
+          256,
+          304
+        ],
+        [
+          1008,
+          144,
+          1152,
+          576
+        ],
+        [
+          976,
+          320,
+          1152,
+          576
+        ],
+        [
+          912,
+          48,
+          1136,
+          272
+        ]
+      ],
+      "reliable_pixels": 567668,
+      "individual_reliable_pixels": 567668,
+      "supported_pixels": 106880
+    }
+  ],
+  "run_dir": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run",
+  "results": [
+    {
+      "frame": 0,
+      "source_color": "effects_pre_temporal",
+      "dimensions": [
+        1152,
+        648
+      ],
+      "reliable_pixels": 567668,
+      "individual_reliable_pixels": 567668,
+      "supported_core_pixels": 106880,
+      "fully_guided_pixels": 89870,
+      "conditions": {
+        "authored_OPAQUE_T0_volume0": 701572,
+        "primary_opaque": 718967,
+        "rough_nonmetal": 630833,
+        "no_water_support": 739490,
+        "neutral_camera_air": 712375,
+        "albedo_valid": 746496,
+        "normal_valid": 719379
+      },
+      "tiles": [
+        {
+          "input_xyxy": [
+            0,
+            0,
+            240,
+            608
+          ],
+          "guided_receipt": {
+            "label": "tile_000_guided",
+            "shape": [
+              608,
+              240,
+              3
+            ],
+            "device": "cpu",
+            "filter": "RT",
+            "hdr": true,
+            "quality": "high",
+            "type": "float",
+            "threads": 8,
+            "input_scale": 256.0,
+            "automatic_input_scale": false,
+            "guides": {
+              "albedo": true,
+              "normal": true,
+              "clean_aux": false
+            },
+            "source_HDR_rescaled_by_helper": false,
+            "command": [
+              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "--device",
+              "cpu",
+              "--filter",
+              "RT",
+              "--hdr",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_000_guided_oidn_v4zsq2sz\\color.pfm",
+              "--input_scale",
+              "256.0",
+              "--alb",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_000_guided_oidn_v4zsq2sz\\albedo.pfm",
+              "--nrm",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_000_guided_oidn_v4zsq2sz\\normal.pfm",
+              "--output",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_000_guided_oidn_v4zsq2sz\\output.pfm",
+              "--type",
+              "float",
+              "--quality",
+              "high",
+              "--threads",
+              "8",
+              "-n",
+              "1",
+              "--verbose",
+              "1"
+            ],
+            "exit_code": 0,
+            "process_wall_s": 0.3127264999784529,
+            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_000_guided_0527de5cf947.oidn.log"
+          },
+          "used_pixels": 73728
+        },
+        {
+          "input_xyxy": [
+            0,
+            0,
+            208,
+            648
+          ],
+          "guided_receipt": {
+            "label": "tile_001_guided",
+            "shape": [
+              648,
+              208,
+              3
+            ],
+            "device": "cpu",
+            "filter": "RT",
+            "hdr": true,
+            "quality": "high",
+            "type": "float",
+            "threads": 8,
+            "input_scale": 256.0,
+            "automatic_input_scale": false,
+            "guides": {
+              "albedo": true,
+              "normal": true,
+              "clean_aux": false
+            },
+            "source_HDR_rescaled_by_helper": false,
+            "command": [
+              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "--device",
+              "cpu",
+              "--filter",
+              "RT",
+              "--hdr",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_001_guided_oidn_fkuqo8l6\\color.pfm",
+              "--input_scale",
+              "256.0",
+              "--alb",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_001_guided_oidn_fkuqo8l6\\albedo.pfm",
+              "--nrm",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_001_guided_oidn_fkuqo8l6\\normal.pfm",
+              "--output",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_001_guided_oidn_fkuqo8l6\\output.pfm",
+              "--type",
+              "float",
+              "--quality",
+              "high",
+              "--threads",
+              "8",
+              "-n",
+              "1",
+              "--verbose",
+              "1"
+            ],
+            "exit_code": 0,
+            "process_wall_s": 0.47403509984724224,
+            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_001_guided_57d2a91f4139.oidn.log"
+          },
+          "used_pixels": 72576
+        },
+        {
+          "input_xyxy": [
+            0,
+            0,
+            256,
+            304
+          ],
+          "guided_receipt": {
+            "label": "tile_002_guided",
+            "shape": [
+              304,
+              256,
+              3
+            ],
+            "device": "cpu",
+            "filter": "RT",
+            "hdr": true,
+            "quality": "high",
+            "type": "float",
+            "threads": 8,
+            "input_scale": 256.0,
+            "automatic_input_scale": false,
+            "guides": {
+              "albedo": true,
+              "normal": true,
+              "clean_aux": false
+            },
+            "source_HDR_rescaled_by_helper": false,
+            "command": [
+              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "--device",
+              "cpu",
+              "--filter",
+              "RT",
+              "--hdr",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_002_guided_oidn_udcjhv01\\color.pfm",
+              "--input_scale",
+              "256.0",
+              "--alb",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_002_guided_oidn_udcjhv01\\albedo.pfm",
+              "--nrm",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_002_guided_oidn_udcjhv01\\normal.pfm",
+              "--output",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_002_guided_oidn_udcjhv01\\output.pfm",
+              "--type",
+              "float",
+              "--quality",
+              "high",
+              "--threads",
+              "8",
+              "-n",
+              "1",
+              "--verbose",
+              "1"
+            ],
+            "exit_code": 0,
+            "process_wall_s": 0.36232200008817017,
+            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_002_guided_751553b121a3.oidn.log"
+          },
+          "used_pixels": 33280
+        },
+        {
+          "input_xyxy": [
+            1008,
+            144,
+            1152,
+            576
+          ],
+          "guided_receipt": {
+            "label": "tile_003_guided",
+            "shape": [
+              432,
+              144,
+              3
+            ],
+            "device": "cpu",
+            "filter": "RT",
+            "hdr": true,
+            "quality": "high",
+            "type": "float",
+            "threads": 8,
+            "input_scale": 256.0,
+            "automatic_input_scale": false,
+            "guides": {
+              "albedo": true,
+              "normal": true,
+              "clean_aux": false
+            },
+            "source_HDR_rescaled_by_helper": false,
+            "command": [
+              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "--device",
+              "cpu",
+              "--filter",
+              "RT",
+              "--hdr",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_003_guided_oidn_cu6742dj\\color.pfm",
+              "--input_scale",
+              "256.0",
+              "--alb",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_003_guided_oidn_cu6742dj\\albedo.pfm",
+              "--nrm",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_003_guided_oidn_cu6742dj\\normal.pfm",
+              "--output",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_003_guided_oidn_cu6742dj\\output.pfm",
+              "--type",
+              "float",
+              "--quality",
+              "high",
+              "--threads",
+              "8",
+              "-n",
+              "1",
+              "--verbose",
+              "1"
+            ],
+            "exit_code": 0,
+            "process_wall_s": 0.36357970000244677,
+            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_003_guided_d2bf64b2900c.oidn.log"
+          },
+          "used_pixels": 11520
+        },
+        {
+          "input_xyxy": [
+            976,
+            320,
+            1152,
+            576
+          ],
+          "guided_receipt": {
+            "label": "tile_004_guided",
+            "shape": [
+              256,
+              176,
+              3
+            ],
+            "device": "cpu",
+            "filter": "RT",
+            "hdr": true,
+            "quality": "high",
+            "type": "float",
+            "threads": 8,
+            "input_scale": 256.0,
+            "automatic_input_scale": false,
+            "guides": {
+              "albedo": true,
+              "normal": true,
+              "clean_aux": false
+            },
+            "source_HDR_rescaled_by_helper": false,
+            "command": [
+              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "--device",
+              "cpu",
+              "--filter",
+              "RT",
+              "--hdr",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_004_guided_oidn_1py331xj\\color.pfm",
+              "--input_scale",
+              "256.0",
+              "--alb",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_004_guided_oidn_1py331xj\\albedo.pfm",
+              "--nrm",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_004_guided_oidn_1py331xj\\normal.pfm",
+              "--output",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_004_guided_oidn_1py331xj\\output.pfm",
+              "--type",
+              "float",
+              "--quality",
+              "high",
+              "--threads",
+              "8",
+              "-n",
+              "1",
+              "--verbose",
+              "1"
+            ],
+            "exit_code": 0,
+            "process_wall_s": 0.36649809987284243,
+            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_004_guided_a93c4e99316c.oidn.log"
+          },
+          "used_pixels": 5120
+        },
+        {
+          "input_xyxy": [
+            912,
+            48,
+            1136,
+            272
+          ],
+          "guided_receipt": {
+            "label": "tile_005_guided",
+            "shape": [
+              224,
+              224,
+              3
+            ],
+            "device": "cpu",
+            "filter": "RT",
+            "hdr": true,
+            "quality": "high",
+            "type": "float",
+            "threads": 8,
+            "input_scale": 256.0,
+            "automatic_input_scale": false,
+            "guides": {
+              "albedo": true,
+              "normal": true,
+              "clean_aux": false
+            },
+            "source_HDR_rescaled_by_helper": false,
+            "command": [
+              "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+              "--device",
+              "cpu",
+              "--filter",
+              "RT",
+              "--hdr",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_005_guided_oidn_nzhmrlut\\color.pfm",
+              "--input_scale",
+              "256.0",
+              "--alb",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_005_guided_oidn_nzhmrlut\\albedo.pfm",
+              "--nrm",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_005_guided_oidn_nzhmrlut\\normal.pfm",
+              "--output",
+              "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_005_guided_oidn_nzhmrlut\\output.pfm",
+              "--type",
+              "float",
+              "--quality",
+              "high",
+              "--threads",
+              "8",
+              "-n",
+              "1",
+              "--verbose",
+              "1"
+            ],
+            "exit_code": 0,
+            "process_wall_s": 0.3797913999296725,
+            "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\tile_005_guided_ed33078d5518.oidn.log"
+          },
+          "used_pixels": 1024
+        }
+      ],
+      "coverage_stage": "rain_history1",
+      "fallback_pixels_bitwise_unchanged": true,
+      "CPU_all_OIDN_process_wall_s": 2.8854169996920973,
+      "CPU_export_OIDN_process_wall_s": 2.8854169996920973,
+      "fallback_receipt": {
+        "label": "full_color_only",
+        "shape": [
+          648,
+          1152,
+          3
+        ],
+        "device": "cpu",
+        "filter": "RT",
+        "hdr": true,
+        "quality": "high",
+        "type": "float",
+        "threads": 8,
+        "input_scale": 256.0,
+        "automatic_input_scale": false,
+        "guides": {
+          "albedo": false,
+          "normal": false,
+          "clean_aux": false
+        },
+        "source_HDR_rescaled_by_helper": false,
+        "command": [
+          "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+          "--device",
+          "cpu",
+          "--filter",
+          "RT",
+          "--hdr",
+          "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\full_color_only_oidn_1hzerxlx\\color.pfm",
+          "--input_scale",
+          "256.0",
+          "--output",
+          "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\full_color_only_oidn_1hzerxlx\\output.pfm",
+          "--type",
+          "float",
+          "--quality",
+          "high",
+          "--threads",
+          "8",
+          "-n",
+          "1",
+          "--verbose",
+          "1"
+        ],
+        "exit_code": 0,
+        "process_wall_s": 0.6264641999732703,
+        "log": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\full_color_only_6578f32fd7e1.oidn.log"
+      },
+      "output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\output.png",
+      "raw": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\output.raw"
+    }
+  ],
+  "CPU_total_export_wall_s": 4.216059299884364,
+  "command": [
+    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "-B",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_fullframe\\export_fullframe.py",
+    "--run-dir",
+    "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\run",
+    "--output-dir",
+    "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export",
+    "--frames",
+    "0",
+    "--source",
+    "pre-temporal",
+    "--execute"
+  ],
+  "scope": "Whole-image offline output. Actual opaque tile cores use matched guides; all unsupported context/material regions use full-image color-only fallback. Rain is recomposed from actual captures.",
+  "selection": "No manual ROI coordinates. Material/coverage masks, global16-grid maximal rectangles,96-pixel internal halos,16-pixel core fades, normalized overlap. Multi-frame batches share the intersection of reliable masks and a fixed tile/weight plan.",
+  "temporal_guarantee": false,
+  "defaults_changed": false
+}

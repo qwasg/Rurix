@@ -1,0 +1,722 @@
+{
+  "schema": "rurix.g13.ue_upscale_parity_contract.v1",
+  "contract_id": "terminal_baseline_640x360_8",
+  "version": 1,
+  "tier_sequence": [
+    50,
+    67,
+    100
+  ],
+  "frame_count": 8,
+  "seed": 7312026601,
+  "calibration_seed": 7312026602,
+  "noise_probe_tier": 67,
+  "rurix_backends": [
+    "tsr_device",
+    "dlss_sr",
+    "fsr_3_1_5"
+  ],
+  "ue_dlss_quality_map": {
+    "50": "Performance",
+    "67": "Quality",
+    "100": "DLAA"
+  },
+  "rendering_policy": {
+    "tonemap": "off",
+    "denoiser": "off",
+    "ue_temporal_upscaler": "dlss_plugin",
+    "jitter": "halton_static"
+  },
+  "scenes": [
+    {
+      "scene_id": "cornell-box",
+      "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "gltf_product_digest": "sha256:a53b05d7a00c21279cad9023e210d9d26a1051f14398c17507fb405ca0fdaa8e",
+      "camera": {
+        "position": [
+          278.0,
+          273.0,
+          -800.0
+        ],
+        "orientation_quat": [
+          -0.0,
+          0.0,
+          1.0,
+          -0.0
+        ],
+        "fov_y_deg": 39.31,
+        "near": 10.0,
+        "far": 3000.0,
+        "resolution": {
+          "w": 512,
+          "h": 512
+        }
+      },
+      "exposure": {
+        "mode": "manual",
+        "ev100": 0.0
+      },
+      "lighting": {
+        "quad_lights": [
+          {
+            "p00": [
+              213.0,
+              548.7,
+              227.0
+            ],
+            "e1": [
+              130.0,
+              0.0,
+              0.0
+            ],
+            "e2": [
+              0.0,
+              0.0,
+              105.0
+            ],
+            "le_linear_rgb": [
+              10.0,
+              9.5,
+              8.5
+            ]
+          }
+        ],
+        "point_lights": [],
+        "emissive_materials": [],
+        "sun_intensity_lux": 0.0,
+        "sky_intensity": 0.0
+      },
+      "material_policy": {
+        "texture_mean_albedo": false,
+        "white_tex_to_white": true
+      }
+    },
+    {
+      "scene_id": "bistro-interior",
+      "m133_manifest_digest": "sha256:d96b4d2f535efca5ebb001628c7b14798f436b7f320980b44055b48a5703868a",
+      "gltf_product_digest": "sha256:0d9a949ea91b94aa455a3d8bbb8355131e152f5d5218585bd868db912dcc89d6",
+      "camera": {
+        "position": [
+          0.05216281,
+          1.44432855,
+          -1.42984402
+        ],
+        "orientation_quat": [
+          0.746405397758864,
+          0.018643549202298576,
+          -0.6650229183583388,
+          0.016610789497548076
+        ],
+        "fov_y_deg": 53.0,
+        "near": 0.1,
+        "far": 200.0,
+        "resolution": {
+          "w": 640,
+          "h": 360
+        }
+      },
+      "exposure": {
+        "mode": "manual",
+        "ev100": -4.0
+      },
+      "lighting": {
+        "quad_lights": [],
+        "point_lights": [
+          {
+            "id": "pointLight1",
+            "position": [
+              4.99128818511963,
+              3.03062701225281,
+              -0.488619118928909
+            ],
+            "color_linear_rgb": [
+              1.0002770983638491,
+              0.9998896404483147,
+              1.0002772581608164
+            ],
+            "intensity_cd": 0.0182327231840096
+          },
+          {
+            "id": "pointLight2",
+            "position": [
+              7.98878049850464,
+              3.07426261901855,
+              1.01506114006042
+            ],
+            "color_linear_rgb": [
+              1.0002770983638491,
+              0.9998896404483147,
+              1.0002772581608164
+            ],
+            "intensity_cd": 0.018232727297410593
+          },
+          {
+            "id": "pointLight3",
+            "position": [
+              4.2630033493042,
+              3.09528660774231,
+              -4.91985368728638
+            ],
+            "color_linear_rgb": [
+              1.0002770983638491,
+              0.9998896404483147,
+              1.0002772581608164
+            ],
+            "intensity_cd": 0.01823272829210542
+          },
+          {
+            "id": "pointLight4",
+            "position": [
+              6.10688591003418,
+              2.93938684463501,
+              -8.46832180023193
+            ],
+            "color_linear_rgb": [
+              1.0002770983638491,
+              0.9998896404483147,
+              1.0002772581608164
+            ],
+            "intensity_cd": 0.018232712634885177
+          }
+        ],
+        "emissive_materials": [
+          {
+            "material_name": "MASTER_Interior_01_Paris_Lantern",
+            "material_index": 38,
+            "le_linear_rgb": [
+              0.09250373992864466,
+              0.09254488353712752,
+              0.09250366850103448
+            ],
+            "area_m2": 1.0216790940526566
+          },
+          {
+            "material_name": "Paris_Ceiling_Lamp",
+            "material_index": 39,
+            "le_linear_rgb": [
+              0.022303046620219962,
+              0.022294407522146363,
+              0.022303050183191876
+            ],
+            "area_m2": 3.2709029255651823
+          },
+          {
+            "material_name": "Paris_CeilingFan",
+            "material_index": 40,
+            "le_linear_rgb": [
+              0.02230393520866327,
+              0.01585528684005825,
+              0.0066437204704917815
+            ],
+            "area_m2": 2.8216118446875447
+          },
+          {
+            "material_name": "Paris_Wall_Light_Interior",
+            "material_index": 59,
+            "le_linear_rgb": [
+              0.22171508590621858,
+              0.221896437368776,
+              0.22171508590621858
+            ],
+            "area_m2": 2.6090147497318235
+          }
+        ],
+        "sun_intensity_lux": 0.0,
+        "sky_intensity": 0.0
+      },
+      "material_policy": {
+        "texture_mean_albedo": true,
+        "white_tex_to_white": false
+      }
+    }
+  ],
+  "provenance": {
+    "purpose": "Local texture on/off capture only; not a UE comparison or canonical anchor",
+    "parent_contract": "D:\\Rurix\\milestones\\g13\\g13_ue_upscale_parity_contract.json",
+    "parent_contract_digest": "sha256:137483a1696481971fc0da03fad1a188ef6f048243e4616953060014f1d0872f",
+    "parent_contract_file_sha256": "sha256:c0d650661ac4d984de225c4833ef22086a110566029eea8d78f2c1b658d01697",
+    "local_asset": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior.gltf",
+    "local_asset_sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
+    "parent_asset_sha256": "sha256:4dae7c0d22cda6922a4541de3b41a0d63d22846c381ee7f06954a264a23f2565",
+    "scope": "Camera, lighting, exposure, seeds and material policy preserved exactly. Asset identity differs; equivalence to canonical asset is not asserted.",
+    "assisted_by": "Cursor:gpt-6-astra",
+    "world_origin_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "coordinate_convention": "absolute_world = rebased_world + world_origin_m",
+    "hq_derivation": {
+      "schema": "rurix.hq.scene_contract_derivation.v2",
+      "normal_mode": "full",
+      "hq_normal_mode": "full",
+      "scene_id": "bistro-interior",
+      "origin_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "inputs": [
+        {
+          "role": "source_contract",
+          "path": "artifacts/day_0921_quality/local_interior_contract.json",
+          "sha256": "sha256:961d52fc2500877f83a407101dfb6951bcba535b98c2c6d80f6bafd5aeaf622e"
+        },
+        {
+          "role": "gltf",
+          "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_full_precision_v3_a1.gltf",
+          "sha256": "sha256:2f04aa8a222a9ac95184fc02973acc50002e414c231c7d0e56a258a9e3a2e4fc"
+        },
+        {
+          "role": "recipe",
+          "path": "artifacts/day_0921_quality/materials/interior.material_repair_recipe_v2.json",
+          "sha256": "sha256:78b9c0f1e9fbd2d6665ee34963822faf99a34d5f493039d766d2d8ff39c1c809"
+        },
+        {
+          "role": "repair_provenance",
+          "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_material_v2.material_repair.provenance.json",
+          "sha256": "sha256:c6d9ee8ab51e32b65df0731d9f55b64f2c208eabf05779728e74d63ece5d5575"
+        },
+        {
+          "role": "tangent_provenance",
+          "path": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_full_precision_v3_a1.tangents.provenance.json",
+          "sha256": "sha256:c1c07a430e814b273519b61c8a8a66e73afc0b65c9f0bb9fd7b9a40def460599"
+        }
+      ],
+      "gltf_buffers": {
+        "buffer.bin": "sha256:44ed9f3e93fdda34a00a25672ad6375a9c8361287123e1c71bd5a4b08b1a5387",
+        "BistroInterior_hq_material_v2_material.bin": "sha256:3c8359ac93cc15d01d63501a9404315e357d31ad13c63d5eb5d322dc33950b71",
+        "BistroInterior_hq_full_precision_v3_a1_tangents.bin": "sha256:6f74efc2fd41c31f87b9d122a5eeb301548464b6bf5d752229d84a277fdba745"
+      },
+      "chain": {
+        "recipe_source_gltf_sha256": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
+        "repair_output_gltf_sha256": "sha256:1cb4451a980c5cf2edba2b55c3df59d8f3e47c6560b8de86fbd81e06ac77d6d8",
+        "tangent_input_gltf_sha256": "sha256:1cb4451a980c5cf2edba2b55c3df59d8f3e47c6560b8de86fbd81e06ac77d6d8",
+        "tangent_output_gltf_sha256": "sha256:2f04aa8a222a9ac95184fc02973acc50002e414c231c7d0e56a258a9e3a2e4fc",
+        "final_gltf_sha256": "sha256:2f04aa8a222a9ac95184fc02973acc50002e414c231c7d0e56a258a9e3a2e4fc"
+      },
+      "rebase_parent": {
+        "origin_m": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "new_parent_node": null
+      },
+      "positional_changes": [
+        {
+          "path": "scenes[1].camera.position",
+          "before": [
+            0.05216281,
+            1.44432855,
+            -1.42984402
+          ],
+          "after": [
+            0.05216281,
+            1.44432855,
+            -1.42984402
+          ]
+        },
+        {
+          "path": "scenes[1].lighting.point_lights[0].position",
+          "before": [
+            4.99128818511963,
+            3.03062701225281,
+            -0.488619118928909
+          ],
+          "after": [
+            4.99128818511963,
+            3.03062701225281,
+            -0.488619118928909
+          ]
+        },
+        {
+          "path": "scenes[1].lighting.point_lights[1].position",
+          "before": [
+            7.98878049850464,
+            3.07426261901855,
+            1.01506114006042
+          ],
+          "after": [
+            7.98878049850464,
+            3.07426261901855,
+            1.01506114006042
+          ]
+        },
+        {
+          "path": "scenes[1].lighting.point_lights[2].position",
+          "before": [
+            4.2630033493042,
+            3.09528660774231,
+            -4.91985368728638
+          ],
+          "after": [
+            4.2630033493042,
+            3.09528660774231,
+            -4.91985368728638
+          ]
+        },
+        {
+          "path": "scenes[1].lighting.point_lights[3].position",
+          "before": [
+            6.10688591003418,
+            2.93938684463501,
+            -8.46832180023193
+          ],
+          "after": [
+            6.10688591003418,
+            2.93938684463501,
+            -8.46832180023193
+          ]
+        }
+      ],
+      "changed_fields": [
+        {
+          "path": "scenes[1].gltf_product_digest",
+          "op": "replace",
+          "before": "sha256:4134339a3a06d66bfbdeaacc49ece5bb35f22e835db2d79ae77443fbf3e36665",
+          "after": "sha256:2f04aa8a222a9ac95184fc02973acc50002e414c231c7d0e56a258a9e3a2e4fc"
+        },
+        {
+          "path": "provenance.world_origin_m",
+          "op": "add",
+          "after": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "path": "provenance.coordinate_convention",
+          "op": "add",
+          "after": "absolute_world = rebased_world + world_origin_m"
+        },
+        {
+          "path": "hq_materials",
+          "op": "add",
+          "after": {
+            "normal_mode": "full",
+            "normal_y_sign": -1
+          }
+        }
+      ],
+      "emissive_clone_entries": [],
+      "dynamic_objects": [],
+      "effects": null,
+      "not_claimed": [
+        "canonical_parity",
+        "animation_playback",
+        "absolute_visual_quality"
+      ],
+      "directions_and_energy": "unchanged",
+      "cloud_altitudes_and_noise": "absolute; restored by effects adapter",
+      "informational_provenance_positions": "unchanged source-frame values (not consumed by the HQ lane)"
+    },
+    "hq_emissive_nee": {
+      "schema": "rurix.hq.emissive_diffuse_nee.v1",
+      "representation": "mesh_replace_covered_point_proxies",
+      "sampler": "integer_flux_cdf_hash32_v1",
+      "samples_per_pixel": 8,
+      "emissive_lod": 0,
+      "source_manifest_path": "D:\\Rurix\\milestones\\g10\\corpus\\lighting_bistro_interior.json",
+      "source_manifest_sha256": "sha256:b51ef3d42080eaaa7638e9d3c77dc45b57a9ef5c8d219c28fc000173cafb9fce",
+      "covered_proxy_ids": [
+        "pointLight1",
+        "pointLight2",
+        "pointLight3",
+        "pointLight4"
+      ],
+      "covered_material_indices": [
+        39
+      ]
+    },
+    "hq_effects": {
+      "schema": "rurix.hq.effects.v1",
+      "clouds": false,
+      "water": true,
+      "rain": false,
+      "dt_s": 0.016666667,
+      "sky_preset": "clear",
+      "sky_intensity": 0.03,
+      "cloud_base_m": 12.0,
+      "cloud_top_m": 40.0,
+      "cloud_density": 0.8,
+      "cloud_coverage": 0.7,
+      "cloud_primary_steps": 16,
+      "cloud_light_steps": 2,
+      "cloud_noise_dims": [
+        32,
+        16
+      ],
+      "cloud_wind_m_s": [
+        0.8,
+        0.2
+      ],
+      "water_domain": {
+        "dim": 32,
+        "center_xz": [
+          2.7,
+          -3.0
+        ],
+        "extent_m": 1.0,
+        "level_m": 0.43,
+        "top_m": 1.8,
+        "bottom_m": -0.5,
+        "wave_speed_m_s": 0.1
+      },
+      "water_initial_drop": [
+        0.003,
+        0.2
+      ],
+      "rain_config": {
+        "capacity": 256,
+        "initial_count": 64,
+        "emit_per_frame": 2,
+        "emitter": [
+          2.7,
+          2.5,
+          -3.0
+        ],
+        "spread": [
+          0.45,
+          0.1,
+          0.45
+        ],
+        "velocity": [
+          0.08,
+          -2.0,
+          0.0
+        ],
+        "velocity_spread": [
+          0.05,
+          0.2,
+          0.05
+        ],
+        "life_s": 1.5,
+        "radius_m": 0.012,
+        "alpha": 0.4,
+        "radiance": [
+          0.05,
+          0.055,
+          0.06
+        ],
+        "gravity_m_s2": -1.0
+      }
+    },
+    "hq_reflection_support": "opaque-facing-geometric-hemisphere-v1",
+    "hq_primary_light_sampling": {
+      "schema": "rurix.hq.primary_light_sampling.v1",
+      "strategy": "global_control",
+      "secondary": "global_v1"
+    },
+    "render_repair_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_0921_quality\\continuation_1003_p1_v1\\contracts\\interior_global_control.v1.json",
+      "sha256": "af8a9648a4e7b3ad259a3b44d1f2614f183b2088cf37c6a7a9e1944cb2f765c3"
+    },
+    "hq_reflection_history": "stationary-opaque-reflection-v1",
+    "hq_diffuse_transport": {
+      "schema": "rurix.hq.diffuse_transport.v2",
+      "samples_per_pixel": 2,
+      "max_bounces": 3,
+      "emission_partition": "preceding_vertex_nee_secondary_reflected_only"
+    },
+    "quality_repair_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_1003_render_repair\\contracts\\interior_final_v9.json",
+      "sha256": "sha256:5fda22b5ad68b42b062166b2259a55b71c454550b9fd0d9284e7de6fee5c9d2e"
+    },
+    "quality_campaign": {
+      "schema": "rurix.hq.quality_campaign.v1",
+      "source_gltf": "E:\\rurix_g10_cache\\bistro-orca\\v5_2\\derived\\BistroInterior\\BistroInterior_hq_full_precision_v3_a1.gltf",
+      "input_gltf": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\interior\\BistroInterior_rough_glass_optical_v5.gltf",
+      "input_sha256": "sha256:42ebba7f27515455fbcc26772f61685caac4ca6e720c14173ae12b6e634115a3",
+      "purpose": "material/transport/water/convergence/dynamic visual repair; no inherited quality verdict",
+      "camera_fov_before": 43.197681669907375
+    },
+    "hq_sun_lighting": {
+      "schema": "rurix.hq.sun_lighting.v1",
+      "model": "clear_sky_delta_sun"
+    },
+    "hq_reflection_proposal": "ggx_vndf_v1",
+    "hq_emitter_partition": "primary_full_brdf_geometry_secondary_no_le_v1",
+    "hq_water_boundary": {
+      "schema": "rurix.hq.water_boundary.v2",
+      "edge_feather_m": 0.1,
+      "depth_feather_m": 0.02,
+      "irregularity": 0.8,
+      "noise_scale_m": 0.12
+    },
+    "hq_surface_admission": {
+      "schema": "rurix.hq.surface_admission.v2",
+      "max_layers": 256,
+      "alpha_lod": "source_sampler_mip0"
+    },
+    "hq_texture_palette": {
+      "schema": "rurix.hq.texture_palette.v1",
+      "algorithm": "rgba8_block4_nibble_exact_mip_dedup_v1"
+    },
+    "hq_display_transform": "wide_c1_rgb_v1",
+    "hq_glass_transport": {
+      "schema": "rurix.hq.glass_transport.v3",
+      "max_interfaces": 16,
+      "origin_offset_m": 1e-05,
+      "terminal_lighting": "opaque_direct_nee_emission_or_sky",
+      "depth_limit_policy": "zero_tail_counted",
+      "thin_model": "gltf_thin_btdf_fresnel_layer_v1",
+      "rough_model": "ggx_vndf_separable_smith_v1",
+      "normal_model": "source_tbn_ng_domain_camera_radiance_v1"
+    },
+    "hq_glass_secondary": {
+      "schema": "rurix.hq.glass_secondary.v3",
+      "scope": "geometry_diffuse_water",
+      "origin_medium": "per_consumer_air_water",
+      "error_aggregation": "or_first_producer",
+      "water_support": "dark_flat_bounded_v1",
+      "diffuse_medium": "lifo_carry_first_segment_beer_v1"
+    },
+    "hq_thin_shadows": {
+      "schema": "rurix.hq.thin_shadow.v1",
+      "model": "smooth_thin_straight_fresnel_tint_v1",
+      "emission_partition": "nee_straight_optics_nonstraight_v1",
+      "scope": "point_quad_mesh_sun"
+    },
+    "hq_frame_error_summary": {
+      "schema": "rurix.hq.frame_error_summary.v1"
+    },
+    "hq_scratch_reuse": {
+      "schema": "rurix.hq.scratch_reuse.v2",
+      "strategy": "certified_full_write_epochs_v2"
+    },
+    "hq_cloud_history_memory": {
+      "schema": "rurix.hq.cloud_history_memory.v1",
+      "placement": "device_local_gpu_reset"
+    },
+    "hq_triangle_origin": {
+      "schema": "rurix.hq.triangle_origin.v2",
+      "model": "nvidia_glsl_5a5c45bc_edge_intervals_v2"
+    },
+    "hq_specular_emitter_mis": {
+      "schema": "rurix.hq.specular_emitter_mis.v1",
+      "lobes": "primary_ggx_only",
+      "heuristic": "power2_sample_count",
+      "light_pdf": "same_quantized_emitter_proposal_v1",
+      "optical_overlap": "smooth_thin_straight_finite_ticket_v1",
+      "optical_lod": "source_sampler_mip0"
+    },
+    "specular_mis_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\interior_native128_edges_v19.json",
+      "sha256": "444646e5046832415ef6cac03fd332a24d9fe1db9c85d9fc0618f53d0aecade2",
+      "purpose": "Native paired MIS same-view 128 frame convergence versus v19; all actual HDR checkpoints retained; quality_status remains NOT_EVALUATED until independent acceptance"
+    },
+    "hq_primary_terminal_transport": {
+      "schema": "rurix.hq.primary_terminal_transport.v1",
+      "receiver": "first_opaque_per_camera_optical_sample",
+      "diffuse": "shared_bounded_chain",
+      "specular": "one_bounded_ggx_vndf_leg",
+      "emission_partition": "terminal_full_nee_straight_le_off_v1",
+      "view": "actual_incoming_optical_direction",
+      "medium": "saved_primary_lifo_once_beer"
+    },
+    "terminal_comparison_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\interior_native128_mis_v20.json",
+      "sha256": "5930ce9ce449cdd75f23f570eadf578a6a116ed9efcce8b1dedd79134ea92a95",
+      "change": "water off for currently explicit terminal operator support; matched64sample camera/lighting otherwise preserved"
+    },
+    "hq_primary_glass_partition": {
+      "schema": "rurix.hq.primary_glass_partition.v1",
+      "strategy": "transmission_spine_first_reflection_reservoir",
+      "selection": "finite23_rgb_throughput_ht_v1",
+      "continuation": "original_budget_independent_domain_v1",
+      "guides": "separate_terminal_T_R_v1"
+    },
+    "hq_primary_one_r_le": {
+      "schema": "rurix.hq.primary_one_r_le.v1",
+      "estimator": "enumerate_exactly_one_reflection_surface_le",
+      "suffix": "shared_module_R_domain_all_T",
+      "endpoint": "current_camera_surface_le",
+      "budget": "shared_primary_max_interfaces",
+      "atmosphere": "clouds_off",
+      "captures": "isolated_lookup_packets"
+    },
+    "hq_water_receiver_lighting": {
+      "schema": "rurix.hq.water_receiver_lighting.v1",
+      "scope": "reflection_refraction_and_secondary_terminals",
+      "mesh_brdf": "full_GGX_diffuse_same_primary_v1",
+      "view": "actual_incoming_ray",
+      "footprint": "camera_water_plus_optical_segments",
+      "emission": "all_Le_owner0_no_receiver_GGX"
+    },
+    "hq_primary_terminal_water": {
+      "schema": "rurix.hq.primary_terminal_water.v1",
+      "refraction": "physical_ray_only_blur_disabled",
+      "water_receiver": "direct_full_mesh_brdf_emission_or_sky_no_child_gi",
+      "water_order": "analytic_water_before_first_geometry",
+      "submerged_glass": "existing_dark_flat_bounded_v3_fail_closed"
+    },
+    "hq_water_optical_control": {
+      "schema": "rurix.hq.water_optical_control.v1",
+      "wave_amplitude_m": 0.3,
+      "normal_detail": 0.55,
+      "refraction_blur": false
+    },
+    "v28_water_derivation": {
+      "current_parent": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\emission_guard_v27_20261008\\contracts\\interior_emission_guard_v27.json",
+      "current_parent_sha256": "01b56daee1cafe279a499729b51ba42b208d4cfc7924358d7a740ff71013b6cc",
+      "water_boundary_parent": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\contracts\\interior_water_static_smoke_v22.json",
+      "water_parent_sha256": "39ba3dc59109bc143bf414af74e493dea402c3a17f15f4e7fd85314f2c1ba59f",
+      "scope": "Original authored water domain/boundary/sky and camera; v5 asset/current physics; explicit physical ray refraction and full mesh receiver lighting. Waves retained. No quality acceptance."
+    },
+    "final_framing_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\water_compact_v28_20261008\\contracts\\interior_water_natural_v28.json",
+      "sha256": "7e69c95fc6cd11fd6817df43874757a3ead01b4f258f86d2b9def42a3d6c441e",
+      "change": "Only FOV47 to actual geometry-validated53; native1920 capacity/detail diagnostic, no quality claim"
+    },
+    "epoch_memory_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\water_capture_v29_20261008\\interior_water_fov53_v29.json",
+      "sha256": "042203c96f73797ddbb16bb9aca1a5a9bbf2bc370a1cddd534eacc56d0a7aa49",
+      "change": "Only opt-in source-certified full-write epoch scratch reuse; physical inputs/shaders/quality/capture preserved"
+    },
+    "hq_glass_endpoint_write": {
+      "schema": "rurix.hq.glass_endpoint_write.v1",
+      "scope": "secondary_out_rays_full_write",
+      "conditional_outputs": "preserve_hit_material_rmw"
+    },
+    "endpoint_memory_parent": {
+      "path": "D:\\Rurix\\artifacts\\day_1004_quality_repair\\review\\epoch_reuse_v30_20261008\\contracts\\interior_epoch_native1080_v30.json",
+      "sha256": "8aa41a413e3fb85ca0469ea241f4288b03bb9175a5816dfd5a8e5e423be89e40",
+      "change": "Explicit source-certified full-write access for out_rays only; preserve hit/material RMW, all shader arithmetic and physical inputs"
+    },
+    "hq_ray_regeneration": {
+      "schema": "rurix.hq.ray_regeneration.v1",
+      "scope": "camera_and_water_roots",
+      "proof": "unchanged_inputs_outputs_and_frame_bindings"
+    },
+    "hq_camera_relative": {
+      "schema": "rurix.hq.camera_relative.v1",
+      "ray_model": "view_rotation_projection_diagonal_v1",
+      "frame_abi": "legacy_frame128_unchanged",
+      "support_abi": "projection4_v1"
+    },
+    "hq_optical_continuation": {
+      "schema": "rurix.hq.optical_continuation.v1",
+      "transport": "clear_two_residual_families_v1",
+      "queue": "bounded4096slots_v1",
+      "commit": "persistent_whole_frame_once_v1",
+      "metadata": "aggregate4MiB_per_frame_v1",
+      "kernel_bundle_sha256": "cc536dba4ccfd36e81280c27e6791d875422e70563fd047e3181fea0347748eb",
+      "queue_memory": "device_local_internal_zeroed_v1"
+    },
+    "hq_secondary_nee_quadrature": {
+      "schema": "rurix.hq.secondary_nee_quadrature.v1",
+      "sampler": "integer_cdf_strat8_joint_hash32_v1",
+      "scope": "sun_diffuse_path_and_water_direct_v1",
+      "water_samples_per_pixel": 64
+    },
+    "hq_water_rough_bed_filter": "weighted_receiver_3x3_v1",
+    "hq_primary_nee_samples": 64,
+    "hq_glass_footprint_c01": "material_bounds_v1"
+  },
+  "hq_materials": {
+    "normal_mode": "full",
+    "normal_y_sign": -1
+  }
+}

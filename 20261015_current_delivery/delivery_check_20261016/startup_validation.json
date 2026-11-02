@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "ordinary_and_shared_release_match": true,
+  "restored_source_match": true,
+  "prepared_launches": [
+    {
+      "scene": "interior",
+      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+      "configuration": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\config.json",
+      "matches_chosen_delivered_configuration": true
+    },
+    {
+      "scene": "exterior",
+      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+      "configuration": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+      "matches_chosen_delivered_configuration": true
+    },
+    {
+      "scene": "weather_still_native",
+      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+      "dimensions": [
+        1152,
+        648
+      ],
+      "frames": 1,
+      "only_executable_changed": true
+    },
+    {
+      "scene": "weather_motion",
+      "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+      "dimensions": [
+        640,
+        360
+      ],
+      "frames": 24,
+      "only_executable_changed": true
+    }
+  ],
+  "renderer_invocations": 0,
+  "exporter_invocations": 0,
+  "scope": "Source/build and prepared-command verification only; no new visual validation."
+}

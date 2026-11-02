@@ -1,0 +1,254 @@
+{
+  "curve": "Y<.04: RGB*(1+a*(1-Y/.04)^3), otherwise exact input; after wide-C1 before sRGB",
+  "HDR_modified": false,
+  "new_denoising": false,
+  "new_rendering": false,
+  "variants": {
+    "original_a025": {
+      "amount": 0.25,
+      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\original_a025.png",
+      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\capture\\frame_000000_scene.raw",
+      "pixels_above_cutoff_bitwise_unchanged": true,
+      "zero_black_preserved": true,
+      "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
+      "finite_nonnegative_no_gamut_clipping": true,
+      "regions": {
+        "left_door_panels": {
+          "baseline_display_median": 16.48940086364746,
+          "lifted_display_median": 18.421199798583984,
+          "mean_abs_RGB8_change": 1.3152263164520264
+        },
+        "left_deep_entry": {
+          "baseline_display_median": 8.148399353027344,
+          "lifted_display_median": 9.654999732971191,
+          "mean_abs_RGB8_change": 0.8295156359672546
+        },
+        "right_shop_recess": {
+          "baseline_display_median": 16.034099578857422,
+          "lifted_display_median": 17.993999481201172,
+          "mean_abs_RGB8_change": 1.344487190246582
+        },
+        "right_hedge": {
+          "baseline_display_median": 0.0,
+          "lifted_display_median": 0.0,
+          "mean_abs_RGB8_change": 0.26923078298568726
+        },
+        "road_shadow": {
+          "baseline_display_median": 67.18340301513672,
+          "lifted_display_median": 67.18340301513672,
+          "mean_abs_RGB8_change": 0.03466377034783363
+        },
+        "lit_facade_control": {
+          "baseline_display_median": 78.99119567871094,
+          "lifted_display_median": 78.99119567871094,
+          "mean_abs_RGB8_change": 0.13864341378211975
+        }
+      }
+    },
+    "original_a050": {
+      "amount": 0.5,
+      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\original_a050.png",
+      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\capture\\frame_000000_scene.raw",
+      "pixels_above_cutoff_bitwise_unchanged": true,
+      "zero_black_preserved": true,
+      "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
+      "finite_nonnegative_no_gamut_clipping": true,
+      "regions": {
+        "left_door_panels": {
+          "baseline_display_median": 16.48940086364746,
+          "lifted_display_median": 20.417198181152344,
+          "mean_abs_RGB8_change": 2.5533058643341064
+        },
+        "left_deep_entry": {
+          "baseline_display_median": 8.148399353027344,
+          "lifted_display_median": 11.302000045776367,
+          "mean_abs_RGB8_change": 1.6145013570785522
+        },
+        "right_shop_recess": {
+          "baseline_display_median": 16.034099578857422,
+          "lifted_display_median": 19.70199966430664,
+          "mean_abs_RGB8_change": 2.6104485988616943
+        },
+        "right_hedge": {
+          "baseline_display_median": 0.0,
+          "lifted_display_median": 0.0,
+          "mean_abs_RGB8_change": 0.5318302512168884
+        },
+        "road_shadow": {
+          "baseline_display_median": 67.18340301513672,
+          "lifted_display_median": 67.18340301513672,
+          "mean_abs_RGB8_change": 0.06625033915042877
+        },
+        "lit_facade_control": {
+          "baseline_display_median": 78.99119567871094,
+          "lifted_display_median": 78.99119567871094,
+          "mean_abs_RGB8_change": 0.2705596685409546
+        }
+      }
+    },
+    "oidn100_a025": {
+      "amount": 0.25,
+      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\oidn100_a025.png",
+      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\oidn100.raw",
+      "pixels_above_cutoff_bitwise_unchanged": true,
+      "zero_black_preserved": true,
+      "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
+      "finite_nonnegative_no_gamut_clipping": true,
+      "regions": {
+        "left_door_panels": {
+          "baseline_display_median": 17.561601638793945,
+          "lifted_display_median": 19.561599731445312,
+          "mean_abs_RGB8_change": 1.466940999031067
+        },
+        "left_deep_entry": {
+          "baseline_display_median": 17.70199966430664,
+          "lifted_display_median": 19.561599731445312,
+          "mean_abs_RGB8_change": 1.2195605039596558
+        },
+        "right_shop_recess": {
+          "baseline_display_median": 21.417200088500977,
+          "lifted_display_median": 23.417200088500977,
+          "mean_abs_RGB8_change": 1.7803205251693726
+        },
+        "right_hedge": {
+          "baseline_display_median": 1.0,
+          "lifted_display_median": 1.8555999994277954,
+          "mean_abs_RGB8_change": 0.5176834464073181
+        },
+        "road_shadow": {
+          "baseline_display_median": 68.54039764404297,
+          "lifted_display_median": 68.54039764404297,
+          "mean_abs_RGB8_change": 0.18960991501808167
+        },
+        "lit_facade_control": {
+          "baseline_display_median": 80.40489959716797,
+          "lifted_display_median": 80.40489959716797,
+          "mean_abs_RGB8_change": 0.09175224602222443
+        }
+      }
+    },
+    "oidn100_a050": {
+      "amount": 0.5,
+      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\oidn100_a050.png",
+      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\oidn100.raw",
+      "pixels_above_cutoff_bitwise_unchanged": true,
+      "zero_black_preserved": true,
+      "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
+      "finite_nonnegative_no_gamut_clipping": true,
+      "regions": {
+        "left_door_panels": {
+          "baseline_display_median": 17.561601638793945,
+          "lifted_display_median": 21.489398956298828,
+          "mean_abs_RGB8_change": 2.8493826389312744
+        },
+        "left_deep_entry": {
+          "baseline_display_median": 17.70199966430664,
+          "lifted_display_median": 21.349000930786133,
+          "mean_abs_RGB8_change": 2.354024648666382
+        },
+        "right_shop_recess": {
+          "baseline_display_median": 21.417200088500977,
+          "lifted_display_median": 25.09830093383789,
+          "mean_abs_RGB8_change": 3.4485256671905518
+        },
+        "right_hedge": {
+          "baseline_display_median": 1.0,
+          "lifted_display_median": 1.927799940109253,
+          "mean_abs_RGB8_change": 0.9991158246994019
+        },
+        "road_shadow": {
+          "baseline_display_median": 68.54039764404297,
+          "lifted_display_median": 68.54039764404297,
+          "mean_abs_RGB8_change": 0.3716173470020294
+        },
+        "lit_facade_control": {
+          "baseline_display_median": 80.40489959716797,
+          "lifted_display_median": 80.40489959716797,
+          "mean_abs_RGB8_change": 0.18250934779644012
+        }
+      }
+    },
+    "mix50_a025": {
+      "amount": 0.25,
+      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\mix50_a025.png",
+      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\mix50.raw",
+      "pixels_above_cutoff_bitwise_unchanged": true,
+      "zero_black_preserved": true,
+      "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
+      "finite_nonnegative_no_gamut_clipping": true,
+      "regions": {
+        "left_door_panels": {
+          "baseline_display_median": 17.27680015563965,
+          "lifted_display_median": 19.349000930786133,
+          "mean_abs_RGB8_change": 1.4046639204025269
+        },
+        "left_deep_entry": {
+          "baseline_display_median": 13.774199485778809,
+          "lifted_display_median": 15.705999374389648,
+          "mean_abs_RGB8_change": 1.1298012733459473
+        },
+        "right_shop_recess": {
+          "baseline_display_median": 19.204601287841797,
+          "lifted_display_median": 20.70199966430664,
+          "mean_abs_RGB8_change": 1.696089744567871
+        },
+        "right_hedge": {
+          "baseline_display_median": 0.9277999997138977,
+          "lifted_display_median": 0.9277999997138977,
+          "mean_abs_RGB8_change": 0.4045092761516571
+        },
+        "road_shadow": {
+          "baseline_display_median": 68.18339538574219,
+          "lifted_display_median": 68.18339538574219,
+          "mean_abs_RGB8_change": 0.14680062234401703
+        },
+        "lit_facade_control": {
+          "baseline_display_median": 79.89140319824219,
+          "lifted_display_median": 79.89140319824219,
+          "mean_abs_RGB8_change": 0.11858132481575012
+        }
+      }
+    },
+    "mix50_a050": {
+      "amount": 0.5,
+      "PNG": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\shadows\\evaluation\\mix50_a050.png",
+      "HDR_source": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior640_static1\\preview\\mix50.raw",
+      "pixels_above_cutoff_bitwise_unchanged": true,
+      "zero_black_preserved": true,
+      "maximum_display_linear_normalized_chroma_error": 1.7881393432617188e-07,
+      "finite_nonnegative_no_gamut_clipping": true,
+      "regions": {
+        "left_door_panels": {
+          "baseline_display_median": 17.27680015563965,
+          "lifted_display_median": 21.204601287841797,
+          "mean_abs_RGB8_change": 2.7305350303649902
+        },
+        "left_deep_entry": {
+          "baseline_display_median": 13.774199485778809,
+          "lifted_display_median": 17.48940086364746,
+          "mean_abs_RGB8_change": 2.1973538398742676
+        },
+        "right_shop_recess": {
+          "baseline_display_median": 19.204601287841797,
+          "lifted_display_median": 22.629798889160156,
+          "mean_abs_RGB8_change": 3.282564163208008
+        },
+        "right_hedge": {
+          "baseline_display_median": 0.9277999997138977,
+          "lifted_display_median": 0.9277999997138977,
+          "mean_abs_RGB8_change": 0.8087975382804871
+        },
+        "road_shadow": {
+          "baseline_display_median": 68.18339538574219,
+          "lifted_display_median": 68.18339538574219,
+          "mean_abs_RGB8_change": 0.2836455702781677
+        },
+        "lit_facade_control": {
+          "baseline_display_median": 79.89140319824219,
+          "lifted_display_median": 79.89140319824219,
+          "mean_abs_RGB8_change": 0.22868402302265167
+        }
+      }
+    }
+  }
+}

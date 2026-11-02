@@ -1,0 +1,97 @@
+{
+  "available": true,
+  "quality_status": "quality_not_final",
+  "summary": "真实 albedo/normal 引导在首帧两块可靠不透明区域取得局部净改善：维持 OIDN 的降噪效果，门板线条、窗框、柱脚和地砖缝比同裁切仅颜色去噪更清楚，未见明显新增颗粒或光晕。保留为限定区域的离线可用选项；不据此推广到玻璃、水、透明边缘或连续动态。",
+  "chosen_route": "Existing captured surface guides, offline CPU RT HDR OIDN on fully supported opaque rectangles.",
+  "why_this_route": "No shader/host/sampling change or rebuild. Existing geometry/material/water readbacks are sufficient for a conservative first-frame opaque trial. Cloud primary64 and water64 require synchronized sampling/MIS/record-capacity changes and have larger current buffer costs.",
+  "implementation": {
+    "capture_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\run_candidate.py",
+    "guide_selection_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\inspect_guides.py",
+    "denoising_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\compare_roi_guides.py",
+    "OIDN_helper": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\oidn_roi.py",
+    "guide_fields": "Actual admitted primary geometry; material linear RGB[0:3] and mapped/oriented shading Ns[8:11].",
+    "selection": "Primary hit, transmission=0, metallic=0, roughness>=0.5, full authored material alpha, no binary water support, finite in-range guides, and actual pre-rain==opaque RGB. Roughness restriction avoids sharp glossy transport; it is not a visual quality threshold.",
+    "filter": "Official OIDN2.5.1 CPU RT HDR high float, 8 threads, clean_aux=false. Both arms receive identical color crop and automatic inputScale policy.",
+    "fallback": "Only complete real-guide rectangles enter OIDN. Composite their interiors with a context ring and edge fade; keep cached color-only result everywhere else. Recompose actual rain with unchanged coverage.",
+    "default_selection_changed": false,
+    "existing_rain_lighting_and_separated_options_retained": true,
+    "GPU_integration": false
+  },
+  "local_visual_findings": {
+    "noise": "Both OIDN arms remove most visible grain relative to raw HDR. No separate reduction of noise power versus color-only is claimed.",
+    "clarity": "Same-crop guided result preserves door panel lines, frame/base trim and paving seams more clearly than color-only.",
+    "artifacts": "No obvious new grain, halo or seam seen in the reviewed crop/interior/full-frame images.",
+    "evidence": "visual_review.json",
+    "clean_reference_available": false,
+    "overall_quality_accepted": false
+  },
+  "validation": {
+    "source_or_shader_changes": 0,
+    "builds": 0,
+    "new_GPU_runs": 1,
+    "actual_capture_frames": [
+      0,
+      1
+    ],
+    "guided_trial_frame": 0,
+    "dimensions": [
+      640,
+      360
+    ],
+    "rectangles_xywh": [
+      [
+        0,
+        0,
+        143,
+        352
+      ],
+      [
+        554,
+        0,
+        85,
+        325
+      ]
+    ],
+    "guided_application_pixels": 26943,
+    "full_weight_pixels": 14793,
+    "first_frame_pre_post_HDR_and_both_rain_coverage_bitwise_equal_baseline": true,
+    "unsupported_output_pixels_bitwise_unchanged": true,
+    "measured_local_capture": {
+      "exit_code": 0,
+      "gpu_frames": 2,
+      "gpu_pass_sum_ns": 11598091168,
+      "wall_seconds": 314.25,
+      "whole_device_peak_used_mib": 3954.0
+    },
+    "shader_prepare_ms": 1640.135,
+    "CPU_OIDN_calls": 4,
+    "CPU_guided_only_process_wall_sum_s": 0.6730268998071551,
+    "CPU_comparison_all_process_wall_sum_s": 1.253374399850145,
+    "timing_scope": "Process wall time for CPU calls, separate from GPU timestamp sum and whole capture wall time. Cached full-frame OIDN cost is additional in a fresh workflow. No realtime or speedup claim.",
+    "full_CI": false
+  },
+  "cloud64_comparison": {
+    "implemented": false,
+    "evidence": "cloud64_probe.json",
+    "primary64": "Potentially broader effect on wall/road direct-light noise; needs paired canonical MIS counts and factor-buffer sizing, retaining40bindings.",
+    "water64": "Only two water receiver direct-light paths; needs39-binding cloud64 source and finite controls. Current shared witness stride128->576 increases477producer scans.",
+    "buffer_growth_each_path_MiB_estimated": {
+      "640x360": 393.75,
+      "1920x1080": 3543.75
+    },
+    "cost_limit": "These are source-derived per-buffer sizes, not measured added resident peaks or whole-frame timing; primary and water buffers are distinct and are not added together here."
+  },
+  "limits": [
+    "Only two opaque rectangles in reset frame0 were guided; frame1 color includes existing temporal reconstruction and is not a matched-guide validation.",
+    "Glass, water, sky, unsupported material/coverage boundaries and remaining image regions use the prior fallback. Leaf detail and reflection/transmission guides are not established by this trial.",
+    "The application covers only26943pixels of640x360, including the edge blend; there is no claim of whole-image noise or sharpness acceptance.",
+    "Without a clean reference, newly visible texture cannot be proved completely accurate. Context-ring cropping is a practical local trial, not a full receptive-field boundary proof.",
+    "No1080p, continuous-motion or GPU-integrated denoising validation."
+  ],
+  "storage_readonly": {
+    "D_free_bytes": 55767531520,
+    "E_free_bytes": 144283725824,
+    "unknown_or_existing_files_deleted": 0
+  },
+  "official_guide_reference": "https://www.openimagedenoise.org/documentation.html#rt"
+}

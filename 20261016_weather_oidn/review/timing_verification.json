@@ -1,0 +1,215 @@
+{
+  "recorded_utc": "2026-10-16T00:57:52.481279+00:00",
+  "conclusion": "ALREADY_IMPLEMENTED_AND_RECORDED_NO_CHANGE_NEEDED",
+  "scope": "Read current source and two completed logs/receipts only. No source edits, render, build, new timestamp instrumentation or rerun.",
+  "source": {
+    "gpu_sum": {
+      "path": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+      "lines": [
+        3720,
+        3727
+      ],
+      "description": "After successful persistent owner frame, uses already-collected result.telemetry.passes.gpu_ns sum. Empty passes print status=unavailable; no fabricated zero."
+    },
+    "shader_prepare": {
+      "path": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+      "start_line": 2643,
+      "end_log_lines": [
+        2734,
+        2735
+      ],
+      "format": "HQ_SHADER_PREPARE passes=N modules=N milliseconds=X",
+      "scope": "CPU elapsed for this shader byte loading/inspection/identity loop. Does not include earlier scene/graph preparation or later DeviceFrameSession allocation/pipeline construction; session construction is at2954–2957. Not total startup or GPU time."
+    },
+    "gpu_shader_ranking": {
+      "path": "D:/Rurix/src/rurix-render/src/bin/hq_quality_lane/core.rs",
+      "lines": [
+        3728,
+        3733
+      ],
+      "description": "Existing top8 GPU_SHADER aggregate log also present; no additions made."
+    },
+    "receipt_aggregation": {
+      "path": "C:/Users/wcj20/Documents/Codex/2026-10-13/task-2/history_probe/run_journal_sync_ab.py",
+      "lines": [
+        40,
+        59
+      ],
+      "fields": [
+        "gpu_frames",
+        "gpu_timed_frames",
+        "gpu_timing_status",
+        "gpu_timing_unavailable_frames",
+        "gpu_pass_sum_ns",
+        "gpu_per_frame",
+        "owner_sum_ns"
+      ],
+      "description": "Reads the existing per-frame timing lines and completed owner records; incomplete timing makes whole-run GPU total None."
+    }
+  },
+  "runs": [
+    {
+      "label": "weather8",
+      "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+      "output_log": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.log",
+      "receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
+      "gpu_per_frame_logs": [
+        {
+          "line": 2,
+          "frame": 0,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6483236384
+        },
+        {
+          "line": 11,
+          "frame": 1,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6017282272
+        },
+        {
+          "line": 20,
+          "frame": 2,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 5993363776
+        },
+        {
+          "line": 29,
+          "frame": 3,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6046124672
+        },
+        {
+          "line": 38,
+          "frame": 4,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6060959712
+        },
+        {
+          "line": 47,
+          "frame": 5,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 5977542752
+        },
+        {
+          "line": 56,
+          "frame": 6,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6000522784
+        },
+        {
+          "line": 65,
+          "frame": 7,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6026963360
+        }
+      ],
+      "gpu_sum_from_log_ns": 48605995712,
+      "gpu_sum_from_log_s": 48.605995712,
+      "receipt_fields": {
+        "exit_code": 0,
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_timing_status": "available",
+        "gpu_timing_unavailable_frames": [],
+        "gpu_pass_sum_ns": 48605995712,
+        "wall_seconds": 707.75,
+        "whole_device_peak_used_mib": 3904.0
+      },
+      "log_sum_equals_receipt": true,
+      "shader_prepare_log": [
+        {
+          "line": 1,
+          "passes": 8113,
+          "modules": 109,
+          "milliseconds": 5589.569
+        }
+      ],
+      "receipt_shader_prepare_fields": {},
+      "shader_prepare_storage": "Present in output.log; no shader preparation field in this existing output.run.json."
+    },
+    {
+      "label": "cloud_strat8",
+      "run": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8",
+      "output_log": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\output.log",
+      "receipt": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\output.run.json",
+      "gpu_per_frame_logs": [
+        {
+          "line": 2,
+          "frame": 0,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6350849888
+        },
+        {
+          "line": 11,
+          "frame": 1,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 5996808672
+        },
+        {
+          "line": 20,
+          "frame": 2,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6036341536
+        },
+        {
+          "line": 29,
+          "frame": 3,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6055253824
+        },
+        {
+          "line": 38,
+          "frame": 4,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6042805632
+        },
+        {
+          "line": 47,
+          "frame": 5,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6011683904
+        },
+        {
+          "line": 56,
+          "frame": 6,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6010342880
+        },
+        {
+          "line": 65,
+          "frame": 7,
+          "timestamp_period_ns": 1.0,
+          "pass_sum_ns": 6099896768
+        }
+      ],
+      "gpu_sum_from_log_ns": 48603983104,
+      "gpu_sum_from_log_s": 48.603983104,
+      "receipt_fields": {
+        "exit_code": 0,
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_timing_status": "available",
+        "gpu_timing_unavailable_frames": [],
+        "gpu_pass_sum_ns": 48603983104,
+        "wall_seconds": 478.0470000000205,
+        "whole_device_peak_used_mib": 3904.0
+      },
+      "log_sum_equals_receipt": true,
+      "shader_prepare_log": [
+        {
+          "line": 1,
+          "passes": 8113,
+          "modules": 109,
+          "milliseconds": 2435.293
+        }
+      ],
+      "receipt_shader_prepare_fields": {},
+      "shader_prepare_storage": "Present in output.log; no shader preparation field in this existing output.run.json."
+    }
+  ],
+  "interpretation": [
+    "GPU pass sum, shader CPU preparation interval and process wall are separate quantities.",
+    "Different preparation and wall values alone do not prove a sampler speedup; no performance conclusion is drawn.",
+    "Requested brief logs already exist and both completed runs retained them. No modification or rerender is warranted for this request."
+  ]
+}

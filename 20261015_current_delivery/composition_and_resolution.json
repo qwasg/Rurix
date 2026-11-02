@@ -1,0 +1,193 @@
+{
+  "status": "NATIVE1080_DELIVERED_BOTH_SCENES",
+  "frames": [
+    {
+      "run": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1",
+      "camera": {
+        "position": [
+          0.05216281,
+          1.44432855,
+          -1.42984402
+        ],
+        "orientation_quat": [
+          0.746405397758864,
+          0.018643549202298576,
+          -0.6650229183583388,
+          0.016610789497548076
+        ],
+        "fov_y_deg": 53.0,
+        "near": 0.1,
+        "far": 200.0,
+        "resolution": {
+          "w": 1920,
+          "h": 1080
+        }
+      },
+      "native_HDR": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\capture\\frame_000000_scene.raw",
+      "HDR_dimensions": [
+        1920,
+        1080
+      ],
+      "HDR_bytes": 24883208,
+      "frame_index": 0,
+      "static_first_frame": true,
+      "history_reused": false,
+      "upscaled": false,
+      "gpu_frames": 1,
+      "gpu_timed_frames": 1,
+      "gpu_pass_sum_s": 22.284535712,
+      "gpu_timing_status": "recorded_pass_sum",
+      "ev_offset": 10.0
+    },
+    {
+      "run": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as",
+      "camera": {
+        "position": [
+          22.0,
+          2.028,
+          -84.0
+        ],
+        "orientation_quat": [
+          0.2646884705385812,
+          0.003555508905826911,
+          0.9642404294762917,
+          -0.012952454738150753
+        ],
+        "fov_y_deg": 52.0,
+        "near": 0.05,
+        "far": 500.0,
+        "resolution": {
+          "w": 1920,
+          "h": 1080
+        }
+      },
+      "native_HDR": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\capture\\frame_000000_scene.raw",
+      "HDR_dimensions": [
+        1920,
+        1080
+      ],
+      "HDR_bytes": 24883208,
+      "frame_index": 0,
+      "static_first_frame": true,
+      "history_reused": false,
+      "upscaled": false,
+      "gpu_frames": 1,
+      "gpu_timed_frames": 1,
+      "gpu_pass_sum_s": 40.759482176,
+      "gpu_timing_status": "recorded_pass_sum",
+      "ev_offset": 8.0
+    }
+  ],
+  "indoor_decision": "Reuse current native1080. Main left/center pendants, upper-right fan and rear lamp shades are fully framed. Top border cuts suspension rods/wires; far-left partial distant lamp x0..20,y320..370 is peripheral. Preserve FOV53 and camera pose; no new composition preset or indoor render.",
+  "outdoor_decision": "Native1920x1080 new capture from previous640 recipe. Preserve position/orientation/FOV52, EV8, materials, water and all image algorithm settings. No upsampling.",
+  "new_attempts": 6,
+  "new_completed_GPU_frames": 1,
+  "new_GPU_timed_frames": 1,
+  "new_indoor_GPU_frames": 0,
+  "failed_attempts": [
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1\\output.run.json",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_filter\\output.run.json",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working\\output.run.json",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working_region\\output.run.json",
+    "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_optional_timing\\output.run.json"
+  ],
+  "runtime_change": "Attempt6 host changes include optional GPU timing and stage8 segments with at most1 AS at complete error-summary boundaries. Footer/readback, shader bundle, mathematical order and sampling are unchanged.",
+  "memory": {
+    "choice": "existing hq_filter_working_memory plus hq_partition_working_memory host_visible_zero_initialized_v1",
+    "first_attempt_failed_before_GPU": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1\\output.run.json",
+    "second_attempt_failed_before_GPU": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_filter\\output.run.json",
+    "third_attempt_partial_GPU_timestamp_failure": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working\\output.run.json",
+    "fourth_attempt_partial_GPU_timestamp_failure": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_host_working_region\\output.run.json",
+    "fifth_attempt_stale_header_failure": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_optional_timing\\output.run.json",
+    "journal_sync": "Region synchronization is unchanged. Attempts3/4 failed with query NOT_READY. Attempt5 allowed missing timing as null, then failed a genuine stale header check: expected2413, actual2412; no completed owner frame was published. Attempt6 retains optional timing and limits stage8 segments to at most1 AS at complete error-summary boundaries, preserving footer/readback. Missing timing stays null; completion checks remain mandatory.",
+    "source_diagnosis": "native1080_memory_diagnosis.json",
+    "actual_main_graph_capacity": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\capture\\capacity_preflight.json",
+    "actual_session_status": "Passed enforced allocation and completed one GPU frame; main graph preflight alone is not treated as session success.",
+    "before_heaps": [
+      {
+        "heap_index": 0,
+        "heap_bytes": 8282701824,
+        "budget_bytes": 7477395456,
+        "usage_bytes": 56143872,
+        "available_bytes": 7421251584,
+        "persistent_bytes": 7486465344,
+        "initial_upload_bytes": 0,
+        "readback_bytes": 0,
+        "required_peak_bytes": 7486465344,
+        "fits": false
+      },
+      {
+        "heap_index": 1,
+        "heap_bytes": 16876498944,
+        "budget_bytes": 18433902428,
+        "usage_bytes": 45436928,
+        "available_bytes": 16831062016,
+        "persistent_bytes": 101971728,
+        "initial_upload_bytes": 2611641056,
+        "readback_bytes": 525380032,
+        "required_peak_bytes": 2713612784,
+        "fits": true
+      }
+    ],
+    "after_heaps": [
+      {
+        "heap_index": 0,
+        "heap_bytes": 8282701824,
+        "budget_bytes": 7477395456,
+        "usage_bytes": 56143872,
+        "available_bytes": 7421251584,
+        "persistent_bytes": 6615553280,
+        "initial_upload_bytes": 0,
+        "readback_bytes": 0,
+        "required_peak_bytes": 6615553280,
+        "fits": true
+      },
+      {
+        "heap_index": 1,
+        "heap_bytes": 16876498944,
+        "budget_bytes": 18433902428,
+        "usage_bytes": 45436928,
+        "available_bytes": 16831062016,
+        "persistent_bytes": 1296365328,
+        "initial_upload_bytes": 2603346656,
+        "readback_bytes": 525380032,
+        "required_peak_bytes": 3899711984,
+        "fits": true
+      }
+    ],
+    "actual_history_allocations": [
+      {
+        "label": "resource[891]",
+        "phase": "persistent",
+        "requested_bytes": 165888000,
+        "required_bytes": 165888000,
+        "alignment": 16,
+        "memory_type_bits": 31,
+        "memory_type_index": 2,
+        "memory_property_flags": 6,
+        "heap_index": 1
+      },
+      {
+        "label": "resource[892]",
+        "phase": "persistent",
+        "requested_bytes": 165888000,
+        "required_bytes": 165888000,
+        "alignment": 16,
+        "memory_type_bits": 31,
+        "memory_type_index": 2,
+        "memory_property_flags": 6,
+        "heap_index": 1
+      }
+    ],
+    "scope": "Same shader bundle, samples, optical settings, camera pose/FOV, EV8 and seed. Configuration comparison confirms only resolution and the two existing placement options changed from640. The sixth executable includes host optional timing plus stage8 at most1 AS per segment at complete error-summary boundaries, retaining footer/readback; no shader, mathematical order or sampling changes.",
+    "performance_limit": "No matched1080 placement timing comparison exists: attempts1/2 failed allocation, attempts3/4 had no completed/timed frame and attempt5 failed stale header after allowing unavailable timing. Unavailable GPU timing is not zero and cannot establish speedup.",
+    "timestamp_failure_diagnosis": {
+      "path": "native1080_timestamp_diagnosis.json",
+      "scope": "Historical query failures, fifth stale-header failure and sixth successful native1080 receipt; root cause beyond bounded segmentation remains unproven."
+    },
+    "original_pass_projection": {
+      "path": "suffix_single_as_projection.json",
+      "scope": "6884 original passes retain fields and order; stage8 has533 single-AS regions, preserving footer and final readback."
+    }
+  }
+}

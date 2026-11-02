@@ -1,0 +1,63 @@
+{
+  "assessment": "NO_CLEAR_VISIBLE_QUALITY_GAIN",
+  "reviewer": "road_bsdf_probe independent visual review",
+  "comparison": "E:/rurix_quality_runs/20261016_cloud_strat8/comparison",
+  "dimensions": [640, 360],
+  "duration_seconds": 0.11666667275130749,
+  "viewed": {
+    "full_frames": {
+      "frames": [0, 7],
+      "versions": ["baseline", "candidate"],
+      "channels": ["original", "presented"],
+      "baseline_directory": "E:/rurix_quality_runs/20261015_weather_motion/weather8/preview_motion",
+      "candidate_directory": "E:/rurix_quality_runs/20261016_cloud_strat8/comparison/candidate"
+    },
+    "native_contact_sheets": [
+      "original_water_road_8frames_native1to1.png",
+      "presented_water_road_8frames_native1to1.png",
+      "original_rain_center_8frames_native1to1.png",
+      "presented_rain_center_8frames_native1to1.png"
+    ]
+  },
+  "observations": [
+    {
+      "region": "full frame, original and presented, f0/f7",
+      "finding": "基线与候选在原尺寸下几乎不可辨。未看到可重复辨认的整体清晰度、颗粒、暗部层次改善，也未看到明显新增亮斑、晕边或整体曝光偏移。"
+    },
+    {
+      "region": "water_road, eight paired frames",
+      "finding": "水面仍是中央暗反射区域，内部竖向/块状反射结构可见；轮廓、两侧路缘与前景真实台阶暗缝在两侧保持连续。候选没有明显新增方形边缘、黑条或轮廓断裂；也没有足够可见的水面颗粒改善。"
+    },
+    {
+      "region": "road and facade, original",
+      "finding": "密集细白粒仍覆盖路面、墙面及阴影区域。八行左右配对未呈现稳定可见的颗粒减少。单个采样亮度变化不能作为真实噪声或误差下降证据。"
+    },
+    {
+      "region": "rain_center, original and presented",
+      "finding": "中心街道和墙面的密集亮粒两侧相近。新采样器没有让雨丝形态明显更容易辨认；无法仅凭这些亮粒将雨与采样颗粒可靠分离。"
+    },
+    {
+      "region": "presented water_road/rain_center f1/f3/f4",
+      "finding": "f1/f4较粗圆状亮粒与局部软化、f3横向涂抹在基线和候选都存在。未见候选明显加重这些现象；不能将既有呈现路径现象归因于新strat8。"
+    },
+    {
+      "region": "sky in full f0/f7",
+      "finding": "天空仍接近平坦浅灰，候选没有带来可辨云层细节。"
+    }
+  ],
+  "comparison_metadata_used": {
+    "configuration_only_added_strat8": true,
+    "water_samples_remain_8": true,
+    "actual_cloud71_camera128_clock_and_samples_bitwise_equal": true,
+    "OIDN": false,
+    "original_display": "scene HDR *256 once -> wide-C1 -> sRGB8",
+    "presented_display": "captured BGRA8 channel reorder only"
+  },
+  "decision": "可报告云分支strat8已运行并在本次低分辨率短序列未见明显视觉退化；不足以声称噪声下降、天气画质已有明显改善或画质目标已完成。",
+  "limits": [
+    "640x360、八帧、0.117秒，不能证明原生1080p效果或长期稳定。",
+    "相机移动且有抖动，跨帧外观变化不能直接当作纯flicker。",
+    "这是整图及联系图实看；没有以亮度差统计替代视觉结论，也没有参考真值噪声估计。",
+    "本次没有OIDN；呈现帧的软化或涂抹不能称为OIDN新增。"
+  ]
+}

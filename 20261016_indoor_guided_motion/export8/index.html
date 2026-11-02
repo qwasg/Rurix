@@ -1,0 +1,38 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8">
+<title>室内短动态 · 当帧 OIDN / 有限历史</title>
+<style>body{background:#13191f;color:#edf2f6;font:16px/1.6 system-ui;margin:24px}
+a{color:#b5d8ff}button,input{font:inherit}section{overflow:auto}img{max-width:none}
+nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap}small{color:#bec9d1}</style>
+<h1>室内短动态：当帧空间 OIDN 与有限历史</h1>
+<p>同一实际8帧捕获，原生640×360，固定EV10显示。左：整图albedo+Ns OIDN与可靠mask回退；
+右：同一空间结果加前两帧几何重投影，权重1 / 0.6 / 0.4，不递归、不夹亮度。
+玻璃、水、自发光及不可靠区域保持当帧空间回退。该输出mask不代表CNN上下文已隔离。</p>
+<p>原渲染通过移除可选hq_temporal_lighting配置块关闭不透明历史；这里只比较这份序列是否启用CPU后历史。
+播放速度仅供检查，不是实测渲染帧率，也不是实时路径。</p>
+<nav><button id="previous">上一帧</button><button id="play">播放</button><button id="next">下一帧</button>
+<input id="frame" type="range" min="0" max="7" value="0"><strong id="label"></strong>
+<label>检查播放fps <input id="fps" type="number" min="1" max="30" value="5" style="width:4em"></label>
+<label><input id="fit" type="checkbox">适应窗口</label></nav>
+<p><a id="current" href="#">当帧图</a> · <a id="output" href="#">有限历史图</a> ·
+<a id="history" href="#">实际历史权重</a> · <a id="mask" href="#">当帧可靠mask</a> ·
+<a id="guide" href="#">空间引导权重</a> · <a id="record" href="#">同帧源/相机证据</a> ·
+<a href="results.json">完整导出记录</a></p>
+<section><img id="image" alt="左当帧空间结果，右有限历史结果"></section>
+<script>
+const frames=[0, 1, 2, 3, 4, 5, 6, 7], slider=document.getElementById('frame'), image=document.getElementById('image');
+let timer=null;
+function show(){const i=+slider.value, f=frames[i], p='frame_'+String(f).padStart(6,'0')+'/';
+ image.src=p+'comparison_native.png';document.getElementById('label').textContent='Frame '+f+' ('+(i+1)+'/8)';
+ for(const [id,file] of Object.entries({current:'current.png',output:'output.png',history:'history_weight.png',
+ mask:'mask.png',guide:'guide_weight.png',record:'frame.json'}))document.getElementById(id).href=p+file;}
+function step(delta){slider.value=(+slider.value+delta+frames.length)%frames.length;show();}
+function stop(){clearInterval(timer);timer=null;document.getElementById('play').textContent='播放';}
+function start(){stop();const fps=Math.max(1,Math.min(30,+document.getElementById('fps').value||5));
+ timer=setInterval(()=>step(1),1000/fps);document.getElementById('play').textContent='暂停';}
+document.getElementById('play').onclick=()=>timer?stop():start();
+document.getElementById('previous').onclick=()=>{stop();step(-1)};
+document.getElementById('next').onclick=()=>{stop();step(1)};
+slider.oninput=()=>{stop();show()};document.getElementById('fps').onchange=()=>{if(timer)start()};
+document.getElementById('fit').onchange=e=>image.style.maxWidth=e.target.checked?'100%':'none';
+for(const f of frames){const im=new Image();im.src='frame_'+String(f).padStart(6,'0')+'/comparison_native.png'}show();
+</script></html>

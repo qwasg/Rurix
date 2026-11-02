@@ -1,0 +1,28 @@
+{
+  "decision": "CAPTURE_COMPLETE_WEATHER_VISUAL_NOT_ACCEPTED",
+  "summary": "天气兼容分支已成功捕获640×360、0.25m dolly、8帧，但天气视觉质量未通过。天空近乎均匀灰白，未辨认出云块边界或体积层次；密集白色颗粒和少量短亮划痕难与采样噪声区分，不能据此确认雨已清楚呈现。最终presented较同帧scene显示有更粗亮粒、短拖尾样痕迹和墙面软块。晴天有效交付保留，未将此分支切换成当前高画质预设。",
+  "weather_observation": "八帧实际云输入、物理时钟及相机数据一致，时间覆盖0.116666675秒、云风偏移到约[0.14,0.035]米，相机实际前移0.250002742米。上传与完成运行证明天气路径被启用，不替代雨云视觉确认。f3–f5的presented块化/短拖尾较明显，未见可明确认定的长双轮廓拖影；这不证明无拖影。水斑大轮廓连续，内部仍有暗反射碎细节和颗粒，未辨认清晰雨滴涟漪或飞溅。",
+  "remaining": "当前完整晴天高画质组合仍不能原样开启雨云：primary64、secondary strat8/water64与玻璃C01 footprint尚未接入该天气路径。此组撤去三项，无法把颗粒增加单因归给天气。天气尚缺清楚雨形、云层层次和稳定细节；现有雨为圆形粒子，源码没有雨滴碰撞到水波、积水或湿润材质的连接。全阶段仍有玻璃/吧台亮点、水面内暗碎纹与颗粒、地板油亮、灯具白区层次、部分暗部及OIDN细节损失；晴天法线修正还有路面起伏变平和叶片增亮代价。",
+  "next_step": "最小工程路线先接入云版secondary strat8，维持8样本及现有记录尺寸；随后局部接入water64和primary64，同时修正实际采样计数、配对MIS和云透射记录布局。64样本若沿用全帧逐样本记录，每个受影响缓冲在1080会额外占约3.46GiB（推算），8GB设备上不能直接照搬；先解决记录内存范围。C01 footprint最后补齐逐子相机的前缀/后缀云传输，雨仍每物理帧只推进一次。不得仅删除拒绝条件。当前不需要用户在未达标天气图间做视觉取舍；继续验收自然降雨外观时，应选定天空范围更大、雨粒和落水区域明确的目标参考镜头。落水涟漪/湿润联动是独立实现缺口，不能靠参考图或滤波选择解决。",
+  "render_evidence": {
+    "exit_code": 0,
+    "frames": 8,
+    "gpu_timed_frames": 8,
+    "GPU_pass_sum_s": 48.605995712,
+    "process_wall_s": 707.75,
+    "shader_prepare_ms": 5589.569,
+    "whole_device_peak_used_MiB": 3904,
+    "performance_level": "measured_local, unlocked clocks; one run; GPU pass sum is not whole-frame latency",
+    "physical_time_span_s": 0.11666667461395264,
+    "camera_first_last_displacement_m": 0.2500027418682003,
+    "all8_cloud_upload_clocks_and_camera_packets_match": true,
+    "all8_HDR_finite_nonnegative": true,
+    "source_code_changes_this_weather_task": 0,
+    "additional_GPU_runs_after_completed_weather8": 0
+  },
+  "scope": "Existing cloud/rain-compatible branch, shared emissive NEE8, current material/normal/water/temporal settings. Not an isolated weather A/B and not acceptance of current clear64/footprint quality combination. No OIDN applied to this weather sequence.",
+  "observation_method": "Viewed all6 native contact sheets and first/last original/presented full frames; independent visual review agrees. Fixed screen regions include motion, sampling and visibility changes; no pure flicker metric or long-motion acceptance.",
+  "analysis": "weather_analysis/analysis.json",
+  "independent_visual_observation": "weather_analysis/road_bsdf_weather_visual_observation.json",
+  "source_capability_notes": "source_notes.md"
+}

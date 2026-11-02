@@ -1,0 +1,21 @@
+{
+  "scope": "Direct visual review of all 12 native-size OFF/ON contact sheets: original, presented, oidn100 and mix50, each with road/foliage/lamp ROIs over eight frames. No new rendering, OIDN, statistics or D/E write.",
+  "road": {
+    "original_and_presented": "The OFF distant-road black region and horizontal black strips do not recur in any of the eight ON frames reviewed. The improvement is already present in original HDR display and actual presented output, before offline OIDN.",
+    "preserved_structure": "The dark transverse step at the bottom of the road ROI, side curb edges and the puddle's broad outline remain coherent as the camera moves. No ON-only rupture or disappearance of these boundaries is visible.",
+    "remaining_tradeoff": "ON has flatter-looking middle/distant pavement in original and presented images. This material-detail tradeoff is therefore part of the normal model adaptation, not an OIDN-only effect.",
+    "water": "The puddle continues to show noisy, fragmented reflection detail. Its broad shape moves coherently in both sides. This review does not establish water reflection quality."
+  },
+  "foliage": {
+    "original_and_presented": "ON produces brighter and denser yellow-green leaf detail, especially on the upper tree. The original fine bright speckles rearrange across frames in both OFF and ON.",
+    "bounded_observation": "No obvious isolated single-frame burst unique to ON, new bright fringe outside the silhouette, or newly detached halo is visible in these eight native-size pairs.",
+    "limit": "The brighter leaf response is a collateral change, not a demonstrated physically correct intensity. Fixed screen crops mix motion, parallax, sampling and LOD changes; this is not a pure flicker measurement or a long-term stability pass."
+  },
+  "oidn_specific": {
+    "foliage": "OIDN100 converts fine leaf structure into broad smooth yellow-green clumps, conspicuously in frames 1 and 5. These clumps change shape across frames in both OFF and ON, producing a breathing appearance relative to the finer original images. This larger-scale softness and regrouping is introduced or strongly amplified by per-frame denoising, rather than a new ON-only renderer defect.",
+    "road": "OIDN100 further removes fine stone joints and fragmented water-reflection detail; the road becomes smoother in both OFF and ON. It cannot remove the underlying OFF black-strip defect.",
+    "mix50": "The linear 50-percent mixture reduces the broad clump/softness effect and retains more original detail, with remaining grain and leaf sparkle. It is an appearance compromise, not proof of temporal denoising stability.",
+    "lamp": "The narrow lamp ROI shows no new ON-only halo or loss of the bright lamp silhouette. OIDN softens thin lamp/support and nearby facade details in both sides; the crop is too narrow to establish lamp lighting quality."
+  },
+  "decision": "The targeted black-strip failure does not recur during this eight-frame short dolly and the real dark structural edges remain present. Record the targeted short-motion result as positive, while retaining partial status for overall material detail, foliage brightness and denoising/temporal quality."
+}

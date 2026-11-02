@@ -1,0 +1,37 @@
+{
+  "status": "LOCAL_SHAPE_GAIN_WEATHER_PRESET_NOT_PROMOTED",
+  "summary": "真实粒子位移形成了局部短雨丝，但约1秒动态后半仍出现高对比白色小棒，像白屑，雨的自然感未达标。本版保留为候选，不提升为天气预设。",
+  "promote_weather_preset": false,
+  "quality_accepted": false,
+  "scope": "仅改雨粒子的短曝光覆盖形状：当前与上一实际粒子位置用同一当前相机投影；新生/无效历史回退圆点；短段限长；按移动圆盘的时间占比计算透明覆盖。保留原遮挡查询、深度顺序、材质、曝光、采样、云密度与雨发射参数。",
+  "matched8_summary": "同配置8帧A/B中，少量圆亮点变成窄短段；原尺寸整图收益弱。每帧仅332–451个HDR像素改变，水路面裁区原始HDR逐值相同。此结果不是墙面或道路降噪。",
+  "long_motion_summary": "61帧实际执行，保留frame0,6,...60共11检查点，首末约1秒。后段雨移入画面中下部，方向可辨，但f54/f60的高对比白色矩形/小棒仍显生硬；f60原始显示也有此问题。未见明显跨屏长拖尾或大范围遮挡穿帮，但这不足以接受天气画质。",
+  "limits": [
+    "61帧是候选独立动态，dolly总距离仍0.25米、速度比旧8帧慢，不能与旧8帧作匹配A/B，也不能把白屑问题直接判作本次算法新增回归。",
+    "保存间隔约0.1秒，没有粒子ID/独立coverage/depth记录；不能逐粒子区分消失是寿命、遮挡或离开画面。0.75–1.5秒寿命范围意味着本段只覆盖部分短寿命删除，未验证完整生命周期。",
+    "本次只有640×360实际GPU证据，未证明1080p自然感；墙面与路面颗粒、云层层次和整体天气观感仍未解决。",
+    "没有改曝光或夹亮度来掩盖白色粒子；本轮未进一步归因白屑强度来自粒子着色、离散覆盖或后处理中的哪一项。",
+    "连续覆盖积分保持圆盘面积；离散像素能量仍随相位变化。短曝光使用当前深度/半径并限长，不等同完整运动体积积分。"
+  ],
+  "execution": {
+    "matched8_baseline_gpu_pass_sum_s": 48.605995712,
+    "matched8_candidate_gpu_pass_sum_s": 48.648157472,
+    "matched8_candidate_wall_s": 427.95300000021234,
+    "matched8_candidate_shader_prepare_ms": 1801.324,
+    "continuous61_gpu_pass_sum_s": 362.762014624,
+    "continuous61_wall_s": 1008.7660000000615,
+    "continuous61_shader_prepare_ms": 1845.680,
+    "continuous61_completed_and_timed_frames": 61,
+    "whole_device_peak_used_mib": 3904,
+    "timing_note": "GPU数字为各pass时间戳合计，墙钟包含CPU及准备等待。8帧单次A/B约0.04秒差异不作性能优劣结论；页面10fps仅检查点回放速度。"
+  },
+  "validation": {
+    "four_target_shaders_compile_and_spirv_validate": "PASS",
+    "incremental_host_build": "PASS",
+    "matched8_exit_code": 0,
+    "continuous61_exit_code": 0,
+    "continuous61_validation": "Only existing deprecated layer-settings warning and active-layer information; no new validation error recorded.",
+    "full_CI_run": false
+  },
+  "remaining": "可保留雨丝覆盖实现继续定点研究；下一步需先判断白屑强度/宽度的具体来源，再决定粒子着色或透明重建改动。此次不再增加GPU任务，不改任何既有晴天、天气或OIDN预设选择。"
+}

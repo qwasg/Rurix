@@ -1,0 +1,79 @@
+{
+  "status": "IMPLEMENTED_AND_EXECUTED_NO_VISIBLE_QUALITY_GAIN",
+  "summary": "云 secondary strat8 已实际接通并完成同配置8帧对照；未见足够可见的净画质改善，保留为可选兼容实现，不切换默认预设。",
+  "observation": "原始EV8和实际presented中，路面、墙面密集白粒仍主导。水面轮廓、内部暗反射、路缘与台阶连续；未见明显新增退化。两侧都保留粗粒、局部涂抹和墙面软化。",
+  "remaining": "云层层次、可辨雨丝、亮粒和水面内部颗粒尚未解决；本组不证明天气视觉通过、长序列稳定或1080p质量。",
+  "next_step": "暂不继续接water64/primary64。当前两条secondary路径的改动未控制住主要亮粒；先用现有分量诊断确定主导来源，再做对应的定点算法修改。primary64尚需成对MIS计数与云记录内存范围适配，不能只放开检查；water64增加当前无明显收益路径的成本。",
+  "primary64_decision": "DEFER_NOT_A_LOW_COST_JUSTIFIED_NEXT_CHANGE",
+  "water64_decision": "DEFER_NO_VISIBLE_SECONDARY_GAIN",
+  "preset_selection_changed": false,
+  "runtime_global_default_changed": false,
+  "optional_implementation_retained": true,
+  "implementation": {
+    "changed_files": 7,
+    "new_cloud_shaders": 2,
+    "diffuse_calls": 12,
+    "water_direct_calls": 2,
+    "storage_bindings": [
+      42,
+      39
+    ],
+    "samples_per_pixel": 8,
+    "finite_control_words": [
+      8,
+      8,
+      128,
+      0
+    ],
+    "existing_clear_outputs_unchanged": 3,
+    "scope": "Same clear-path integer ticket/key/UV stratification and initial diffuse contact convention, composed after existing solar and finite-cloud transformations. No new buffers or paths."
+  },
+  "validation": {
+    "targeted_rust_tests_passed": 6,
+    "targeted_rust_tests_failed": 0,
+    "new_shader_compile_and_spirv_validation": "PASS_BOTH",
+    "host_build": "PASS",
+    "runtime_subset": "PASS_14_CALLS_AND_ALL_8_ACTUAL_UPLOADS",
+    "actual_camera_cloud_clock_inputs": "BITWISE_EQUAL_TO_BASELINE",
+    "all_8_HDR": "FINITE_NONNEGATIVE",
+    "full_offline_capture_checker": "NOT_RUN_OLD_CLOUD_AND_SECONDARY_PROJECTION_COMPOSITION_NOT_EXTENDED",
+    "full_CI": "NOT_RUN"
+  },
+  "measured_local": {
+    "baseline_gpu_pass_sum_s": 48.605995712,
+    "candidate_gpu_pass_sum_s": 48.603983104,
+    "gpu_candidate_minus_baseline_s": -0.002012608000001137,
+    "baseline_wall_s": 707.75,
+    "candidate_wall_s": 478.0470000000205,
+    "whole_device_peak_used_mib_both": 3904,
+    "timed_frames_both": 8,
+    "interpretation": "Single matched run: no meaningful GPU performance difference established. Wall time includes preparation and is not a rendering speedup claim."
+  },
+  "descriptive_image_evidence": {
+    "full_frame_HDR_p99_Y_equal_frames": 8,
+    "full_frame_HDR_max_Y_equal_frames": 7,
+    "original_mean_absolute_channel_delta_8bit_range": [
+      0.08382378472222222,
+      0.0986400462962963
+    ],
+    "presented_mean_absolute_channel_delta_8bit_range": [
+      0.09276909722222222,
+      0.10432291666666667
+    ],
+    "interpretation": "Descriptive same-frame differences only, not noise/error estimates. Isolated pixel differences exist despite small image-wide averages."
+  },
+  "new_GPU_runs": 1,
+  "baseline_rerendered": false,
+  "OIDN": false,
+  "raw_HDR_preserved": true,
+  "storage_finish": {
+    "utc": "2026-10-16T00:45:53.974328+00:00",
+    "D_free_bytes": 55767306240,
+    "D_free_percent": 9.42,
+    "E_free_bytes": 145889693696,
+    "E_free_percent": 14.24,
+    "policy": "Effective D/E floor: 50GiB AND10%. Legacy script15% warning retained; D below10% used only for small source/status writes; bulk E fits effective policy.",
+    "deleted_files": 0,
+    "growth_control": "Reused existing cargo target and hard-linked unchanged shader modules; one new GPU run only."
+  }
+}

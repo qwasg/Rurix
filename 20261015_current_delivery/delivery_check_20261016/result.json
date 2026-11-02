@@ -1,0 +1,298 @@
+{
+  "recorded_utc": "2026-10-16T05:59:32.126074+00:00",
+  "status": "REVIEWED_NOT_OVERALL_ACCEPTED",
+  "scope": "Existing saved images only; no new GPU frames or denoising candidates in this review.",
+  "priority": "室内满幅噪点与去噪后的细节损失",
+  "priority_reason": "影响墙、顶、木面和地面的大部分画面；当前玻璃、水内细节与灯白区仍是局部残余，室内暗部不是首要。",
+  "items": [
+    {
+      "id": "1",
+      "goal": "室内红墙、天花、吧台、地面与室外叶片、墙面反射密集噪点",
+      "status": "仍明显",
+      "finding": "离线输出已改善平面颗粒，但室内原图满幅细噪、mix50残粒与OIDN100木纹/瓶体软化仍主导观感；水斑内部颗粒仍在。",
+      "evidence": [
+        "indoor_original",
+        "indoor_mix50",
+        "indoor_oidn",
+        "weather_original",
+        "weather_output"
+      ]
+    },
+    {
+      "id": "2",
+      "goal": "材质普遍油亮、粗糙度同质化",
+      "status": "仍明显",
+      "finding": "墙、木、金属可区分，地面湿亮及吧台密集高光仍明显。当前玻璃7/70感知roughness约0.044151，瓶体8/47/48/49约0.301511；旧统一值不能作为现状。",
+      "evidence": [
+        "indoor_bar",
+        "indoor_oidn"
+      ]
+    },
+    {
+      "id": "3",
+      "goal": "玻璃透明透射",
+      "status": "未证明",
+      "finding": "杯瓶已有透视/反射外观，OPAQUE与transmission并存；亮点和去噪软化仍妨碍细节。已有路径与分量证据不等于完整多次玻璃画质通过。",
+      "evidence": [
+        "indoor_bar",
+        "indoor_original"
+      ]
+    },
+    {
+      "id": "4",
+      "goal": "植物alpha轮廓及阴影",
+      "status": "未证明",
+      "finding": "叶片轮廓不呈明显整张矩形卡；亮叶团块化仍在，现有图没有隔离证明alpha阴影全面正确。",
+      "evidence": [
+        "sunny_original",
+        "sunny_oidn"
+      ]
+    },
+    {
+      "id": "5",
+      "goal": "店面、门洞、立柱、绿篱底部暗部细节",
+      "status": "仍明显",
+      "finding": "室内EV10多数暗部结构可辨，暗部不是室内首要问题；室外门洞、店面深处及绿篱内部仍缺层次。晴天道路黑条的局部修复不代表全场景GI已充分。",
+      "evidence": [
+        "indoor_oidn",
+        "sunny_oidn",
+        "weather_output"
+      ]
+    },
+    {
+      "id": "6",
+      "goal": "水洼方形边界与地板油亮分别处理",
+      "status": "仍明显",
+      "finding": "水斑外形已非方框；室内砂粒状碎反射、室外水内横纹/暗块与孤立斑块感仍在。地板湿亮需要单独处理。",
+      "evidence": [
+        "indoor_water",
+        "sunny_oidn",
+        "weather_output"
+      ]
+    },
+    {
+      "id": "7",
+      "goal": "灯具与高光层次，不能只加曝光",
+      "status": "仍明显",
+      "finding": "固定EV10与wide-C1下，主灯、吊扇灯和吧台小灯发光白面仍近乎平白，内部层次未恢复。",
+      "evidence": [
+        "indoor_lamps"
+      ]
+    },
+    {
+      "id": "8",
+      "goal": "分辨率细节与顶部灯裁切构图",
+      "status": "已改善",
+      "finding": "室内及晴天均有原生1920×1080；主灯罩与吊扇完整入画。细节仍在颗粒和软化间取舍，天气代表帧仅1152×648，不能混称1080。",
+      "evidence": [
+        "indoor_oidn",
+        "sunny_oidn",
+        "weather_output"
+      ]
+    }
+  ],
+  "acceptance_gaps": [
+    {
+      "id": "A",
+      "goal": "有限光传输能力",
+      "status": "未证明",
+      "finding": "室内diffuse_spp=2、max_bounces=3、玻璃16界面仍是有限预算；缺同条件收敛参考，不能验收完整GI/多次玻璃。",
+      "evidence": [
+        "indoor_original",
+        "indoor_bar"
+      ]
+    },
+    {
+      "id": "B",
+      "goal": "动态闪烁、拖影、水面稳定",
+      "status": "未证明",
+      "finding": "室内和晴天有各8帧短动态；天气24帧仅0.3833秒、640×360。本次查看0/12/23与历史对照未见明显新增长拖影，但抽帧不证明闪烁消除、快速运动或长时稳定。",
+      "evidence": [
+        "weather_motion"
+      ]
+    },
+    {
+      "id": "C",
+      "goal": "执行PASS与视觉质量验收之间的证据缺口",
+      "status": "未证明",
+      "finding": "实际PNG/HDR和逐项观察可审阅；缺同相机同照明的收敛或期望参考。构建/运行PASS及OIDN更平滑都不等于整体质量通过。",
+      "evidence": [
+        "indoor_original",
+        "indoor_oidn",
+        "sunny_original"
+      ]
+    }
+  ],
+  "images": {
+    "indoor_original": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\original.png",
+    "indoor_mix50": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\mix50.png",
+    "indoor_oidn": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\oidn100.png",
+    "indoor_bar": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\roi_bar.png",
+    "indoor_water": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\roi_water.png",
+    "indoor_lamps": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\roi_lamps.png",
+    "sunny_original": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\original.png",
+    "sunny_oidn": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\preview\\oidn100.png",
+    "weather_original": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\original.png",
+    "weather_output": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\output.png",
+    "weather_motion": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\index.html"
+  },
+  "parameters": {
+    "interior": {
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "frame": 0,
+      "static_frames": 1,
+      "history_reused": false,
+      "display_EV": 10,
+      "display_curve": "wide_c1_rgb_v1",
+      "per_image_normalization": false,
+      "fov_y_degrees": 53,
+      "primary_NEE_samples": 64,
+      "secondary_NEE": "integer_cdf_strat8_joint_hash32_v1",
+      "water_samples_per_pixel": 64,
+      "diffuse_spp": 2,
+      "diffuse_max_bounces": 3,
+      "glass_max_interfaces": 16,
+      "glass_footprint": "material_bounds_v1",
+      "weather": "clouds off; rain off; water on",
+      "mix50": "0.5 original + 0.5 OIDN100 in linear float32 HDR; no clamp",
+      "OIDN": "2.5.1 CPU RT HDR high, color only, float, 8 threads",
+      "export_record": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1/preview/export.json",
+      "run_record": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1/output.run.json",
+      "config": "E:/rurix_quality_runs/20261015_current_delivery/interior1080_static1/config.json"
+    },
+    "outdoor": {
+      "sunny": {
+        "native_resolution": [
+          1920,
+          1080
+        ],
+        "run": "E:/rurix_quality_runs/20261015_normal_support/exterior1080_candidate1",
+        "normal_support": true,
+        "display": "wide-C1 + sRGB, --ev-offset 8",
+        "compared": "scene original vs CPU OIDN100"
+      },
+      "weather_still": {
+        "native_resolution": [
+          1152,
+          648
+        ],
+        "run": "E:/rurix_quality_runs/20261016_recommended_weather/still_native/run",
+        "clouds": "on",
+        "water": "on",
+        "rain": "on",
+        "display": "wide-C1 + sRGB, --ev-offset 8",
+        "cloud_max_history": 1,
+        "upscaled": false
+      },
+      "weather_motion": {
+        "native_resolution": [
+          640,
+          360
+        ],
+        "captured_frames": 24,
+        "viewed_output_frames": [
+          0,
+          12,
+          23
+        ],
+        "viewed_current_vs_history_frames": [
+          12,
+          23
+        ],
+        "captured_time_span_s": 0.38333333333333336,
+        "camera_dolly_m": 0.8214285714285714,
+        "optional_post_oidn_history": {
+          "frames": 3,
+          "weights": [
+            1,
+            0.6,
+            0.4
+          ],
+          "recursive": false,
+          "default_enabled": false
+        },
+        "new_GPU_calls_for_temporal_export": 0,
+        "real_time": false
+      }
+    }
+  },
+  "one_next_step": {
+    "name": "优先评估室内不透明表面的真实材质/法线引导离线重建",
+    "current_data_only": "可用现有1080 HDR及三路图固定墙顶、木面、椅背等目标ROI，并查已有32帧吧台ROI作为有限噪点/细节参照；它们不是当前全图的同配置收敛真值。当前1080 capture只存scene/presented，无法凭现有文件直接制作真实guide版1080，也不应把其他分辨率或旧配置guide套上。单帧color-only再调混合不能保证同时恢复细节和消除噪点。",
+    "minimum_future_capture_if_implemented": "后续最少一次普通640x360静态同帧捕获：保留当前室内材质、光照、相机姿态、种子和玻璃footprint设置，输出相匹配的线性颜色、实际albedo、Ns、深度、材质/primitive标识和透明/水排除信息。沿正常DEVICE显存路径，做CPU同颜色输入的color-only/guided局部对照，只确认低分辨率墙面/木面噪点与边缘取舍，再决定是否扩展。尚未实施，不能承诺一定改善或等于1080细节。",
+    "crop_support_limitation": "当前reference_crop.rs:37拒绝存在hq_glass_footprint_c01的配置；当前室内已启用material_bounds_v1，因此现成256x256原生裁剪并不兼容当前完整配置。旧256x224参考guides不可硬套；此建议不要求新增裁剪支持。",
+    "preserve": "玻璃、水、透明边缘及发光白面不得盲用主表面guide或history。",
+    "new_hardware_needed_for_this_next_step": false,
+    "executed_in_this_review": false,
+    "minimum_reference_needed_for_overall_acceptance": "同相机/同照明的期望参考图或明确的噪点与纹理取舍，并约定离线画质目标；没有它不声明UE5商业画质或全部通过。"
+  },
+  "minimum_reference": "要继续谈整体或UE5级验收，至少需要同场景、同相机、同照明的期望/收敛参考，并明确离线画质还是实时目标。",
+  "hardware": "下一步室内低分辨率引导对照不需要更换硬件。当前验证布局的天气1080预计需8,642,731,792字节设备堆，超过观察到的7,421,251,584字节可用预算；若坚持该配置需进一步减内存或更多可用显存，硬件增加不证明画质或60fps。",
+  "startup": {
+    "status": "ACTIVE",
+    "recorded_utc": "2026-10-16T05:54:40.409367+00:00",
+    "active_executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+    "shared_release": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\release\\hq_quality_lane.exe",
+    "ordinary_D_release": "D:\\Rurix\\target\\release\\hq_quality_lane.exe",
+    "previous_D_binary_backup": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\previous_D_target_release_hq_quality_lane.exe",
+    "launch_scripts": [
+      "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\recommended_weather\\export_weather.py",
+      "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\capture_representatives.py"
+    ],
+    "source_build": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\delivery_check\\restored_build_result.json",
+    "factor_HOST_trial_enabled": false,
+    "finite_wait_trial_enabled": false,
+    "existing_verified_filter_partition_placement_preserved": true,
+    "historical_receipts_modified": false,
+    "GPU_calls": 0,
+    "ordinary_and_shared_release_match_built_executable": true
+  },
+  "startup_validation": {
+    "status": "PASS",
+    "ordinary_and_shared_release_match": true,
+    "restored_source_match": true,
+    "prepared_launches": [
+      {
+        "scene": "interior",
+        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+        "configuration": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\config.json",
+        "matches_chosen_delivered_configuration": true
+      },
+      {
+        "scene": "exterior",
+        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+        "configuration": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+        "matches_chosen_delivered_configuration": true
+      },
+      {
+        "scene": "weather_still_native",
+        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+        "dimensions": [
+          1152,
+          648
+        ],
+        "frames": 1,
+        "only_executable_changed": true
+      },
+      {
+        "scene": "weather_motion",
+        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\restored_device_local_v1\\candidate_hq_quality_lane.exe",
+        "dimensions": [
+          640,
+          360
+        ],
+        "frames": 24,
+        "only_executable_changed": true
+      }
+    ],
+    "renderer_invocations": 0,
+    "exporter_invocations": 0,
+    "scope": "Source/build and prepared-command verification only; no new visual validation."
+  },
+  "original_capture_receipts_preserved": true,
+  "new_GPU_frames": 0,
+  "overall": "保留可审阅离线成果，整体画质未验收，UE5级未证明。"
+}

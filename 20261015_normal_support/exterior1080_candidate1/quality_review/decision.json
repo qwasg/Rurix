@@ -1,0 +1,289 @@
+{
+  "status": "KEEP_OPTIONAL_PRESET_LOCAL_ROAD_NET_BENEFIT",
+  "created_utc": "2026-10-15T23:13:38.366201+00:00",
+  "baseline": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as",
+  "candidate": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1",
+  "scope": "One native1920x1080 static frame; no new dynamic capture, convergence or full-scene quality acceptance.",
+  "visual_note": "同相机、光照、种子和EV8的原始HDR对照显示，路面密集黑条明显消除。中远处铺地凹凸感同时变弱，水洼内部黑碎纹与颗粒仍在。灯罩边缘的原黑缺口恢复成连续亮边；部分叶片沿叶形增亮，未见该局部轮廓外光晕，但亮碎片增多。整体细噪、门洞暗部和动态稳定性未解决。据此保留为可切换室外预设，仅认可该静态首帧的道路修复净收益。",
+  "runtime_toggle": {
+    "config": "provenance.hq_primary_opaque_normal_support",
+    "global_default": false,
+    "selected_outdoor_preset": true
+  },
+  "matched_camera_lighting_packets": true,
+  "matched_scene_material_seed_config": true,
+  "road_roi": {
+    "xywh": [
+      820,
+      620,
+      420,
+      320
+    ],
+    "pair": "road_context_native1to1.png",
+    "pixel_count": 134400,
+    "baseline_mean_Y": 0.00015632546810280185,
+    "candidate_mean_Y": 0.00020446651844520963,
+    "mean_Y_delta": 4.814105034240776e-05,
+    "baseline_Y_quantiles": [
+      0.0,
+      0.0,
+      0.00015154133689284207,
+      0.00027548896910913756,
+      0.006955561430193484
+    ],
+    "candidate_Y_quantiles": [
+      0.0,
+      9.996895330856206e-05,
+      0.0001906812968903978,
+      0.00030889916580956206,
+      0.006791500318422913
+    ],
+    "quantile_levels": [
+      0,
+      0.1,
+      0.5,
+      0.9,
+      1
+    ],
+    "changed_RGB_pixels": 57122,
+    "baseline_exact_black_RGB_pixels": 24149,
+    "candidate_exact_black_RGB_pixels": 7,
+    "max_abs_RGB_delta": 0.00861909904051572,
+    "baseline_negative_channels": 0,
+    "candidate_negative_channels": 0
+  },
+  "nine_point_RGB": [
+    {
+      "label": "A_lit_above",
+      "xy": [
+        1000,
+        704
+      ],
+      "baseline_RGB": [
+        0.0003586036909837276,
+        0.00025154947070404887,
+        0.00014417260535992682
+      ],
+      "candidate_RGB": [
+        0.0003534361603669822,
+        0.0002480576222296804,
+        0.00014185468899086118
+      ],
+      "Y_relative_change_percent": -1.4118355222183188
+    },
+    {
+      "label": "A_black",
+      "xy": [
+        1000,
+        705
+      ],
+      "baseline_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "candidate_RGB": [
+        0.00034637856879271567,
+        0.0002468378806952387,
+        0.0001407409436069429
+      ],
+      "Y_relative_change_percent": null
+    },
+    {
+      "label": "A_lit_below",
+      "xy": [
+        1000,
+        707
+      ],
+      "baseline_RGB": [
+        0.0003467413189355284,
+        0.00023838247579988092,
+        0.0001348868536297232
+      ],
+      "candidate_RGB": [
+        0.0003467413189355284,
+        0.00023838247579988092,
+        0.0001348868536297232
+      ],
+      "Y_relative_change_percent": 0.0
+    },
+    {
+      "label": "B_lit_above",
+      "xy": [
+        900,
+        868
+      ],
+      "baseline_RGB": [
+        0.0001849470572778955,
+        0.0001345404889434576,
+        8.342874207301065e-05
+      ],
+      "candidate_RGB": [
+        0.0001849470572778955,
+        0.0001345404889434576,
+        8.342874207301065e-05
+      ],
+      "Y_relative_change_percent": 0.0
+    },
+    {
+      "label": "B_black",
+      "xy": [
+        900,
+        869
+      ],
+      "baseline_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "candidate_RGB": [
+        0.00019791658269241452,
+        0.00013694180233869702,
+        7.678961264900863e-05
+      ],
+      "Y_relative_change_percent": null
+    },
+    {
+      "label": "B_lit_below",
+      "xy": [
+        900,
+        871
+      ],
+      "baseline_RGB": [
+        0.00022439514577854425,
+        0.00015888585767243057,
+        9.15220080059953e-05
+      ],
+      "candidate_RGB": [
+        0.00022975681349635124,
+        0.00015419343253597617,
+        8.182477904483676e-05
+      ],
+      "Y_relative_change_percent": -1.7363984322978698
+    },
+    {
+      "label": "C_lit_above",
+      "xy": [
+        1100,
+        663
+      ],
+      "baseline_RGB": [
+        0.00033604897907935083,
+        0.0002397655334789306,
+        0.00013913372822571546
+      ],
+      "candidate_RGB": [
+        0.0004505148099269718,
+        0.0003169867559336126,
+        0.00017545680748298764
+      ],
+      "Y_relative_change_percent": 32.48869529623582
+    },
+    {
+      "label": "C_black",
+      "xy": [
+        1100,
+        667
+      ],
+      "baseline_RGB": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "candidate_RGB": [
+        0.0003326356236357242,
+        0.00023358469479717314,
+        0.00013161040260456502
+      ],
+      "Y_relative_change_percent": null
+    },
+    {
+      "label": "C_lit_below",
+      "xy": [
+        1100,
+        671
+      ],
+      "baseline_RGB": [
+        0.0012365716975182295,
+        0.0008787204860709608,
+        0.00047793437261134386
+      ],
+      "candidate_RGB": [
+        0.0004160930111538619,
+        0.00029688674840144813,
+        0.000171305873664096
+      ],
+      "Y_relative_change_percent": -66.17608697996573
+    }
+  ],
+  "GPU_probe": "gpu_probe.json",
+  "independent_visual_review": "independent_visual_review.json",
+  "timing": {
+    "level": "measured_local",
+    "baseline_GPU_pass_sum_s": 40.759482176,
+    "candidate_GPU_pass_sum_s": 41.124541632,
+    "GPU_pass_sum_delta_s": 0.365059456,
+    "baseline_wall_s": 419.094000000041,
+    "candidate_wall_s": 416.094000000041,
+    "candidate_shader_prepare_ms": 1782.646,
+    "candidate_whole_device_peak_MiB": 7015.0,
+    "note": "Single observation each; candidate also has six tiny copy probes. No speedup, regression significance, FPS or steady-state performance claim."
+  },
+  "full_frame_HDR": {
+    "baseline": {
+      "finite": true,
+      "negative_channels": 0,
+      "max_channel": 0.9247638583183289,
+      "max_Y": 0.6851925664126872,
+      "Y_percentiles": [
+        8.685107187920949e-05,
+        0.0005797072811756516,
+        0.003067866598046387,
+        0.013181803111040093,
+        0.02907330064056104,
+        0.6851925664126872
+      ],
+      "percentile_levels": [
+        50,
+        90,
+        99,
+        99.9,
+        99.99,
+        100
+      ],
+      "all_channels_display_255_pixels": 0,
+      "any_channel_display_250_or_above_pixels": 0
+    },
+    "candidate": {
+      "finite": true,
+      "negative_channels": 0,
+      "max_channel": 0.9247638583183289,
+      "max_Y": 0.6851925664126872,
+      "Y_percentiles": [
+        9.492909151667846e-05,
+        0.0005843383550841829,
+        0.003087588466028916,
+        0.01330164698188498,
+        0.029666890083859768,
+        0.6851925664126872
+      ],
+      "percentile_levels": [
+        50,
+        90,
+        99,
+        99.9,
+        99.99,
+        100
+      ],
+      "all_channels_display_255_pixels": 0,
+      "any_channel_display_250_or_above_pixels": 0
+    },
+    "validation_error_lines": []
+  },
+  "limits": [
+    "The effective normal is view dependent and C0 continuous, not a reciprocity guarantee.",
+    "Nearby C lit pixels change +32.49% and -66.18%; the effect is not limited to originally black pixels.",
+    "No previous GPU material snapshot exists: baseColor invariance is not established by a GPU byte comparison.",
+    "Water internal streaks, sampling noise, dark interiors and moving-highlight behavior remain unresolved."
+  ]
+}

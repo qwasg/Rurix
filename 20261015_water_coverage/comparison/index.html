@@ -1,0 +1,7 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>Water coverage A/B — eight frames</title>
+<style>body{background:#181818;color:#eee;font:16px system-ui;margin:24px}img{display:block;max-width:100%;margin-top:18px}button,input{margin:8px}p{max-width:960px;line-height:1.6}a{color:#8bc4ff}</style>
+<h1>水岸覆盖率 · 原始 / 修复后</h1>
+<p>相同配置的 8 帧短动态，左侧为原始版本，右侧为覆盖率修复。保持原曝光与显示变换，没有应用 OIDN。变化集中在水斑边缘，内部颗粒仍在。播放只是查看序列，不代表渲染帧率。</p>
+<button id="play">播放 / 暂停</button><input id="frame" type="range" min="0" max="7" value="0"><span id="label">f0 / f7</span>
+<img id="image" src="motion_water_f0.png"><p><a href="motion_water_all8.png">全部八帧并排</a> · <a href="motion_full_f7.png">末帧全图</a> · <a href="static_water_f0.png">独立静态首帧</a> · <a href="report.json">实际数据与计时</a></p>
+<script>const slider=document.getElementById('frame'),im=document.getElementById('image'),label=document.getElementById('label');let timer=null;function draw(){im.src='motion_water_f'+slider.value+'.png';label.textContent='f'+slider.value+' / f7';}slider.oninput=draw;document.getElementById('play').onclick=()=>{if(timer){clearInterval(timer);timer=null;}else timer=setInterval(()=>{slider.value=(+slider.value+1)%8;draw();},300);};</script></html>

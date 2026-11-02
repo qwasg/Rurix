@@ -1,0 +1,2077 @@
+{
+  "scope": "Original8 and gapsA/B/C supplied by parent01a0f294-a80f-7070-9545-a224b4b5200a; factual delivery status, not a new test contract.",
+  "generated_utc": "2026-10-15T22:15:49.887909+00:00",
+  "items": [
+    {
+      "id": "1",
+      "goal": "室内红墙、天花、吧台、地面与室外叶片、墙面反射密集噪点",
+      "status": "部分改善",
+      "finding": "提高定点采样并保留原始HDR；OIDN100清理平面颗粒，mix50保留更多纹理。吧台玻璃亮点、水面内部暗形与颗粒仍在；OIDN会软化酒瓶、木纹和叶片。不能把离线滤波称为原始采样已收敛。",
+      "evidence": [
+        "interior_triplet",
+        "exterior_triplet",
+        "water_AB"
+      ]
+    },
+    {
+      "id": "2",
+      "goal": "材质普遍油亮、粗糙度同质化",
+      "status": "部分改善",
+      "finding": "室内v8恢复有来源的玻璃/瓶体感知粗糙度：7/70为0.04415108，8/47/48/49为0.30151135。旧187/202≈0.2223不是当前事实。当前地面与部分高光仍显油亮，既有对照未证明整体画质已通过；室外保留独立optical_v6资产。",
+      "evidence": [
+        "interior_triplet",
+        "exterior_triplet"
+      ]
+    },
+    {
+      "id": "3",
+      "goal": "玻璃透明透射",
+      "status": "路径已实现；画质部分改善",
+      "finding": "当前OPAQUE材质可带transmission/IOR/volume，并使用独立透射及反射路径；已有Tdirect/TGI实测分量，不以alpha BLEND冒充物理透射。密集亮点、重建细节和有限界面预算仍限制效果；未证明复杂多次玻璃等价完整参考解。",
+      "evidence": [
+        "interior_triplet"
+      ]
+    },
+    {
+      "id": "4",
+      "goal": "植物alpha轮廓及阴影",
+      "status": "轮廓部分可见；阴影正确性未充分证明",
+      "finding": "当前室外叶片呈不规则轮廓，代表帧未见明显整块透明贴图矩形。单帧不足以确认所有植物alpha阴影与半透明材质语义都正确，尚无隔离阴影参考对照。",
+      "evidence": [
+        "exterior_triplet"
+      ]
+    },
+    {
+      "id": "5",
+      "goal": "店面、门洞、立柱、绿篱底部暗部细节",
+      "status": "部分改善",
+      "finding": "基线观察（第六次成功的原生1080帧）：新原生1080三路实图中，门洞、店面和绿篱底部仍很暗；中远处路面黑色条片在三路中都存在，尚未解决。已有640HDR诊断及可选暗部显示只证明部分弱信号可见性，不能恢复原始零信号；该研究没有当作本轮1080修复。新帧沿用EV8和原显示。 候选实际观察：原始HDR同配置对照中，路面密集黑条明显消除，三个定位零值点恢复非零光照；九点GPU法线读回吻合修正预测。中远处铺地凹凸感变弱，部分叶片高光增亮。水洼内部碎纹、门洞和绿篱底部暗部仍在。静态首帧及室外8帧晴天短动态均有道路局部改善证据，仍未证明长期稳定或所有不透明材质无退化。 室外8帧动态观察：八帧ON原始渲染及实际presented均未重现OFF远端大黑域/横条；真实台阶暗缝、两侧路缘、水斑大轮廓随前移连续。远处路面浮雕感减弱已存在于原始ON，水面碎黑点、颗粒仍在，不能把OIDN进一步软化算作算法收益。",
+      "evidence": [
+        "shadow_study",
+        "exterior_triplet",
+        "normal_support_current",
+        "normal_support_motion"
+      ],
+      "finding_before_normal_support_motion": "基线观察（第六次成功的原生1080帧）：新原生1080三路实图中，门洞、店面和绿篱底部仍很暗；中远处路面黑色条片在三路中都存在，尚未解决。已有640HDR诊断及可选暗部显示只证明部分弱信号可见性，不能恢复原始零信号；该研究没有当作本轮1080修复。新帧沿用EV8和原显示。 候选实际观察：原始HDR同配置对照中，路面密集黑条明显消除，三个定位零值点恢复非零光照；九点GPU法线读回吻合修正预测。中远处铺地凹凸感变弱，部分叶片高光增亮。水洼内部碎纹、门洞和绿篱底部暗部仍在。仅验收该静态首帧的道路局部净收益，未验证动态或所有不透明材质无退化。",
+      "finding_before_weather_motion": "基线观察（第六次成功的原生1080帧）：新原生1080三路实图中，门洞、店面和绿篱底部仍很暗；中远处路面黑色条片在三路中都存在，尚未解决。已有640HDR诊断及可选暗部显示只证明部分弱信号可见性，不能恢复原始零信号；该研究没有当作本轮1080修复。新帧沿用EV8和原显示。 候选实际观察：原始HDR同配置对照中，路面密集黑条明显消除，三个定位零值点恢复非零光照；九点GPU法线读回吻合修正预测。中远处铺地凹凸感变弱，部分叶片高光增亮。水洼内部碎纹、门洞和绿篱底部暗部仍在。仅验收该静态首帧的道路局部净收益，未验证动态或所有不透明材质无退化。 室外8帧动态观察：八帧ON原始渲染及实际presented均未重现OFF远端大黑域/横条；真实台阶暗缝、两侧路缘、水斑大轮廓随前移连续。远处路面浮雕感减弱已存在于原始ON，水面碎黑点、颗粒仍在，不能把OIDN进一步软化算作算法收益。"
+    },
+    {
+      "id": "6",
+      "goal": "水洼方形边界与地板油亮分别处理",
+      "status": "边界部分改善；地板材质问题仍在",
+      "finding": "当前已有世界空间自然边界，水岸覆盖率v3的同配置静态/8帧A/B仅显示边缘部分亮颗粒略柔和。水内暗形和颗粒仍在。地板油亮属于材质/光照外观，未借修水边界宣称一并解决。",
+      "evidence": [
+        "water_AB",
+        "interior_triplet",
+        "exterior_triplet"
+      ]
+    },
+    {
+      "id": "7",
+      "goal": "灯具与高光层次，不能只加曝光",
+      "status": "部分改善，主要观感未解决",
+      "finding": "当前wide-C1保留线性HDR到显示的连续高光压缩，场景各固定曝光；室内灯具白区仍缺层次。未用全图模糊、猛夹亮度或额外加曝光冒称修复发光体和照明。",
+      "evidence": [
+        "interior_triplet",
+        "interior_HDR"
+      ]
+    },
+    {
+      "id": "8",
+      "goal": "分辨率细节与顶部灯裁切构图",
+      "status": "原生1080与构图检查已完成；细节画质仍部分",
+      "finding": "两场景均交付原生1920×1080静态首帧和三路预览。室内主灯罩/吊扇完整入画，保留FOV53，无需再拍；室外同相机FOV52、EV8新捕获。高分辨率不等于采样收敛，OIDN细节损失仍可见。",
+      "evidence": [
+        "camera_native",
+        "interior_triplet",
+        "exterior_triplet"
+      ]
+    }
+  ],
+  "acceptance_gaps": [
+    {
+      "id": "A",
+      "goal": "有限光传输能力",
+      "status": "未证明完整多反弹GI/多次玻璃效果",
+      "finding": "当前diffuse_spp2、max_bounces3及有限光学界面/延续预算是受限解。已记录实现范围，不把现有路径称为完整室内GI或完整多次玻璃参考。",
+      "evidence": [
+        "interior_HDR",
+        "exterior_HDR"
+      ]
+    },
+    {
+      "id": "B",
+      "goal": "动态闪烁、拖影、水面稳定",
+      "status": "部分：室内、室外晴天及天气兼容分支各有8帧短动态",
+      "finding": "已有室内640×360、0.15m dolly、8帧水岸v3 A/B；室外640×360、0.25m dolly、晴天同配置OFF/ON各8帧；新增室外天气兼容分支8帧。天气兼容分支撤去晴天专用 primary64、secondary strat8 + water64、玻璃 footprint；不是晴天64/footprint完整预设，也不是纯天气 A/B。晴天图只作上下文。 两场景1080代表帧仍为静态。八帧实际云输入、物理时钟及相机数据一致，时间覆盖0.116666675秒、云风偏移到约[0.14,0.035]米，相机实际前移0.250002742米。上传与完成运行证明天气路径被启用，不替代雨云视觉确认。f3–f5的presented块化/短拖尾较明显，未见可明确认定的长双轮廓拖影；这不证明无拖影。水斑大轮廓连续，内部仍有暗反射碎细节和颗粒，未辨认清晰雨滴涟漪或飞溅。 仅8帧短序列，不证明长期稳定或整体画质通过；回放fps不是渲染FPS。",
+      "evidence": [
+        "water_AB",
+        "motion8",
+        "normal_support_motion",
+        "weather_motion"
+      ],
+      "finding_before_normal_support_motion": "已有640×360、0.15m dolly、8帧水岸v3 A/B；这两张1080为静态首帧，雨云关闭。未证明更长运动、雨云开启或复杂遮挡下稳定。旧720p120帧4种子不是此次新增交付门槛。",
+      "finding_before_weather_motion": "已有室内640×360、0.15m dolly、8帧水岸v3 A/B；新增室外640×360、0.25m dolly、同配置OFF/ON各8帧。两场景1080代表帧仍是静态首帧。仅有这些短序列，未证明长运动、雨云开启或复杂遮挡下稳定；运行完成不等于动态画质通过。"
+    },
+    {
+      "id": "C",
+      "goal": "执行PASS与视觉质量验收之间的证据缺口",
+      "status": "部分：有HDR与具体视觉结论，缺收敛参考",
+      "finding": "保留当前原始scene HDR和少量既有中间探针、同配置水岸A/B、三路同曝光预览及逐项观感。运行和格式PASS不等于quality通过；缺少同场景收敛参考，整体质量仍未验收。",
+      "evidence": [
+        "interior_HDR",
+        "exterior_HDR",
+        "water_AB",
+        "interior_triplet"
+      ]
+    }
+  ],
+  "evidence": {
+    "interior_original": "interior1080_static1/preview/original.png",
+    "interior_triplet": "index.html",
+    "exterior_original": "exterior1080_static1_suffix_single_as/preview/original.png",
+    "exterior_triplet": "index.html",
+    "shadow_study": "exterior640_static1/shadow_display/index.html",
+    "water_AB": "../20261015_water_coverage/comparison/index.html",
+    "motion8": "../20261015_water_coverage/motion8_v3/output.run.json",
+    "interior_HDR": "interior1080_static1/capture/frame_000000_scene.raw",
+    "exterior_HDR": "exterior1080_static1_suffix_single_as/capture/frame_000000_scene.raw",
+    "camera_native": "composition_and_resolution.json",
+    "normal_support_current": "index.html",
+    "normal_support_road_AB": "../20261015_normal_support/exterior1080_candidate1/quality_review/index.html",
+    "normal_support_motion": "../20261015_normal_support/motion_comparison/index.html",
+    "weather_motion": "../20261015_weather_motion/weather8/preview_motion/index.html",
+    "cloud_strat8": "../20261016_cloud_strat8/comparison/index.html",
+    "weather_oidn": "../20261016_weather_oidn/index.html",
+    "rain_streak": "../20261016_rain_streak/comparison/index.html",
+    "rain_separated_oidn": "../20261016_rain_separated_oidn/comparison/index.html"
+  },
+  "UE5_commercial_quality": "未证明：没有同场景、同条件商业参考对照，不声称已达到。",
+  "overall": "当前可审阅离线预览；整体画质未验收。",
+  "material_source_notes": "material_status_notes.json",
+  "normal_support_update": {
+    "selected_utc": "2026-10-15T23:13:39.122163+00:00",
+    "selection": "local_original_HDR_visual_review_net_benefit",
+    "visual_note": "同相机、光照、种子和EV8的原始HDR对照显示，路面密集黑条明显消除。中远处铺地凹凸感同时变弱，水洼内部黑碎纹与颗粒仍在。灯罩边缘的原黑缺口恢复成连续亮边；部分叶片沿叶形增亮，未见该局部轮廓外光晕，但亮碎片增多。整体细噪、门洞暗部和动态稳定性未解决。据此保留为可切换室外预设，仅认可该静态首帧的道路修复净收益。",
+    "comparison": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\quality_review\\index.html",
+    "baseline_capture": "E:\\rurix_quality_runs\\20261015_current_delivery\\exterior1080_static1_suffix_single_as\\output.run.json",
+    "candidate_capture": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\output.run.json",
+    "candidate_config": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\config.json",
+    "candidate_executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+    "candidate_shader_bundle": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+    "candidate_build_result": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\build_result.json",
+    "hq_primary_opaque_normal_support": true,
+    "scope": "Outdoor static first frame only. Interior and original six-attempt history are retained; no dynamic or overall quality acceptance.",
+    "comparison_report": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\quality_review\\comparison.json",
+    "gpu_probe": "E:\\rurix_quality_runs\\20261015_normal_support\\exterior1080_candidate1\\quality_review\\gpu_probe.json",
+    "requirement5_candidate_finding": "原始HDR同配置对照中，路面密集黑条明显消除，三个定位零值点恢复非零光照；九点GPU法线读回吻合修正预测。中远处铺地凹凸感变弱，部分叶片高光增亮。水洼内部碎纹、门洞和绿篱底部暗部仍在。仅验收该静态首帧的道路局部净收益，未验证动态或所有不透明材质无退化。"
+  },
+  "historical_items_scope": "Existing items/findings retain the baseline assessment, except an explicitly supplied item5 candidate finding. No other item or overall status is upgraded.",
+  "normal_support_motion": {
+    "recorded_utc": "2026-10-15T23:37:47.937267+00:00",
+    "comparison": "E:\\rurix_quality_runs\\20261015_normal_support\\motion_comparison\\index.html",
+    "comparison_report": "E:\\rurix_quality_runs\\20261015_normal_support\\motion_comparison\\comparison.json",
+    "motion_analysis": "E:\\rurix_quality_runs\\20261015_normal_support\\motion_comparison\\analysis\\analysis.json",
+    "visual_notes_source": "E:\\rurix_quality_runs\\20261015_normal_support\\motion_comparison\\visual_notes.json",
+    "visual_note": "同配置室外640×360、0.25m dolly、OFF/ON各8帧中，ON原始HDR显示及实际presented均未再现OFF的大片路面黑域和横条；台阶暗缝、路缘及水斑大轮廓连续。ON仍使远处路面更平、叶簇更亮且亮点更密，八帧内未观察到仅ON出现的明显单帧爆闪或轮廓外新晕边，但细碎亮斑和水面颗粒仍在变化。OIDN100额外造成叶片成团、团块逐帧变化及路面细节损失；mix50减轻软化但保留颗粒。保留该可选预设，整体动态画质及长期稳定性仍未验收。",
+    "road_observation": "八帧ON原始渲染及实际presented均未重现OFF远端大黑域/横条；真实台阶暗缝、两侧路缘、水斑大轮廓随前移连续。远处路面浮雕感减弱已存在于原始ON，水面碎黑点、颗粒仍在，不能把OIDN进一步软化算作算法收益。",
+    "execution": {
+      "off": {
+        "run": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off",
+        "receipt": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\output.run.json",
+        "config": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\config.json",
+        "normal_support": false,
+        "profile": "desktop_sdr_high",
+        "command": [
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+          "--spv-dir",
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+          "--capture-dir",
+          "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\capture",
+          "--profile",
+          "desktop_sdr_high",
+          "--contract",
+          "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_off\\config.json",
+          "--gltf",
+          "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+          "--scene",
+          "bistro-interior",
+          "--width",
+          "640",
+          "--height",
+          "360",
+          "--tier",
+          "100",
+          "--frames",
+          "8",
+          "--warmup",
+          "0",
+          "--seed",
+          "7312026601",
+          "--normal-mode",
+          "full",
+          "--textures",
+          "on",
+          "--reflection",
+          "on",
+          "--camera-motion",
+          "dolly",
+          "--camera-distance",
+          "0.25",
+          "--object-motion",
+          "static",
+          "--object-distance",
+          "0.25",
+          "--ev-offset",
+          "8.0",
+          "--auto-exposure",
+          "off",
+          "--bloom",
+          "0",
+          "--capture-every",
+          "1",
+          "--diagnostics",
+          "checkpoint_hdr",
+          "--history-probe",
+          "off",
+          "--frame-origin",
+          "0",
+          "--present",
+          "off",
+          "--clouds",
+          "off",
+          "--water",
+          "on",
+          "--rain",
+          "off",
+          "--capture-raw-profile",
+          "scene_presented_v1",
+          "--optical-tail-bundle",
+          "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+          "--sampling-seed",
+          "7312026601",
+          "--capture-sequence-stages",
+          "presented,scene",
+          "--optical-journal-sync",
+          "region"
+        ],
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_pass_sum_s": 34.920476192,
+        "gpu_timing_status": "recorded_pass_sum",
+        "wall_s": 415.64100000006147,
+        "whole_device_peak_used_mib": 3367.0,
+        "shader_prepare_total_ms": 1554.866
+      },
+      "on": {
+        "run": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on",
+        "receipt": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\output.run.json",
+        "config": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+        "normal_support": true,
+        "profile": "desktop_sdr_high",
+        "command": [
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+          "--spv-dir",
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+          "--capture-dir",
+          "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture",
+          "--profile",
+          "desktop_sdr_high",
+          "--contract",
+          "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\config.json",
+          "--gltf",
+          "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+          "--scene",
+          "bistro-interior",
+          "--width",
+          "640",
+          "--height",
+          "360",
+          "--tier",
+          "100",
+          "--frames",
+          "8",
+          "--warmup",
+          "0",
+          "--seed",
+          "7312026601",
+          "--normal-mode",
+          "full",
+          "--textures",
+          "on",
+          "--reflection",
+          "on",
+          "--camera-motion",
+          "dolly",
+          "--camera-distance",
+          "0.25",
+          "--object-motion",
+          "static",
+          "--object-distance",
+          "0.25",
+          "--ev-offset",
+          "8.0",
+          "--auto-exposure",
+          "off",
+          "--bloom",
+          "0",
+          "--capture-every",
+          "1",
+          "--diagnostics",
+          "checkpoint_hdr",
+          "--history-probe",
+          "off",
+          "--frame-origin",
+          "0",
+          "--present",
+          "off",
+          "--clouds",
+          "off",
+          "--water",
+          "on",
+          "--rain",
+          "off",
+          "--capture-raw-profile",
+          "scene_presented_v1",
+          "--optical-tail-bundle",
+          "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+          "--sampling-seed",
+          "7312026601",
+          "--capture-sequence-stages",
+          "presented,scene",
+          "--optical-journal-sync",
+          "region"
+        ],
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_pass_sum_s": 35.280143552,
+        "gpu_timing_status": "recorded_pass_sum",
+        "wall_s": 414.43699999991804,
+        "whole_device_peak_used_mib": 3367.0,
+        "shader_prepare_total_ms": 1770.236
+      }
+    },
+    "same_configuration_except_normal_support": true,
+    "same_command_except_output_config_paths": true,
+    "dimensions": [
+      640,
+      360
+    ],
+    "frames_per_side": 8,
+    "camera_motion": "dolly",
+    "camera_distance_m": 0.25,
+    "trajectory_scope": "New matched exterior trajectory; not an old static-frame replay.",
+    "analysis_status": "COMPLETED_DATA_DESCRIPTIVE_REVIEW",
+    "actual_off_on_packets_equal_all8": true,
+    "camera_really_translates": true,
+    "camera_first_last_displacement_m": 0.2500027418682003,
+    "relationship_to_static_record": "normal_support_update, including single_frame_only, describes only the native1080 static capture. This independent entry describes the new matched motion evidence.",
+    "limits": "Only eight frames. No long-duration, rain/cloud, all-material, realtime or overall-quality acceptance. Playback fps is not render FPS."
+  },
+  "weather_motion": {
+    "recorded_utc": "2026-10-16T00:15:54.789681+00:00",
+    "status": "COMPLETED_SHORT_WEATHER_EVIDENCE_NOT_QUALITY_ACCEPTANCE",
+    "viewer": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\index.html",
+    "export": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\export.json",
+    "visual_notes_source": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\review\\visual_notes.json",
+    "summary": "天气兼容分支已成功捕获640×360、0.25m dolly、8帧，但天气视觉质量未通过。天空近乎均匀灰白，未辨认出云块边界或体积层次；密集白色颗粒和少量短亮划痕难与采样噪声区分，不能据此确认雨已清楚呈现。最终presented较同帧scene显示有更粗亮粒、短拖尾样痕迹和墙面软块。晴天有效交付保留，未将此分支切换成当前高画质预设。",
+    "weather_observation": "八帧实际云输入、物理时钟及相机数据一致，时间覆盖0.116666675秒、云风偏移到约[0.14,0.035]米，相机实际前移0.250002742米。上传与完成运行证明天气路径被启用，不替代雨云视觉确认。f3–f5的presented块化/短拖尾较明显，未见可明确认定的长双轮廓拖影；这不证明无拖影。水斑大轮廓连续，内部仍有暗反射碎细节和颗粒，未辨认清晰雨滴涟漪或飞溅。",
+    "remaining": "当前完整晴天高画质组合仍不能原样开启雨云：primary64、secondary strat8/water64与玻璃C01 footprint尚未接入该天气路径。此组撤去三项，无法把颗粒增加单因归给天气。天气尚缺清楚雨形、云层层次和稳定细节；现有雨为圆形粒子，源码没有雨滴碰撞到水波、积水或湿润材质的连接。全阶段仍有玻璃/吧台亮点、水面内暗碎纹与颗粒、地板油亮、灯具白区层次、部分暗部及OIDN细节损失；晴天法线修正还有路面起伏变平和叶片增亮代价。",
+    "next_step": "最小工程路线先接入云版secondary strat8，维持8样本及现有记录尺寸；随后局部接入water64和primary64，同时修正实际采样计数、配对MIS和云透射记录布局。64样本若沿用全帧逐样本记录，每个受影响缓冲在1080会额外占约3.46GiB（推算），8GB设备上不能直接照搬；先解决记录内存范围。C01 footprint最后补齐逐子相机的前缀/后缀云传输，雨仍每物理帧只推进一次。不得仅删除拒绝条件。当前不需要用户在未达标天气图间做视觉取舍；继续验收自然降雨外观时，应选定天空范围更大、雨粒和落水区域明确的目标参考镜头。落水涟漪/湿润联动是独立实现缺口，不能靠参考图或滤波选择解决。",
+    "dimensions": [
+      640,
+      360
+    ],
+    "frame_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "camera_motion": "dolly",
+    "camera_distance_m": 0.25,
+    "execution": {
+      "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+      "receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
+      "config": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+      "command": [
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+        "--spv-dir",
+        "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+        "--capture-dir",
+        "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture",
+        "--profile",
+        "desktop_sdr_high",
+        "--contract",
+        "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+        "--gltf",
+        "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+        "--scene",
+        "bistro-interior",
+        "--width",
+        "640",
+        "--height",
+        "360",
+        "--tier",
+        "100",
+        "--frames",
+        "8",
+        "--warmup",
+        "0",
+        "--seed",
+        "7312026601",
+        "--normal-mode",
+        "full",
+        "--textures",
+        "on",
+        "--reflection",
+        "on",
+        "--camera-motion",
+        "dolly",
+        "--camera-distance",
+        "0.25",
+        "--object-motion",
+        "static",
+        "--object-distance",
+        "0.25",
+        "--ev-offset",
+        "8.0",
+        "--auto-exposure",
+        "off",
+        "--bloom",
+        "0",
+        "--capture-every",
+        "1",
+        "--diagnostics",
+        "checkpoint_hdr",
+        "--history-probe",
+        "off",
+        "--frame-origin",
+        "0",
+        "--present",
+        "off",
+        "--clouds",
+        "on",
+        "--water",
+        "on",
+        "--rain",
+        "on",
+        "--capture-raw-profile",
+        "scene_presented_v1",
+        "--optical-tail-bundle",
+        "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+        "--sampling-seed",
+        "7312026601",
+        "--capture-sequence-stages",
+        "presented,scene",
+        "--optical-journal-sync",
+        "region"
+      ],
+      "gpu_frames": 8,
+      "gpu_timed_frames": 8,
+      "gpu_pass_sum_s": 48.605995712,
+      "gpu_timing_status": "recorded_pass_sum",
+      "wall_s": 707.75,
+      "whole_device_peak_used_mib": 3904.0
+    },
+    "weather_parameters": {
+      "schema": "rurix.hq.effects.v1",
+      "clouds": true,
+      "water": true,
+      "rain": true,
+      "dt_s": 0.016666667,
+      "sky_preset": "clear",
+      "sky_intensity": 0.01,
+      "cloud_base_m": 30.0,
+      "cloud_top_m": 90.0,
+      "cloud_density": 0.8,
+      "cloud_coverage": 0.8,
+      "cloud_primary_steps": 16,
+      "cloud_light_steps": 2,
+      "cloud_noise_dims": [
+        32,
+        16
+      ],
+      "cloud_wind_m_s": [
+        1.2,
+        0.3
+      ],
+      "water_domain": {
+        "dim": 32,
+        "center_xz": [
+          18.0,
+          -77.0
+        ],
+        "extent_m": 3.0,
+        "level_m": 0.4,
+        "top_m": 2.8,
+        "bottom_m": -2.0,
+        "wave_speed_m_s": 0.2
+      },
+      "water_initial_drop": [
+        0.006,
+        0.35
+      ],
+      "rain_config": {
+        "capacity": 256,
+        "initial_count": 64,
+        "emit_per_frame": 2,
+        "emitter": [
+          18.0,
+          4.0,
+          -77.0
+        ],
+        "spread": [
+          2.0,
+          0.2,
+          2.0
+        ],
+        "velocity": [
+          0.15,
+          -3.0,
+          0.05
+        ],
+        "velocity_spread": [
+          0.15,
+          0.3,
+          0.1
+        ],
+        "life_s": 1.5,
+        "radius_m": 0.016,
+        "alpha": 0.4,
+        "radiance": [
+          0.05,
+          0.055,
+          0.07
+        ],
+        "gravity_m_s2": -1.0
+      }
+    },
+    "actual_opt_ins": {
+      "hq_primary_opaque_normal_support": true,
+      "hq_primary_nee_samples": null,
+      "hq_secondary_nee_quadrature": null,
+      "hq_glass_footprint_c01": null,
+      "hq_cloud_transport": {
+        "schema": "rurix.hq.cloud_transport.v1",
+        "profile": "sun_full_Ns_canonical_MIS_one_R_v1",
+        "capture": "physical_frame128_cloud71_v1",
+        "source_scope": "bounded_cloud_T_surface_source_v1"
+      }
+    },
+    "scope": "天气兼容分支撤去晴天专用 primary64、secondary strat8 + water64、玻璃 footprint；不是晴天64/footprint完整预设，也不是纯天气 A/B。晴天图只作上下文。",
+    "pure_weather_AB": false,
+    "limits": "仅8帧短序列，不证明长期稳定或整体画质通过；回放fps不是渲染FPS。",
+    "preset_selection_changed": false,
+    "visual_decision": "CAPTURE_COMPLETE_WEATHER_VISUAL_NOT_ACCEPTED",
+    "render_evidence": {
+      "exit_code": 0,
+      "frames": 8,
+      "gpu_timed_frames": 8,
+      "GPU_pass_sum_s": 48.605995712,
+      "process_wall_s": 707.75,
+      "shader_prepare_ms": 5589.569,
+      "whole_device_peak_used_MiB": 3904,
+      "performance_level": "measured_local, unlocked clocks; one run; GPU pass sum is not whole-frame latency",
+      "physical_time_span_s": 0.11666667461395264,
+      "camera_first_last_displacement_m": 0.2500027418682003,
+      "all8_cloud_upload_clocks_and_camera_packets_match": true,
+      "all8_HDR_finite_nonnegative": true,
+      "source_code_changes_this_weather_task": 0,
+      "additional_GPU_runs_after_completed_weather8": 0
+    },
+    "analysis": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\review\\weather_analysis\\analysis.json",
+    "source_capability_notes": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\review\\source_notes.md",
+    "integration_route": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\preview_motion\\review\\integration_route.md"
+  },
+  "cloud_strat8": {
+    "recorded_utc": "2026-10-16T00:47:00.661278+00:00",
+    "viewer": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\comparison\\index.html",
+    "comparison": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\comparison\\comparison.json",
+    "decision_source": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\cloud_strat8\\decision.json",
+    "decision": {
+      "status": "IMPLEMENTED_AND_EXECUTED_NO_VISIBLE_QUALITY_GAIN",
+      "summary": "云 secondary strat8 已实际接通并完成同配置8帧对照；未见足够可见的净画质改善，保留为可选兼容实现，不切换默认预设。",
+      "observation": "原始EV8和实际presented中，路面、墙面密集白粒仍主导。水面轮廓、内部暗反射、路缘与台阶连续；未见明显新增退化。两侧都保留粗粒、局部涂抹和墙面软化。",
+      "remaining": "云层层次、可辨雨丝、亮粒和水面内部颗粒尚未解决；本组不证明天气视觉通过、长序列稳定或1080p质量。",
+      "next_step": "暂不继续接water64/primary64。当前两条secondary路径的改动未控制住主要亮粒；先用现有分量诊断确定主导来源，再做对应的定点算法修改。primary64尚需成对MIS计数与云记录内存范围适配，不能只放开检查；water64增加当前无明显收益路径的成本。",
+      "primary64_decision": "DEFER_NOT_A_LOW_COST_JUSTIFIED_NEXT_CHANGE",
+      "water64_decision": "DEFER_NO_VISIBLE_SECONDARY_GAIN",
+      "preset_selection_changed": false,
+      "runtime_global_default_changed": false,
+      "optional_implementation_retained": true,
+      "implementation": {
+        "changed_files": 7,
+        "new_cloud_shaders": 2,
+        "diffuse_calls": 12,
+        "water_direct_calls": 2,
+        "storage_bindings": [
+          42,
+          39
+        ],
+        "samples_per_pixel": 8,
+        "finite_control_words": [
+          8,
+          8,
+          128,
+          0
+        ],
+        "existing_clear_outputs_unchanged": 3,
+        "scope": "Same clear-path integer ticket/key/UV stratification and initial diffuse contact convention, composed after existing solar and finite-cloud transformations. No new buffers or paths."
+      },
+      "validation": {
+        "targeted_rust_tests_passed": 6,
+        "targeted_rust_tests_failed": 0,
+        "new_shader_compile_and_spirv_validation": "PASS_BOTH",
+        "host_build": "PASS",
+        "runtime_subset": "PASS_14_CALLS_AND_ALL_8_ACTUAL_UPLOADS",
+        "actual_camera_cloud_clock_inputs": "BITWISE_EQUAL_TO_BASELINE",
+        "all_8_HDR": "FINITE_NONNEGATIVE",
+        "full_offline_capture_checker": "NOT_RUN_OLD_CLOUD_AND_SECONDARY_PROJECTION_COMPOSITION_NOT_EXTENDED",
+        "full_CI": "NOT_RUN"
+      },
+      "measured_local": {
+        "baseline_gpu_pass_sum_s": 48.605995712,
+        "candidate_gpu_pass_sum_s": 48.603983104,
+        "gpu_candidate_minus_baseline_s": -0.002012608000001137,
+        "baseline_wall_s": 707.75,
+        "candidate_wall_s": 478.0470000000205,
+        "whole_device_peak_used_mib_both": 3904,
+        "timed_frames_both": 8,
+        "interpretation": "Single matched run: no meaningful GPU performance difference established. Wall time includes preparation and is not a rendering speedup claim."
+      },
+      "descriptive_image_evidence": {
+        "full_frame_HDR_p99_Y_equal_frames": 8,
+        "full_frame_HDR_max_Y_equal_frames": 7,
+        "original_mean_absolute_channel_delta_8bit_range": [
+          0.08382378472222222,
+          0.0986400462962963
+        ],
+        "presented_mean_absolute_channel_delta_8bit_range": [
+          0.09276909722222222,
+          0.10432291666666667
+        ],
+        "interpretation": "Descriptive same-frame differences only, not noise/error estimates. Isolated pixel differences exist despite small image-wide averages."
+      },
+      "new_GPU_runs": 1,
+      "baseline_rerendered": false,
+      "OIDN": false,
+      "raw_HDR_preserved": true,
+      "storage_finish": {
+        "utc": "2026-10-16T00:45:53.974328+00:00",
+        "D_free_bytes": 55767306240,
+        "D_free_percent": 9.42,
+        "E_free_bytes": 145889693696,
+        "E_free_percent": 14.24,
+        "policy": "Effective D/E floor: 50GiB AND10%. Legacy script15% warning retained; D below10% used only for small source/status writes; bulk E fits effective policy.",
+        "deleted_files": 0,
+        "growth_control": "Reused existing cargo target and hard-linked unchanged shader modules; one new GPU run only."
+      }
+    },
+    "dimensions": [
+      640,
+      360
+    ],
+    "frame_indices": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "execution": {
+      "baseline": {
+        "run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+        "receipt": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\output.run.json",
+        "config": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+        "command": [
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\candidate_hq_quality_lane.exe",
+          "--spv-dir",
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\normal_support_v1\\shaders_complete",
+          "--capture-dir",
+          "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\capture",
+          "--profile",
+          "desktop_sdr_high",
+          "--contract",
+          "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8\\config.json",
+          "--gltf",
+          "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+          "--scene",
+          "bistro-interior",
+          "--width",
+          "640",
+          "--height",
+          "360",
+          "--tier",
+          "100",
+          "--frames",
+          "8",
+          "--warmup",
+          "0",
+          "--seed",
+          "7312026601",
+          "--normal-mode",
+          "full",
+          "--textures",
+          "on",
+          "--reflection",
+          "on",
+          "--camera-motion",
+          "dolly",
+          "--camera-distance",
+          "0.25",
+          "--object-motion",
+          "static",
+          "--object-distance",
+          "0.25",
+          "--ev-offset",
+          "8.0",
+          "--auto-exposure",
+          "off",
+          "--bloom",
+          "0",
+          "--capture-every",
+          "1",
+          "--diagnostics",
+          "checkpoint_hdr",
+          "--history-probe",
+          "off",
+          "--frame-origin",
+          "0",
+          "--present",
+          "off",
+          "--clouds",
+          "on",
+          "--water",
+          "on",
+          "--rain",
+          "on",
+          "--capture-raw-profile",
+          "scene_presented_v1",
+          "--optical-tail-bundle",
+          "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+          "--sampling-seed",
+          "7312026601",
+          "--capture-sequence-stages",
+          "presented,scene",
+          "--optical-journal-sync",
+          "region"
+        ],
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_pass_sum_s": 48.605995712,
+        "gpu_timing_status": "recorded_pass_sum",
+        "wall_s": 707.75,
+        "whole_device_peak_used_mib": 3904.0
+      },
+      "candidate": {
+        "run": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8",
+        "receipt": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\output.run.json",
+        "config": "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\config.json",
+        "command": [
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\cloud_strat8_v1\\candidate_hq_quality_lane.exe",
+          "--spv-dir",
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\cloud_strat8_v1\\shaders_complete",
+          "--capture-dir",
+          "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\capture",
+          "--profile",
+          "desktop_sdr_high",
+          "--contract",
+          "E:\\rurix_quality_runs\\20261016_cloud_strat8\\weather8_strat8\\config.json",
+          "--gltf",
+          "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+          "--scene",
+          "bistro-interior",
+          "--width",
+          "640",
+          "--height",
+          "360",
+          "--tier",
+          "100",
+          "--frames",
+          "8",
+          "--warmup",
+          "0",
+          "--seed",
+          "7312026601",
+          "--normal-mode",
+          "full",
+          "--textures",
+          "on",
+          "--reflection",
+          "on",
+          "--camera-motion",
+          "dolly",
+          "--camera-distance",
+          "0.25",
+          "--object-motion",
+          "static",
+          "--object-distance",
+          "0.25",
+          "--ev-offset",
+          "8.0",
+          "--auto-exposure",
+          "off",
+          "--bloom",
+          "0",
+          "--capture-every",
+          "1",
+          "--diagnostics",
+          "checkpoint_hdr",
+          "--history-probe",
+          "off",
+          "--frame-origin",
+          "0",
+          "--present",
+          "off",
+          "--clouds",
+          "on",
+          "--water",
+          "on",
+          "--rain",
+          "on",
+          "--capture-raw-profile",
+          "scene_presented_v1",
+          "--optical-tail-bundle",
+          "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+          "--sampling-seed",
+          "7312026601",
+          "--capture-sequence-stages",
+          "presented,scene",
+          "--optical-journal-sync",
+          "region"
+        ],
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_pass_sum_s": 48.603983104,
+        "gpu_timing_status": "recorded_pass_sum",
+        "wall_s": 478.0470000000205,
+        "whole_device_peak_used_mib": 3904.0
+      }
+    },
+    "comparison_checks": {
+      "configuration_only_added_strat8": true,
+      "water_samples_remain_8": true,
+      "render_arguments_match_except_binary_bundle_output": true,
+      "actual_cloud71_camera128_clock_and_samples_bitwise_equal": true,
+      "descriptors_and_resource_numbers_not_compared": true,
+      "dt_s": 0.01666666753590107,
+      "frames": [
+        {
+          "frame_index": 0,
+          "sample_frame": 0,
+          "physical_step": 0,
+          "physical_time_s": 0.0,
+          "camera_eye": [
+            22.0,
+            2.0280001163482666,
+            -84.0
+          ],
+          "jitter_pixels": [
+            -0.26788330078125,
+            -0.03442057967185974
+          ]
+        },
+        {
+          "frame_index": 1,
+          "sample_frame": 1,
+          "physical_step": 1,
+          "physical_time_s": 0.01666666753590107,
+          "camera_eye": [
+            21.981773376464844,
+            2.0289595127105713,
+            -83.96929931640625
+          ],
+          "jitter_pixels": [
+            0.23211669921875,
+            0.29891276359558105
+          ]
+        },
+        {
+          "frame_index": 2,
+          "sample_frame": 2,
+          "physical_step": 2,
+          "physical_time_s": 0.03333333507180214,
+          "camera_eye": [
+            21.963546752929688,
+            2.029918670654297,
+            -83.93860626220703
+          ],
+          "jitter_pixels": [
+            -0.01788330078125,
+            -0.25664278864860535
+          ]
+        },
+        {
+          "frame_index": 3,
+          "sample_frame": 3,
+          "physical_step": 3,
+          "physical_time_s": 0.05000000260770321,
+          "camera_eye": [
+            21.9453182220459,
+            2.0308780670166016,
+            -83.90790557861328
+          ],
+          "jitter_pixels": [
+            0.48211669921875,
+            0.07669055461883545
+          ]
+        },
+        {
+          "frame_index": 4,
+          "sample_frame": 4,
+          "physical_step": 4,
+          "physical_time_s": 0.06666667014360428,
+          "camera_eye": [
+            21.927091598510742,
+            2.0318374633789062,
+            -83.87720489501953
+          ],
+          "jitter_pixels": [
+            -0.47100830078125,
+            0.41002386808395386
+          ]
+        },
+        {
+          "frame_index": 5,
+          "sample_frame": 5,
+          "physical_step": 5,
+          "physical_time_s": 0.08333333767950535,
+          "camera_eye": [
+            21.908864974975586,
+            2.032796621322632,
+            -83.84651184082031
+          ],
+          "jitter_pixels": [
+            0.02899169921875,
+            -0.4418279826641083
+          ]
+        },
+        {
+          "frame_index": 6,
+          "sample_frame": 6,
+          "physical_step": 6,
+          "physical_time_s": 0.10000000521540642,
+          "camera_eye": [
+            21.89063835144043,
+            2.0337560176849365,
+            -83.81581115722656
+          ],
+          "jitter_pixels": [
+            -0.22100830078125,
+            -0.10849463939666748
+          ]
+        },
+        {
+          "frame_index": 7,
+          "sample_frame": 7,
+          "physical_step": 7,
+          "physical_time_s": 0.11666667275130749,
+          "camera_eye": [
+            21.872411727905273,
+            2.034715414047241,
+            -83.78511047363281
+          ],
+          "jitter_pixels": [
+            0.27899169921875,
+            0.22483867406845093
+          ]
+        }
+      ]
+    },
+    "scope": "同一天气兼容配置的8帧采样对照；保留旧天气与晴天证据。不是晴天64/footprint完整预设，也不是纯天气A/B。短序列不代表长期稳定，回放fps不是渲染FPS；整体验收及预设选择不由本脚本改变。",
+    "preset_selection_changed": false
+  },
+  "weather_oidn": {
+    "viewer": "E:\\rurix_quality_runs\\20261016_weather_oidn\\index.html",
+    "results": "E:\\rurix_quality_runs\\20261016_weather_oidn\\results.json",
+    "decision_source": "E:\\rurix_quality_runs\\20261016_weather_oidn\\review\\decision.json",
+    "decision": {
+      "status": "REVIEW_COMPLETE_ONE_RAIN_FOOTPRINT_CHANGE_RECOMMENDED_NOT_IMPLEMENTED",
+      "summary": "OIDN100%明显抑制亮粒，但损失路面细纹、窗框、植物与点状天气观感；50%线性混合保留结构较好，颗粒仍明显。两者均未恢复可辨雨丝或云层。",
+      "observation": "实际查看原始/OIDN100/mix50的首尾帧及路面水域、街道中央、天空原尺寸ROI。OIDN100右墙粗波纹与道路软块不能作为细节恢复证据。",
+      "rain_limit": "scene HDR实际已包含雨合成；没有单独rain coverage RAW，无法逐点识别被去掉的亮点属于雨还是采样噪声，也不能量化真实雨保留率。",
+      "recommendation": "下一项只改现有雨粒子的短曝光覆盖：用当前与真实上一粒子位置，在同一当前相机下投影为短扫掠圆盘/胶囊雨丝，处理曝光及覆盖面积归一；新生粒子保留点形。保持几何遮挡、空气前缀、透明MV/reactive语义。",
+      "reason": "当前雨核的形状是最小0.75像素半径圆点，已有真实上一位置却未用于形状。这是可定点改善雨形可读性的入口，不声称能解决占主导的传输采样噪点。",
+      "edit_entry": "D:/Rurix/ci/hq_effects_codegen.py::rain_sorted；同步现有surface与camera_relative派生kernel，避免只改运行时生成文件。",
+      "scope_preserved": "不增加粒子/采样/辐亮度，不改云尺度或曝光，不默认采用OIDN100/mix50；等待父线程选择GPU修改范围。",
+      "future_motion": "8帧仅覆盖7/60秒。若后续检查约1秒自然运动，需61个连续模拟/渲染帧；capture-every6保存11帧，移除强制逐帧capture-sequence-stages。稀疏保存不跳过物理模拟，也不减少全部渲染帧。",
+      "source_run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+      "source_is_cloud_strat8_candidate": false,
+      "dimensions": [
+        640,
+        360
+      ],
+      "frames": 8,
+      "CPU_OIDN_wall_sum_s": 3.6183179006911814,
+      "OIDN": "2.5.1 RT HDR color-only high float32 CPU8threads; independent frames",
+      "mix": "float32 0.5 original + 0.5 OIDN before display; EV8 once, wide-C1/sRGB",
+      "new_GPU_frames": 0,
+      "source_HDR_modified": false,
+      "renderer_source_changed": false,
+      "quality_accepted": false,
+      "preset_selection_changed": false,
+      "storage": {
+        "effective_policy": "D/E: retain at least 50GiB AND10%; legacy script15% warning retained",
+        "deleted_files": 0,
+        "bulk_destination": "E:\\rurix_quality_runs\\20261016_weather_oidn",
+        "growth_control": "Reuse original8 HDR; publish only CPU derivatives and small review files; no rerender.",
+        "D": {
+          "free_bytes": 55767269376,
+          "free_percent": 9.42,
+          "meets_effective_floor": false
+        },
+        "E": {
+          "free_bytes": 145889234944,
+          "free_percent": 14.24,
+          "meets_effective_floor": true
+        },
+        "recorded_utc": "2026-10-16T00:59:35.796741+00:00"
+      }
+    },
+    "source_run": "E:\\rurix_quality_runs\\20261015_weather_motion\\weather8",
+    "new_GPU_frames": 0,
+    "preset_selection_changed": false,
+    "recorded_utc": "2026-10-16T00:59:36.024049+00:00"
+  },
+  "rain_streak": {
+    "recorded_utc": "2026-10-16T01:43:25.592005+00:00",
+    "status": "LOCAL_SHAPE_GAIN_WEATHER_PRESET_NOT_PROMOTED",
+    "summary": "真实粒子位移形成了局部短雨丝，但约1秒动态后半仍出现高对比白色小棒，像白屑，雨的自然感未达标。本版保留为候选，不提升为天气预设。",
+    "comparison": "E:\\rurix_quality_runs\\20261016_rain_streak\\comparison\\index.html",
+    "comparison_report": "E:\\rurix_quality_runs\\20261016_rain_streak\\comparison\\comparison.json",
+    "long_motion_viewer": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\preview_motion\\index.html",
+    "long_motion_viewer_available": true,
+    "decision_source": "E:\\rurix_quality_runs\\20261016_rain_streak\\comparison\\review\\decision.json",
+    "decision": {
+      "status": "LOCAL_SHAPE_GAIN_WEATHER_PRESET_NOT_PROMOTED",
+      "summary": "真实粒子位移形成了局部短雨丝，但约1秒动态后半仍出现高对比白色小棒，像白屑，雨的自然感未达标。本版保留为候选，不提升为天气预设。",
+      "promote_weather_preset": false,
+      "quality_accepted": false,
+      "scope": "仅改雨粒子的短曝光覆盖形状：当前与上一实际粒子位置用同一当前相机投影；新生/无效历史回退圆点；短段限长；按移动圆盘的时间占比计算透明覆盖。保留原遮挡查询、深度顺序、材质、曝光、采样、云密度与雨发射参数。",
+      "matched8_summary": "同配置8帧A/B中，少量圆亮点变成窄短段；原尺寸整图收益弱。每帧仅332–451个HDR像素改变，水路面裁区原始HDR逐值相同。此结果不是墙面或道路降噪。",
+      "long_motion_summary": "61帧实际执行，保留frame0,6,...60共11检查点，首末约1秒。后段雨移入画面中下部，方向可辨，但f54/f60的高对比白色矩形/小棒仍显生硬；f60原始显示也有此问题。未见明显跨屏长拖尾或大范围遮挡穿帮，但这不足以接受天气画质。",
+      "limits": [
+        "61帧是候选独立动态，dolly总距离仍0.25米、速度比旧8帧慢，不能与旧8帧作匹配A/B，也不能把白屑问题直接判作本次算法新增回归。",
+        "保存间隔约0.1秒，没有粒子ID/独立coverage/depth记录；不能逐粒子区分消失是寿命、遮挡或离开画面。0.75–1.5秒寿命范围意味着本段只覆盖部分短寿命删除，未验证完整生命周期。",
+        "本次只有640×360实际GPU证据，未证明1080p自然感；墙面与路面颗粒、云层层次和整体天气观感仍未解决。",
+        "没有改曝光或夹亮度来掩盖白色粒子；本轮未进一步归因白屑强度来自粒子着色、离散覆盖或后处理中的哪一项。",
+        "连续覆盖积分保持圆盘面积；离散像素能量仍随相位变化。短曝光使用当前深度/半径并限长，不等同完整运动体积积分。"
+      ],
+      "execution": {
+        "matched8_baseline_gpu_pass_sum_s": 48.605995712,
+        "matched8_candidate_gpu_pass_sum_s": 48.648157472,
+        "matched8_candidate_wall_s": 427.95300000021234,
+        "matched8_candidate_shader_prepare_ms": 1801.324,
+        "continuous61_gpu_pass_sum_s": 362.762014624,
+        "continuous61_wall_s": 1008.7660000000615,
+        "continuous61_shader_prepare_ms": 1845.68,
+        "continuous61_completed_and_timed_frames": 61,
+        "whole_device_peak_used_mib": 3904,
+        "timing_note": "GPU数字为各pass时间戳合计，墙钟包含CPU及准备等待。8帧单次A/B约0.04秒差异不作性能优劣结论；页面10fps仅检查点回放速度。"
+      },
+      "validation": {
+        "four_target_shaders_compile_and_spirv_validate": "PASS",
+        "incremental_host_build": "PASS",
+        "matched8_exit_code": 0,
+        "continuous61_exit_code": 0,
+        "continuous61_validation": "Only existing deprecated layer-settings warning and active-layer information; no new validation error recorded.",
+        "full_CI_run": false
+      },
+      "remaining": "可保留雨丝覆盖实现继续定点研究；下一步需先判断白屑强度/宽度的具体来源，再决定粒子着色或透明重建改动。此次不再增加GPU任务，不改任何既有晴天、天气或OIDN预设选择。"
+    },
+    "execution": {
+      "matched8_candidate": {
+        "run": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak",
+        "receipt": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\output.run.json",
+        "receipt_available": true,
+        "exit_code": 0,
+        "frames": 8,
+        "gpu_frames": 8,
+        "gpu_timed_frames": 8,
+        "gpu_pass_sum_ns": 48648157472,
+        "gpu_timing_status": "available",
+        "wall_seconds": 427.95300000021234,
+        "whole_device_peak_used_mib": 3904.0,
+        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+        "shader_bundle": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+        "config": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\config.json",
+        "executed_command": [
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+          "--spv-dir",
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+          "--capture-dir",
+          "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\capture",
+          "--profile",
+          "desktop_sdr_high",
+          "--contract",
+          "E:\\rurix_quality_runs\\20261016_rain_streak\\weather8_streak\\config.json",
+          "--gltf",
+          "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+          "--scene",
+          "bistro-interior",
+          "--width",
+          "640",
+          "--height",
+          "360",
+          "--tier",
+          "100",
+          "--frames",
+          "8",
+          "--warmup",
+          "0",
+          "--seed",
+          "7312026601",
+          "--normal-mode",
+          "full",
+          "--textures",
+          "on",
+          "--reflection",
+          "on",
+          "--camera-motion",
+          "dolly",
+          "--camera-distance",
+          "0.25",
+          "--object-motion",
+          "static",
+          "--object-distance",
+          "0.25",
+          "--ev-offset",
+          "8.0",
+          "--auto-exposure",
+          "off",
+          "--bloom",
+          "0",
+          "--capture-every",
+          "1",
+          "--diagnostics",
+          "checkpoint_hdr",
+          "--history-probe",
+          "off",
+          "--frame-origin",
+          "0",
+          "--present",
+          "off",
+          "--clouds",
+          "on",
+          "--water",
+          "on",
+          "--rain",
+          "on",
+          "--capture-raw-profile",
+          "scene_presented_v1",
+          "--optical-tail-bundle",
+          "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+          "--sampling-seed",
+          "7312026601",
+          "--capture-sequence-stages",
+          "presented,scene",
+          "--optical-journal-sync",
+          "region"
+        ],
+        "command_semantics": "Previously executed command from receipt; output paths are historical. This publisher never executes it."
+      },
+      "continuous61": {
+        "run": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak",
+        "receipt": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\output.run.json",
+        "receipt_available": true,
+        "exit_code": 0,
+        "frames": 61,
+        "gpu_frames": 61,
+        "gpu_timed_frames": 61,
+        "gpu_pass_sum_ns": 362762014624,
+        "gpu_timing_status": "available",
+        "wall_seconds": 1008.7660000000615,
+        "whole_device_peak_used_mib": 3904.0,
+        "executable": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+        "shader_bundle": "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+        "config": "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\config.json",
+        "executed_command": [
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\candidate_hq_quality_lane.exe",
+          "--spv-dir",
+          "E:\\rurix_quality_build\\day_1015_glass_reconstruction\\rain_streak_v1\\shaders_complete",
+          "--capture-dir",
+          "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\capture",
+          "--profile",
+          "desktop_sdr_high",
+          "--contract",
+          "E:\\rurix_quality_runs\\20261016_rain_streak\\weather61_streak\\config.json",
+          "--gltf",
+          "D:\\Rurix\\artifacts\\day_1004_quality_repair\\assets\\exterior\\BistroExterior_rough_glass_optical_v6.gltf",
+          "--scene",
+          "bistro-interior",
+          "--width",
+          "640",
+          "--height",
+          "360",
+          "--tier",
+          "100",
+          "--frames",
+          "61",
+          "--warmup",
+          "0",
+          "--seed",
+          "7312026601",
+          "--normal-mode",
+          "full",
+          "--textures",
+          "on",
+          "--reflection",
+          "on",
+          "--camera-motion",
+          "dolly",
+          "--camera-distance",
+          "0.25",
+          "--object-motion",
+          "static",
+          "--object-distance",
+          "0.25",
+          "--ev-offset",
+          "8.0",
+          "--auto-exposure",
+          "off",
+          "--bloom",
+          "0",
+          "--capture-every",
+          "6",
+          "--diagnostics",
+          "checkpoint_hdr",
+          "--history-probe",
+          "off",
+          "--frame-origin",
+          "0",
+          "--present",
+          "off",
+          "--clouds",
+          "on",
+          "--water",
+          "on",
+          "--rain",
+          "on",
+          "--capture-raw-profile",
+          "scene_presented_v1",
+          "--optical-tail-bundle",
+          "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\header_stage_writes_candidate\\agent_tail_bundle.tsv",
+          "--sampling-seed",
+          "7312026601",
+          "--optical-journal-sync",
+          "region"
+        ],
+        "command_semantics": "Previously executed command from receipt; output paths are historical. This publisher never executes it."
+      }
+    },
+    "optional_weather_preset_promoted": false,
+    "optional_weather_preset": null,
+    "global_or_clear_preset_changed": false,
+    "OIDN_selection_changed": false,
+    "publisher_runs_GPU": false,
+    "scope": "Independent rain-shape result. Existing clear-weather, cloud, weather and OIDN results remain intact; no global or clear-weather selection changes."
+  },
+  "rain_separated_oidn": {
+    "publication": {
+      "recorded_utc": "2026-10-16T02:08:10.388507+00:00",
+      "status": "SEPARATED_OFFLINE_COMPOSITE_WORKS_FIXED_RAIN_RADIANCE_CONFIRMED",
+      "summary": "已实现并用两帧实际HDR验证：只去噪雨前背景，再按真实预乘雨颜色与透射率重组。背景颗粒明显减少，短雨丝比整图OIDN保留得更清楚；固定雨辐射造成的偏白小棒仍在，细节软化和第二帧局部残留颗粒仍明显，不判定整体画质通过，也不替换预设。",
+      "viewer": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\index.html",
+      "comparison_report": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\results.json",
+      "decision_source": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\decision.json",
+      "decision": {
+        "status": "SEPARATED_OFFLINE_COMPOSITE_WORKS_FIXED_RAIN_RADIANCE_CONFIRMED",
+        "summary": "已实现并用两帧实际HDR验证：只去噪雨前背景，再按真实预乘雨颜色与透射率重组。背景颗粒明显减少，短雨丝比整图OIDN保留得更清楚；固定雨辐射造成的偏白小棒仍在，细节软化和第二帧局部残留颗粒仍明显，不判定整体画质通过，也不替换预设。",
+        "quality_accepted": false,
+        "preset_selection_changed": false,
+        "GPU_integrated": false,
+        "root_cause": {
+          "source_formula": "For each sorted particle: a=particle_alpha*depth_soft*visibility*shutter_coverage; P=L_air_prefix+T_air_prefix*particle_radiance; C_new=(1-a)*C_old+a*P. Rain radiance is a fixed scene-linear input, with no scene-light evaluation for the drop itself.",
+          "source_radiance_RGB": [
+            0.05,
+            0.055,
+            0.07
+          ],
+          "measured_effective_rain_RGB_medians": [
+            [
+              0.050000000974949964,
+              0.0549999998263105,
+              0.0700000000186923
+            ],
+            [
+              0.05000000083909147,
+              0.054999999885973185,
+              0.0700000000432167
+            ]
+          ],
+          "measured_rain_pixels": [
+            336,
+            361
+          ],
+          "measured_aggregate_coverage_max": [
+            0.4000000059604645,
+            0.4288833737373352
+          ],
+          "display_EV_offset": 8,
+          "display_multiplier": 256,
+          "measured_exposed_premultiplied_rain_luminance_median": [
+            2.059166334156809,
+            2.075994170097483
+          ],
+          "interpretation": "在本次实际雨像素中，A/coverage与固定输入radiance吻合；高对比雨信号在原始HDR中已存在。wide-C1压缩高亮，但这不是后期才生成的雨，也不是雨的场景光照或物理折射模型。"
+        },
+        "implementation": {
+          "host_files": [
+            "src/rurix-render/src/bin/hq_quality_lane/core.rs",
+            "src/rurix-render/src/bin/hq_quality_lane/effects_lane.rs"
+          ],
+          "host_change": "Expose effects_pre_rain and existing rain_history0/1 through explicit sequence capture. Label pre-rain as scene-linear HDR. Existing readback lifetime protection retains the actual buffer; no added shader/pass or copy.",
+          "formula": "T=1-coverage; A=post-T*pre; output=A+T*OIDN(pre). Computed equivalently as post+T*(OIDN(pre)-pre) in float64 then f32.",
+          "offline_script": "export_separated.py",
+          "OIDN": "Official2.5.1, CPU RT HDR, color-only, high, float,8threads, independently per frame.",
+          "preserved": "Rain shape/radiance/coverage/occlusion and original exposure, cloud and rainy scene lighting, water, material, sampling. Existing original HDR untouched. No source radiance clipping or RGB-only additive rain.",
+          "source_shaders_changed": false,
+          "additional_GPU_passes": 0,
+          "actual_GPU_pass_count": 8113
+        },
+        "verification": {
+          "capture_frames": 2,
+          "capture_size": [
+            640,
+            360
+          ],
+          "same_as_previous_weather8_first_two": "Both actual frame128 uploads and scene RAW are bitwise identical. Dolly total distance scaled to0.25/7m for the two-frame run.",
+          "coverage_source": "Verified actual rain pass8103 descriptor19 writes: frame0 history1, frame1 history0. Not inferred from TSR parity.",
+          "pre_rain_buffer": "Actual input resource1027 retained, no later writers; scene output1054.",
+          "original_HDR_recomposition": "Both frames restore original scene bitwise; float64 max error0. No negative A channels. Zero-coverage pixels reproduce denoised background bitwise.",
+          "recomposition_equivalence_max_abs_error": 3.469446951953614e-18,
+          "build": "Incremental release host PASS;20.42200000002049s;0shaders recompiled.",
+          "validation": "Only pre-existing deprecated-layer-settings warning and active-layer information; no new validation error recorded.",
+          "full_CI_run": false
+        },
+        "execution": {
+          "GPU_capture_pass_sum_s_measured_local": 11.79134656,
+          "capture_wall_s_measured_local": 326.9220000000205,
+          "shader_prepare_ms": 1537.878,
+          "whole_device_peak_used_MiB": 3906,
+          "CPU_background_OIDN_two_frames_wall_s_measured_local": 0.7972661999519914,
+          "CPU_whole_image_control_two_frames_wall_s_measured_local": 0.9348784999456257,
+          "CPU_all_four_OIDN_processes_wall_s_measured_local": 1.732144699897617,
+          "timing_scope": "OIDN numbers are process wall time, not export/composite totals. GPU pass sums exclude CPU setup/waits. No realtime or60fps claim. No additional61-frame run."
+        },
+        "observation": "整图OIDN仍保留部分亮短条，但会柔化或削弱局部雨信号；拆层版保留更多清晰短雨丝。两种OIDN均显著减少背景密集颗粒，同时损失路面细纹、墙面细节与植物层次。f1右墙、右侧道路和前景石路仍有明显粗颗粒/波纹，远比f0杂乱；拆层没有修复这种帧间表现差异。",
+        "limitations": [
+          "这是离线CPU捕获后重组候选，未接入实时GPU帧图或TSR；没有透明层历史重投影或时序稳定保证。",
+          "只有两个连续640×360输出，首末间隔约1/60秒；不代表1080p或长动态验收，不代替先前61帧白屑发现。",
+          "保留了固定雨辐射，所以不会自动解决高对比白屑；可见性增加不等于自然感改善。",
+          "OIDN color-only背景去噪仍有纹理软化与残留颗粒，未修复采样/传输噪声的根因，也未恢复云层层次。"
+        ],
+        "remaining": "雨前HDR和正确透明重组路径已打通。下一项雨修复应针对固定辐射的雨颜色来源/场景依赖散射或折射，而不是继续改形状或压整图曝光；背景还需针对残留颗粒和跨帧变化选择更合适的重建输入。保留晴天及所有既有预设，停止本轮GPU任务。"
+      },
+      "review_files": [
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\source_result.json",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\source.diff",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\capture_verification.json",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\export_separated.py",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\rain_formula_probe.json",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\pre_rain_capture_notes.json",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\visual_review.json",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\review\\decision.json"
+      ],
+      "visual_review_available": true,
+      "source_receipt": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\output.run.json",
+      "dimensions": [
+        640,
+        360
+      ],
+      "CPU_OIDN_wall_sum_s": 1.732144699897617,
+      "OIDN": "CPU8threads RT HDR color-only high float",
+      "scope": "离线CPU候选：对雨前背景进行OIDN，再按捕获的coverage与雨贡献重合成。固定雨辐射未改，未加入雨滴场景光照求解；这不是物理雨照明修复。没有接入实时GPU降噪，没有时序稳定保证，也不改变既有预设或OIDN选择。",
+      "fixed_rain_radiance_changed": false,
+      "GPU_integrated": false,
+      "preset_selection_changed": false,
+      "OIDN_selection_changed": false
+    },
+    "offline_mode": {
+      "mode": "separated",
+      "availability": "available",
+      "quality_status": "quality_not_final",
+      "kind": "offline_CPU_view",
+      "selected_by_default": false,
+      "GPU_integrated": false,
+      "viewer": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\index.html",
+      "comparison_report": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\results.json",
+      "source_receipt": "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\weather2\\output.run.json",
+      "dimensions": [
+        640,
+        360
+      ],
+      "frame_indices": [
+        0,
+        1
+      ],
+      "separated_PNGs": [
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000000\\separated.png",
+        "E:\\rurix_quality_runs\\20261016_rain_separated_oidn\\comparison\\frame_000001\\separated.png"
+      ],
+      "display": "EV8 once, wide-C1 + sRGB; scene display rather than actual presented replay",
+      "scope": "Existing two-frame CPU background OIDN plus captured rain composition. Fixed rain radiance unchanged; not a physical rain-lighting fix or weather-quality acceptance."
+    }
+  },
+  "rain_lighting": {
+    "publication": {
+      "recorded_utc": "2026-10-16T02:38:07.308004+00:00",
+      "summary": "受光雨滴在两帧实际 GPU 对照中明显减轻固定雨源造成的白色短条和悬浮白屑，保留为可用候选。暗墙与窗面上的雨线仍偏弱，第二帧墙地原有颗粒和拆层背景软化仍在；尚未通过自然降雨、连续动态或整体画质验收。",
+      "available": true,
+      "availability": "available",
+      "quality_status": "quality_not_final",
+      "viewer": "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\index.html",
+      "comparison_report": "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\results.json",
+      "decision_source": "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\decision.json",
+      "review_files": [
+        "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\source_result.json",
+        "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\source.diff",
+        "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\selection.json",
+        "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\source_probe.json",
+        "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\gpu_visual_review.json",
+        "E:\\rurix_quality_runs\\20261016_rain_lighting\\comparison\\review\\decision.json"
+      ],
+      "frame_indices": [
+        0,
+        1
+      ],
+      "dimensions": [
+        640,
+        360
+      ],
+      "default_selection_changed": false,
+      "existing_separated_offline_option_changed": false,
+      "scope": "Actual GPU P1 rain-source candidate, two frames. Background OIDN and recomposition remain offline CPU; no temporal or overall weather-quality acceptance is inferred."
+    }
+  },
+  "oidn_surface_guides": {
+    "publication": {
+      "recorded_utc": "2026-10-16T02:59:15.699909+00:00",
+      "summary": "真实 albedo/normal 引导在首帧两块可靠不透明区域取得局部净改善：维持 OIDN 的降噪效果，门板线条、窗框、柱脚和地砖缝比同裁切仅颜色去噪更清楚，未见明显新增颗粒或光晕。保留为限定区域的离线可用选项；不据此推广到玻璃、水、透明边缘或连续动态。",
+      "available": true,
+      "availability": "available",
+      "quality_status": "quality_not_final",
+      "viewer": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\index.html",
+      "comparison_report": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\results.json",
+      "decision_source": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\review\\decision.json",
+      "review_files": [
+        "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\review\\guide_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\review\\cloud64_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\review\\oidn_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\review\\visual_review.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\comparison\\review\\decision.json"
+      ],
+      "source_capture": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\weather2",
+      "trial_frame_index": 0,
+      "rectangles_xywh": [
+        [
+          0,
+          0,
+          143,
+          352
+        ],
+        [
+          554,
+          0,
+          85,
+          325
+        ]
+      ],
+      "guided_application_pixels": 26943,
+      "implementation_scripts": {
+        "capture_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\run_candidate.py",
+        "guide_selection_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\inspect_guides.py",
+        "denoising_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\compare_roi_guides.py",
+        "OIDN_helper": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\noise_next\\oidn_roi.py",
+        "guide_fields": "Actual admitted primary geometry; material linear RGB[0:3] and mapped/oriented shading Ns[8:11].",
+        "selection": "Primary hit, transmission=0, metallic=0, roughness>=0.5, full authored material alpha, no binary water support, finite in-range guides, and actual pre-rain==opaque RGB. Roughness restriction avoids sharp glossy transport; it is not a visual quality threshold.",
+        "filter": "Official OIDN2.5.1 CPU RT HDR high float, 8 threads, clean_aux=false. Both arms receive identical color crop and automatic inputScale policy.",
+        "fallback": "Only complete real-guide rectangles enter OIDN. Composite their interiors with a context ring and edge fade; keep cached color-only result everywhere else. Recompose actual rain with unchanged coverage.",
+        "default_selection_changed": false,
+        "existing_rain_lighting_and_separated_options_retained": true,
+        "GPU_integration": false
+      },
+      "default_selection_changed": false,
+      "existing_rain_and_separated_options_changed": false,
+      "scope": "Offline CPU opaque-ROI albedo/normal guide trial on frame0 only, compared with identical color-only crops. Captured frame1 is not guided temporal validation; glass/water/sky/unsupported regions retain the prior fallback, and actual rain composition is preserved."
+    }
+  },
+  "oidn_fullframe": {
+    "publication": {
+      "recorded_utc": "2026-10-16T03:25:28.839288+00:00",
+      "summary": "自动全图离线导出已完成；静态保留为有限候选。真实材质与96像素上下文限制下，每帧仅5%像素使用引导，其余回退。四帧当帧颜色诊断已完成，但右侧回退区域仍有明显颗粒变化，动态仅保留试验记录。",
+      "views": {
+        "static": {
+          "available": true,
+          "availability": "available",
+          "quality_status": "limited_static_candidate",
+          "summary": "首帧实际全图和同块颜色控制已查看；左侧细线略有保留，未见明显硬接缝。引导支持11,520/230,400像素，不能称整体画质提升。",
+          "viewer": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\index.html",
+          "results": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\static\\results.json",
+          "export_completed": true,
+          "export_status": "EXPORTED_AUTOMATIC_FULL_FRAME",
+          "source_run": "E:\\rurix_quality_runs\\20261016_oidn_surface_guides\\weather2",
+          "source_mode": "reset",
+          "frame_indices": [
+            0
+          ],
+          "per_frame": [
+            {
+              "frame": 0,
+              "dimensions": [
+                640,
+                360
+              ],
+              "source_color": "effects_pre_rain_reset",
+              "supported_core_pixels": 11520,
+              "fully_guided_pixels": 6120,
+              "fallback_pixels_bitwise_unchanged": true
+            }
+          ]
+        },
+        "dynamic": {
+          "available": false,
+          "availability": "experiment_only",
+          "quality_status": "diagnostic_only_temporal_quality_unresolved",
+          "summary": "四帧使用真实effects_pre_temporal与当前guides、固定公共可靠域和正确雨层合成。左侧边界未见明显长拖影，但f1–f3右侧原fallback仍明显斑驳；只跨0.05秒，不通过动态画质验收。",
+          "viewer": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\index.html",
+          "results": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\dynamic\\results.json",
+          "export_completed": true,
+          "export_status": "EXPORTED_AUTOMATIC_FULL_FRAME",
+          "source_run": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\motion4",
+          "source_mode": "pre-temporal",
+          "frame_indices": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "per_frame": [
+            {
+              "frame": 0,
+              "dimensions": [
+                640,
+                360
+              ],
+              "source_color": "effects_pre_temporal",
+              "supported_core_pixels": 11520,
+              "fully_guided_pixels": 6120,
+              "fallback_pixels_bitwise_unchanged": true
+            },
+            {
+              "frame": 1,
+              "dimensions": [
+                640,
+                360
+              ],
+              "source_color": "effects_pre_temporal",
+              "supported_core_pixels": 11520,
+              "fully_guided_pixels": 6120,
+              "fallback_pixels_bitwise_unchanged": true
+            },
+            {
+              "frame": 2,
+              "dimensions": [
+                640,
+                360
+              ],
+              "source_color": "effects_pre_temporal",
+              "supported_core_pixels": 11520,
+              "fully_guided_pixels": 6120,
+              "fallback_pixels_bitwise_unchanged": true
+            },
+            {
+              "frame": 3,
+              "dimensions": [
+                640,
+                360
+              ],
+              "source_color": "effects_pre_temporal",
+              "supported_core_pixels": 11520,
+              "fully_guided_pixels": 6120,
+              "fallback_pixels_bitwise_unchanged": true
+            }
+          ]
+        }
+      },
+      "decision_source": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\decision.json",
+      "usage": "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\USAGE.md",
+      "review_files": [
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\history_source_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\mask_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\oidn_tiling_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\capture_source_check.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\USAGE.md",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\static_visual_review.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\dynamic_visual_review.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_fullframe\\review\\decision.json"
+      ],
+      "visual_reports": [
+        "static_visual_review.json",
+        "dynamic_visual_review.json"
+      ],
+      "existing_options_or_defaults_changed": false,
+      "scope": "Automatic whole-image offline CPU output. Only supported opaque tile cores use albedo/normal guides; all remaining pixels use full-image color-only fallback. Actual captured rain composition is retained. No real-time integration or temporal/overall-quality acceptance is inferred."
+    }
+  },
+  "oidn_current_source": {
+    "publication": {
+      "recorded_utc": "2026-10-16T03:41:39.175933+00:00",
+      "summary": "已用同配置四帧GPU对照确认净改善：离线OIDN前将opaque历史上限从3改为1，右侧墙面和道路斑驳显著减少，主要窗框/饰条/路沿轮廓保留，首帧最终图逐位一致。收录为有限离线候选；细小石材纹理仍偏软，四帧不代表长动态验收。",
+      "available": true,
+      "availability": "available",
+      "quality_status": "measured_local_net_improvement_limited_four_frames",
+      "viewer": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\output\\index.html",
+      "comparison": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\comparison\\index.html",
+      "output_report": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\output\\results.json",
+      "comparison_report": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\comparison\\verification.json",
+      "export_status": "EXPORTED_AUTOMATIC_FULL_FRAME",
+      "comparison_status": null,
+      "source_run": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\motion4",
+      "source_mode": "pre-temporal",
+      "frame_indices": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "per_frame": [
+        {
+          "frame": 0,
+          "dimensions": [
+            640,
+            360
+          ],
+          "source_color": "effects_pre_temporal",
+          "supported_core_pixels": 11520,
+          "fully_guided_pixels": 6120,
+          "fallback_pixels_bitwise_unchanged": true
+        },
+        {
+          "frame": 1,
+          "dimensions": [
+            640,
+            360
+          ],
+          "source_color": "effects_pre_temporal",
+          "supported_core_pixels": 11520,
+          "fully_guided_pixels": 6120,
+          "fallback_pixels_bitwise_unchanged": true
+        },
+        {
+          "frame": 2,
+          "dimensions": [
+            640,
+            360
+          ],
+          "source_color": "effects_pre_temporal",
+          "supported_core_pixels": 11520,
+          "fully_guided_pixels": 6120,
+          "fallback_pixels_bitwise_unchanged": true
+        },
+        {
+          "frame": 3,
+          "dimensions": [
+            640,
+            360
+          ],
+          "source_color": "effects_pre_temporal",
+          "supported_core_pixels": 11520,
+          "fully_guided_pixels": 6120,
+          "fallback_pixels_bitwise_unchanged": true
+        }
+      ],
+      "decision_source": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\current_source_decision.json",
+      "usage": "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\USAGE.md",
+      "review_files": [
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\current_source_decision.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\USAGE.md",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\history_grain_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\right_opaque_probe.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\result.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\offline_current_source_review.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\current_source_gpu_review.json",
+        "E:\\rurix_quality_runs\\20261016_oidn_current_source\\review\\current_oidn_plan.json"
+      ],
+      "configuration_change": {
+        "provenance.hq_temporal_lighting.cloud_max_history": {
+          "baseline": 3,
+          "candidate": 1
+        },
+        "clouds": "on"
+      },
+      "existing_options_or_defaults_changed": false,
+      "scope": "Four-frame offline CPU OIDN candidate with the cloud opaque-history cap reduced from 3 to 1. No increased sampling or brightness clamp. Full-image output retains unsupported-pixel color-only fallback and actual captured rain composition. Availability is the root decision, not inferred from completed capture/export or short-trajectory playback."
+    }
+  },
+  "recommended_offline_weather": {
+    "recorded_utc": "2026-10-16T04:38:53.202679+00:00",
+    "label": "推荐离线天气组合",
+    "summary": "推荐离线天气组合新增可选的OIDN后有限三帧历史：复用已有24帧，采用当帧引导和真实几何重投影，透明、水与雨沿已验证路径。远窗/店面帧间变化小幅减少，仍有细纹理软化；未见明显新增长拖影，保留逐帧无历史对照。原生1152×648代表帧和室内1080结果保留。",
+    "scope": "Offline viewing recommendation; quality is limited to the linked measured outputs.",
+    "still": {
+      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\index.html",
+      "label": "原生1152×648代表帧",
+      "image": "E:\\rurix_quality_runs\\20261016_recommended_weather\\still_native\\export\\frame_000000\\output.png",
+      "image_dimensions": [
+        1152,
+        648
+      ]
+    },
+    "sequence": {
+      "viewer": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion_temporal\\index.html",
+      "label": "可选短历史：原生640×360连续24帧"
+    },
+    "usage": "E:\\rurix_quality_runs\\20261016_recommended_weather\\USAGE.md",
+    "result": "E:\\rurix_quality_runs\\20261016_recommended_weather\\result.json",
+    "components": [
+      "scene-lit short rain streaks",
+      "captured rain/background separation",
+      "cloud_max_history=1 current-frame background",
+      "offline CPU OIDN",
+      "automatic actual albedo/normal guide cores with full-image color-only fallback",
+      "optional finite post-OIDN geometric history, current-frame guides"
+    ],
+    "interior_retained": {
+      "key": "interior1080_static1",
+      "dimensions": [
+        1920,
+        1080
+      ],
+      "ev": 10,
+      "capture": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\output.run.json",
+      "export": "E:\\rurix_quality_runs\\20261015_current_delivery\\interior1080_static1\\preview\\export.json"
+    },
+    "global_defaults_changed": false,
+    "realtime_path_changed": false,
+    "historical_evidence_retained": true,
+    "ready_for_publication": true,
+    "post_oidn_temporal": {
+      "enabled": true,
+      "available_offline_option": true,
+      "default_enabled": false,
+      "history_frames_including_current": 3,
+      "unscaled_weights": [
+        1,
+        0.6,
+        0.4
+      ],
+      "recursive_feedback": false,
+      "radiance_clamping": false,
+      "geometry": "Direct t-to-t-1/t-2 camera projection with real depth, position, normals, primitive/material and visibility tests; previous jitter removed.",
+      "guide_selection": "Current-frame reliable regions; no whole-sequence screen-mask intersection.",
+      "protected_regions": "Transparent, water, moving geometry and unreliable opaque pixels do not use this temporal history; captured rain is recomposed unchanged.",
+      "protected_regions_bitwise_unchanged_all_frames": true,
+      "comparison": "Same per-frame spatial OIDN result with and without finite history; controls retained.",
+      "new_GPU_calls": 0,
+      "source_capture_reused": "E:\\rurix_quality_runs\\20261016_recommended_weather\\motion\\run",
+      "CPU_export_wall_s_measured_local": 57.37115540006198,
+      "guide_coverage_fraction_range": [
+        0.010555555555555556,
+        0.05
+      ],
+      "history_coverage_fraction_range_after_first_frame": [
+        0.6347178819444445,
+        0.717265625
+      ],
+      "display_space_diagnostics": {
+        "distant_windows": {
+          "current_reprojected_mean_abs_displayY": 6.342199074115828,
+          "current_mean_spatial_gradient": 10.456159840459408,
+          "output_reprojected_mean_abs_displayY": 5.257596628050185,
+          "output_mean_spatial_gradient": 10.364591930223549,
+          "temporal_difference_ratio": 0.8289863762725157,
+          "gradient_ratio": 0.9912426826260303
+        },
+        "left_shop": {
+          "current_reprojected_mean_abs_displayY": 4.130959761566207,
+          "current_mean_spatial_gradient": 6.8373583503391435,
+          "output_reprojected_mean_abs_displayY": 2.940738439257926,
+          "output_mean_spatial_gradient": 6.67307594548101,
+          "temporal_difference_ratio": 0.7118777739299446,
+          "gradient_ratio": 0.9759728251116185
+        },
+        "moving_edges": {
+          "current_reprojected_mean_abs_displayY": 2.864292308719331,
+          "current_mean_spatial_gradient": 4.652731916178828,
+          "output_reprojected_mean_abs_displayY": 2.026374790841221,
+          "output_mean_spatial_gradient": 4.539229683254076,
+          "temporal_difference_ratio": 0.707460891708795,
+          "gradient_ratio": 0.9756052497823755
+        },
+        "foreground": {
+          "current_reprojected_mean_abs_displayY": 2.2172005650525124,
+          "current_mean_spatial_gradient": 2.0545013572858726,
+          "output_reprojected_mean_abs_displayY": 1.3394599197720563,
+          "output_mean_spatial_gradient": 1.937163663947064,
+          "temporal_difference_ratio": 0.6041221262905155,
+          "gradient_ratio": 0.9428875075099394
+        }
+      },
+      "visual_decision": "Modest local smoothing benefit without obvious added long trails or guide seams in inspected frames. Keep as an optional offline export, not proof of repaired temporal detail.",
+      "limits": [
+        "24 frames cover only0.383333s; no long-duration or rapid-motion claim.",
+        "Fine facade/window variation remains. Foreground low-contrast texture is slightly softer.",
+        "Display-space variation is supporting evidence, not a ground-truth fidelity measure."
+      ]
+    }
+  },
+  "delivery_review_20261016": {
+    "recorded_utc": "2026-10-16T05:59:32.126074+00:00",
+    "status": "REVIEWED_NOT_OVERALL_ACCEPTED",
+    "priority": "室内满幅噪点与去噪后的细节损失",
+    "priority_reason": "影响墙、顶、木面和地面的大部分画面；当前玻璃、水内细节与灯白区仍是局部残余，室内暗部不是首要。",
+    "overall": "保留可审阅离线成果，整体画质未验收，UE5级未证明。",
+    "new_GPU_frames": 0,
+    "report": "E:\\rurix_quality_runs\\20261015_current_delivery\\delivery_check_20261016\\result.json",
+    "viewer": "E:\\rurix_quality_runs\\20261015_current_delivery\\delivery_check_20261016\\index.html",
+    "next_step": "优先评估室内不透明表面的真实材质/法线引导离线重建"
+  },
+  "recommended_offline_indoor": {
+    "status": "RECOMMENDED_OFFLINE_INDOOR_LIMITED_STATIC",
+    "recorded_utc": "2026-10-16T06:28:51.601537+00:00",
+    "selected_variant": "guided_normal",
+    "selected_image": {
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+      "RAW_is_source_reference": false,
+      "HDR_min": 0.0,
+      "HDR_max": 1.376158356666565,
+      "finite": true
+    },
+    "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\index.html",
+    "native1080_succeeded": true,
+    "new_completed_GPU_frames": 2,
+    "overall_quality_accepted": false,
+    "dynamic_test_this_round": false,
+    "remaining": [
+      "Glass reflection/transmission fine detail remains soft or speckled.",
+      "Water interior remains a granular patch under color-only fallback.",
+      "Lamp emission white regions remain flat.",
+      "No dynamic validation of this guide composition or converged reference."
+    ],
+    "result": "E:\\rurix_quality_runs\\20261016_indoor_guided\\result.json",
+    "usage": "E:\\rurix_quality_runs\\20261016_indoor_guided\\USAGE.md",
+    "runs": {
+      "640": {
+        "status": "COMPLETED_OFFLINE_EXPORT",
+        "selected": "guided_normal",
+        "selected_image": {
+          "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\guided_normal.png",
+          "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\guided_normal.raw",
+          "RAW_is_source_reference": false,
+          "HDR_min": 7.729640287834627e-07,
+          "HDR_max": 1.122358798980713,
+          "finite": true
+        },
+        "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\index.html",
+        "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture640\\output.run.json",
+        "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export640\\export.json",
+        "native_resolution": [
+          640,
+          360
+        ],
+        "GPU_frames": 1,
+        "GPU_pass_sum_seconds": 1.408939904,
+        "shader_prepare_ms": 2829.483,
+        "capture_wall_seconds": 199.43700000015087,
+        "whole_device_peak_used_MiB": 2200.0,
+        "device_heap_required_bytes": 1723064832,
+        "observed_device_heap_available_bytes": 7421251584,
+        "CPU_OIDN_three_branches_wall_seconds": 1.6750733996741474,
+        "CPU_export_wall_seconds": 2.4593261000700295,
+        "guided_nonzero_pixels": 174608,
+        "guided_effective_coverage_fraction": 0.5283219401041667,
+        "transparent_water_emission_output": "same-input color-only fallback",
+        "global_runtime_denoiser_changed": false,
+        "real_time": false,
+        "notes": [
+          "GPU timestamps exclude CPU preparation and export.",
+          "One static frame does not establish dynamic stability.",
+          "Glass, water detail and flat lamp emission remain unresolved."
+        ]
+      },
+      "1080": {
+        "status": "COMPLETED_OFFLINE_EXPORT",
+        "selected": "guided_normal",
+        "selected_image": {
+          "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+          "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+          "RAW_is_source_reference": false,
+          "HDR_min": 0.0,
+          "HDR_max": 1.376158356666565,
+          "finite": true
+        },
+        "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\index.html",
+        "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
+        "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\export.json",
+        "native_resolution": [
+          1920,
+          1080
+        ],
+        "GPU_frames": 1,
+        "GPU_pass_sum_seconds": 15.567764704,
+        "shader_prepare_ms": 1783.728,
+        "capture_wall_seconds": 190.64000000013039,
+        "whole_device_peak_used_MiB": 6567.0,
+        "device_heap_required_bytes": 6360586560,
+        "observed_device_heap_available_bytes": 7421251584,
+        "CPU_OIDN_three_branches_wall_seconds": 4.8547829003073275,
+        "CPU_export_wall_seconds": 10.36497460003011,
+        "guided_nonzero_pixels": 1716360,
+        "guided_effective_coverage_fraction": 0.7094498396508487,
+        "transparent_water_emission_output": "same-input color-only fallback",
+        "global_runtime_denoiser_changed": false,
+        "real_time": false,
+        "notes": [
+          "GPU timestamps exclude CPU preparation and export.",
+          "One static frame does not establish dynamic stability.",
+          "Glass, water detail and flat lamp emission remain unresolved."
+        ]
+      }
+    }
+  },
+  "recommended_offline_indoor_motion": {
+    "status": "RECOMMENDED_OPTION_OFFLINE_INDOOR_SHORT_DOLLY_ONLY",
+    "viewer": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\index.html",
+    "capture_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8_current\\output.run.json",
+    "export_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\results.json",
+    "native_resolution": [
+      640,
+      360
+    ],
+    "frames": 8,
+    "camera_motion": "dolly",
+    "camera_distance_m": 0.15,
+    "objects": "static",
+    "GPU_pass_sum_seconds": 11.013713664,
+    "GPU_mean_seconds_per_frame": 1.376714208,
+    "shader_prepare_ms": 1101.049,
+    "validation_error_count": 0,
+    "capture_wall_seconds": 171.6720000000205,
+    "whole_device_peak_used_MiB": 2146.0,
+    "CPU_OIDN_wall_seconds": 5.972021498717368,
+    "CPU_export_wall_seconds": 16.811135900206864,
+    "protected_regions_bitwise_unchanged": true,
+    "history_weights": [
+      1,
+      0.6,
+      0.4
+    ],
+    "history_recursion": false,
+    "runtime_opaque_history_enabled": false,
+    "real_time": false,
+    "quality_review_required_for_new_capture": true,
+    "measured": "measured_local",
+    "recorded_utc": "2026-10-16T06:50:43.169867+00:00",
+    "review": {
+      "status": "RECOMMEND_LIMITED_OFFLINE_DYNAMIC_OPTION",
+      "net_benefit": true,
+      "dimensions": [
+        640,
+        360
+      ],
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "motion": "0.15m dolly, static objects",
+      "inspected": [
+        "frame_000004/comparison_native.png",
+        "frame_000007/comparison_native.png",
+        "review/wall_0_3.png",
+        "review/wall_4_7.png",
+        "review/bar_0_3.png",
+        "review/bar_4_7.png",
+        "review/ceiling_0_3.png",
+        "review/ceiling_4_7.png",
+        "review/chair_edges_0_3.png",
+        "review/chair_edges_4_7.png",
+        "review/floor_4_7.png"
+      ],
+      "findings": [
+        "Wall, ceiling and opaque floor show less patchy shading variation across inspected native-resolution strips.",
+        "Inspected chair legs, wall divisions and tabletop edges do not show obvious added trails or mask seams.",
+        "Residual spatial softness remains; no claim of reconstructed fine details.",
+        "Glass/sparkle and granular water remain visible and use current-frame fallback."
+      ],
+      "stability_proxy": {
+        "wall": {
+          "current_difference": 4.077335724515453,
+          "output_difference": 2.287392339762373,
+          "difference_ratio": 0.561001716392683,
+          "gradient_ratio": 0.9663342710991555
+        },
+        "bar": {
+          "current_difference": 6.256189433476386,
+          "output_difference": 4.461879047601231,
+          "difference_ratio": 0.7131943645641644,
+          "gradient_ratio": 0.9880956126122096
+        },
+        "ceiling": {
+          "current_difference": 2.32274664994669,
+          "output_difference": 1.3267303868932114,
+          "difference_ratio": 0.5711903133833652,
+          "gradient_ratio": 0.9832625859765817
+        },
+        "floor": {
+          "current_difference": 1.72510613073827,
+          "output_difference": 0.8712851994185205,
+          "difference_ratio": 0.5050617952680097,
+          "gradient_ratio": 0.9760961852813003
+        },
+        "chair_edges": {
+          "current_difference": 5.339640133734965,
+          "output_difference": 3.4409275876521908,
+          "difference_ratio": 0.6444118894666662,
+          "gradient_ratio": 0.9694768331500004
+        }
+      },
+      "metric_scope": "Geometrically accepted adjacent pairs; display-Y difference is a stability proxy, not a converged reference or independent quality proof.",
+      "selected": "Same current albedo+Ns spatial result plus at most two previous spatial results, direct geometric reprojection, weights 1/0.6/0.4.",
+      "protected_regions_bitwise_unchanged": true,
+      "limitations": [
+        "Only eight ordinary640 frames; no 1080 motion or long sequence.",
+        "Static objects only; no fast-motion, moving-object or disocclusion stress coverage.",
+        "Geometry agreement does not guarantee stable view-dependent radiance."
+      ],
+      "source_changes": false,
+      "overall_quality_accepted": false,
+      "real_time": false
+    },
+    "static_default_changed": false,
+    "runtime_source_changed": false,
+    "overall_quality_accepted": false,
+    "result": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\result.json",
+    "usage": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\USAGE.md",
+    "reproduce_script": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\recommended_motion.py",
+    "independent_review": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\independent_motion_review.json",
+    "stability_proxy": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\export8\\review\\comparison.json",
+    "lamp_analysis": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\lamp_analysis\\result.json",
+    "lamp_candidate": "Visible emission x0.5 rejected: slightly dimmer, no clear restored detail.",
+    "remaining": [
+      "Only eight 640x360 frames, static objects and 0.15m dolly were inspected.",
+      "No long sequence, dynamic objects, fast motion or 1080 motion validation.",
+      "Glass/water detail and lamp white-region appearance remain unresolved."
+    ],
+    "setup_failure": {
+      "path": "E:\\rurix_quality_runs\\20261016_indoor_guided_motion\\motion8",
+      "completed_GPU_frames": 0,
+      "reason": "Optional runtime history max=1 is outside existing parser bounds; omitted optional block instead."
+    }
+  }
+}

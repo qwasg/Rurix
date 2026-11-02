@@ -1,0 +1,348 @@
+{
+  "run_receipt": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.run.json",
+  "source_files": {
+    "scene": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_scene.raw",
+    "geometry": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_geometry.raw",
+    "material": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_material.raw",
+    "water_surface": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_water_surface.raw",
+    "effects_opaque_scene": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_effects_opaque_scene.raw",
+    "primary_partition_reservoir_meta": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_primary_partition_reservoir_meta.raw",
+    "glass_footprint_extra_c01": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_glass_footprint_extra_c01.raw"
+  },
+  "dimensions": [
+    1920,
+    1080
+  ],
+  "frame_index": 0,
+  "material_domains": {
+    "status": "OK",
+    "reason": null,
+    "asset": "D:\\Rurix\\artifacts\\day_1013_terminal_sampling\\source_glass_roughness_candidate\\BistroInterior_source_roughness_v8.gltf",
+    "default_material_id": 71,
+    "captured_alpha_crosscheck": {
+      "status": "MATCHED",
+      "projection": "factor_words_4_5_6_17_20_22_15_3_18_12",
+      "used_known_materials": 71
+    }
+  },
+  "footprint": {
+    "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\output.log",
+    "actual_roi_xywh": [
+      416,
+      329,
+      1504,
+      377
+    ],
+    "primary_glass_pixels": 25320,
+    "extra_camera_glass_pixels_in_roi": 28212,
+    "union_excluded_pixels": 28509,
+    "formula": "primary meta[3]==1 globally OR ROI extra_c01[3]==1; RGB unused"
+  },
+  "condition_pixels": {
+    "finite_hit_static_geometry": 2073193,
+    "authored_OPAQUE_T0_volume0": 2043124,
+    "no_transmission": 2048280,
+    "no_primary_or_extra_glass": 2045091,
+    "no_water": 2043079,
+    "no_self_emission": 2064462,
+    "full_sampled_alpha": 2070512,
+    "rough_nonmetal": 1837811,
+    "real_albedo_valid": 2073600,
+    "real_Ns_valid": 2073193,
+    "scene_equals_opaque_bitwise": 2043085
+  },
+  "raw_reliable_pixels": 1803063,
+  "reliable_after_2px_pixels": 1716360,
+  "guided_nonzero_pixels": 1716360,
+  "guided_full_weight_pixels": 1267905,
+  "guided_effective_weight_sum": 1471115.1875,
+  "guided_effective_coverage_fraction": 0.7094498396508487,
+  "context": {
+    "water_pixels": 30521,
+    "miss_pixels": 407,
+    "illegal_albedo_pixels_zeroed_outside_domain": 0,
+    "illegal_normal_pixels_zeroed_outside_domain": 0,
+    "unsupported_first_hit_aux_retained": true,
+    "water_albedo": 1,
+    "water_normal": "water_surface[4:7]",
+    "opaque_normal": "material[8:11] actual Ns",
+    "valid_aux_substituted": false,
+    "CNN_invalid_context_isolated": false
+  },
+  "status": "EXPORTED_CPU_COMPARISON_NOT_QUALITY_ACCEPTANCE",
+  "input_color": "Exactly the same final scene HDR for all three full-frame calls",
+  "input_scale": 1024.0,
+  "cleanAux": false,
+  "device": "cpu",
+  "quality": "high",
+  "threads": 8,
+  "OIDN_calls": [
+    {
+      "label": "full_color_only",
+      "shape": [
+        1080,
+        1920,
+        3
+      ],
+      "device": "cpu",
+      "filter": "RT",
+      "hdr": true,
+      "quality": "high",
+      "type": "float",
+      "threads": 8,
+      "input_scale": 1024.0,
+      "automatic_input_scale": false,
+      "guides": {
+        "albedo": false,
+        "normal": false,
+        "clean_aux": false
+      },
+      "source_HDR_rescaled_by_helper": false,
+      "command": [
+        "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+        "--device",
+        "cpu",
+        "--filter",
+        "RT",
+        "--hdr",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_color_only_oidn_5i7uz5ub\\color.pfm",
+        "--input_scale",
+        "1024.0",
+        "--output",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_color_only_oidn_5i7uz5ub\\output.pfm",
+        "--type",
+        "float",
+        "--quality",
+        "high",
+        "--threads",
+        "8",
+        "-n",
+        "1",
+        "--verbose",
+        "1"
+      ],
+      "exit_code": 0,
+      "process_wall_s": 1.4789879000745714,
+      "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_color_only_a2ef593dd6a7.oidn.log"
+    },
+    {
+      "label": "full_albedo",
+      "shape": [
+        1080,
+        1920,
+        3
+      ],
+      "device": "cpu",
+      "filter": "RT",
+      "hdr": true,
+      "quality": "high",
+      "type": "float",
+      "threads": 8,
+      "input_scale": 1024.0,
+      "automatic_input_scale": false,
+      "guides": {
+        "albedo": true,
+        "normal": false,
+        "clean_aux": false
+      },
+      "source_HDR_rescaled_by_helper": false,
+      "command": [
+        "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+        "--device",
+        "cpu",
+        "--filter",
+        "RT",
+        "--hdr",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_oidn_2q1v9d8d\\color.pfm",
+        "--input_scale",
+        "1024.0",
+        "--alb",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_oidn_2q1v9d8d\\albedo.pfm",
+        "--output",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_oidn_2q1v9d8d\\output.pfm",
+        "--type",
+        "float",
+        "--quality",
+        "high",
+        "--threads",
+        "8",
+        "-n",
+        "1",
+        "--verbose",
+        "1"
+      ],
+      "exit_code": 0,
+      "process_wall_s": 1.5506309000775218,
+      "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_56e443a79bdc.oidn.log"
+    },
+    {
+      "label": "full_albedo_Ns",
+      "shape": [
+        1080,
+        1920,
+        3
+      ],
+      "device": "cpu",
+      "filter": "RT",
+      "hdr": true,
+      "quality": "high",
+      "type": "float",
+      "threads": 8,
+      "input_scale": 1024.0,
+      "automatic_input_scale": false,
+      "guides": {
+        "albedo": true,
+        "normal": true,
+        "clean_aux": false
+      },
+      "source_HDR_rescaled_by_helper": false,
+      "command": [
+        "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+        "--device",
+        "cpu",
+        "--filter",
+        "RT",
+        "--hdr",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\color.pfm",
+        "--input_scale",
+        "1024.0",
+        "--alb",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\albedo.pfm",
+        "--nrm",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\normal.pfm",
+        "--output",
+        "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_oidn_k7y474aj\\output.pfm",
+        "--type",
+        "float",
+        "--quality",
+        "high",
+        "--threads",
+        "8",
+        "-n",
+        "1",
+        "--verbose",
+        "1"
+      ],
+      "exit_code": 0,
+      "process_wall_s": 1.8251641001552343,
+      "log": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\full_albedo_Ns_bc3766fa7c2d.oidn.log"
+    }
+  ],
+  "OIDN_call_count": 3,
+  "CPU_OIDN_wall_s": 4.8547829003073275,
+  "CPU_export_wall_s": 10.36497460003011,
+  "variants": {
+    "original": {
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\original.png",
+      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080\\capture\\frame_000000_scene.raw",
+      "RAW_is_source_reference": true,
+      "HDR_min": 0.0,
+      "HDR_max": 1.3650944232940674,
+      "finite": true
+    },
+    "color_only": {
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\color_only.png",
+      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\color_only.raw",
+      "RAW_is_source_reference": false,
+      "HDR_min": 0.0,
+      "HDR_max": 1.376158356666565,
+      "finite": true
+    },
+    "guided_albedo": {
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_albedo.png",
+      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_albedo.raw",
+      "RAW_is_source_reference": false,
+      "HDR_min": 0.0,
+      "HDR_max": 1.376158356666565,
+      "finite": true
+    },
+    "guided_normal": {
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.png",
+      "RAW": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\guided_normal.raw",
+      "RAW_is_source_reference": false,
+      "HDR_min": 0.0,
+      "HDR_max": 1.376158356666565,
+      "finite": true
+    }
+  },
+  "detail_comparisons": {
+    "wall": {
+      "xyxy": [
+        153,
+        324,
+        576,
+        626
+      ],
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_wall.png",
+      "purpose": "Native display comparison only; not a filter mask"
+    },
+    "bar": {
+      "xyxy": [
+        595,
+        345,
+        1190,
+        691
+      ],
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_bar.png",
+      "purpose": "Native display comparison only; not a filter mask"
+    },
+    "ceiling": {
+      "xyxy": [
+        864,
+        21,
+        1804,
+        324
+      ],
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_ceiling.png",
+      "purpose": "Native display comparison only; not a filter mask"
+    },
+    "floor": {
+      "xyxy": [
+        76,
+        777,
+        768,
+        1069
+      ],
+      "PNG": "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080\\comparison_floor.png",
+      "purpose": "Native display comparison only; not a filter mask"
+    }
+  },
+  "display": {
+    "EV": 10,
+    "exposure_multiplier": 1024,
+    "curve": "wide_c1_rgb_v1 + sRGB",
+    "exposure_applied_only_at_display": true,
+    "per_branch_normalization": false,
+    "actual_TSR_replay": false
+  },
+  "guide_preview": {
+    "albedo": "linear auxiliary RGB to sRGB, no exposure/tone curve",
+    "normal": "actual signed Ns mapped by 0.5*N+0.5; miss zero appears gray"
+  },
+  "selection": "Per-frame true material/coverage mask, 2px exclusion plus 16px inward feather; no rectangles or cross-frame intersection",
+  "unsupported_outputs_bitwise_equal_to_color_only": true,
+  "source_HDR_modified": false,
+  "full_guided_HDR_saved": false,
+  "renderer_executed": false,
+  "GPU_executed": false,
+  "real_time": false,
+  "semantics_reference": "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\delivery_check\\indoor_guide_semantics.json",
+  "context_policy_note": "This explicit full-frame trial supersedes the old all-valid-tile recommendation in the semantics report. Unsupported first-hit context is approximate; the writeback mask does not isolate CNN context.",
+  "limitations": [
+    "Single fresh static frame; no temporal claim.",
+    "Glass, water, emission and unreliable pixels use identical color-only output.",
+    "Approximate auxiliary context may still influence neighboring reliable outputs; boundary feathering is not CNN isolation.",
+    "No HDR clipping, color substitution, guide fabrication on eligible pixels, or lighting/exposure change."
+  ],
+  "export_command": [
+    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "-B",
+    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\indoor_guided\\export_indoor.py",
+    "--run-dir",
+    "E:\\rurix_quality_runs\\20261016_indoor_guided\\capture1080",
+    "--out",
+    "E:\\rurix_quality_runs\\20261016_indoor_guided\\export1080",
+    "--input-scale",
+    "1024.0"
+  ]
+}
