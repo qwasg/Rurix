@@ -1,0 +1,150 @@
+{
+  "scope": "Descriptive same-frame changes only; not reference error or a noise estimate. No quality threshold.",
+  "frames": [
+    {
+      "frame": 0,
+      "HDR_mean_absolute_delta_Y": 7.163785357291757e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 22057,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.0986400462962963,
+        "maximum_channel_delta_8bit": 200
+      },
+      "presented": {
+        "RGB_pixels_changed": 25570,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.10432291666666667,
+        "maximum_channel_delta_8bit": 180
+      }
+    },
+    {
+      "frame": 1,
+      "HDR_mean_absolute_delta_Y": 7.022360500171254e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": false,
+      "original": {
+        "RGB_pixels_changed": 22382,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.09296730324074073,
+        "maximum_channel_delta_8bit": 148
+      },
+      "presented": {
+        "RGB_pixels_changed": 27433,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.10082175925925926,
+        "maximum_channel_delta_8bit": 135
+      }
+    },
+    {
+      "frame": 2,
+      "HDR_mean_absolute_delta_Y": 6.989889005659079e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 22224,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.08706597222222222,
+        "maximum_channel_delta_8bit": 143
+      },
+      "presented": {
+        "RGB_pixels_changed": 25223,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.09297887731481481,
+        "maximum_channel_delta_8bit": 135
+      }
+    },
+    {
+      "frame": 3,
+      "HDR_mean_absolute_delta_Y": 7.080684334338578e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 21932,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.08518663194444444,
+        "maximum_channel_delta_8bit": 158
+      },
+      "presented": {
+        "RGB_pixels_changed": 26153,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.09276909722222222,
+        "maximum_channel_delta_8bit": 141
+      }
+    },
+    {
+      "frame": 4,
+      "HDR_mean_absolute_delta_Y": 7.643651221194244e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 21880,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.08720341435185185,
+        "maximum_channel_delta_8bit": 145
+      },
+      "presented": {
+        "RGB_pixels_changed": 28020,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.10232060185185185,
+        "maximum_channel_delta_8bit": 111
+      }
+    },
+    {
+      "frame": 5,
+      "HDR_mean_absolute_delta_Y": 7.930225700734894e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 21729,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.08934461805555556,
+        "maximum_channel_delta_8bit": 154
+      },
+      "presented": {
+        "RGB_pixels_changed": 25543,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.10225549768518519,
+        "maximum_channel_delta_8bit": 138
+      }
+    },
+    {
+      "frame": 6,
+      "HDR_mean_absolute_delta_Y": 7.28086508760895e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 21537,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.08418113425925926,
+        "maximum_channel_delta_8bit": 133
+      },
+      "presented": {
+        "RGB_pixels_changed": 25655,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.09359375,
+        "maximum_channel_delta_8bit": 118
+      }
+    },
+    {
+      "frame": 7,
+      "HDR_mean_absolute_delta_Y": 7.26255431897075e-07,
+      "HDR_p99_Y_equal": true,
+      "HDR_max_Y_equal": true,
+      "original": {
+        "RGB_pixels_changed": 21441,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.08382378472222222,
+        "maximum_channel_delta_8bit": 170
+      },
+      "presented": {
+        "RGB_pixels_changed": 26675,
+        "total_pixels": 230400,
+        "mean_absolute_channel_delta_8bit": 0.0950462962962963,
+        "maximum_channel_delta_8bit": 138
+      }
+    }
+  ],
+  "gpu_candidate_minus_baseline_s": -0.002012608000001137
+}

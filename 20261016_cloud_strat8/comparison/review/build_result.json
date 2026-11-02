@@ -1,0 +1,100 @@
+{
+  "status": "PASS",
+  "created_utc": "2026-10-16T00:25:02.937035+00:00",
+  "commands": [
+    {
+      "label": "k0_compile",
+      "command": [
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "--target",
+        "vulkan",
+        "-o",
+        "[本机路径已隐藏]"
+      ],
+      "exit_code": 0,
+      "seconds": 258.10899999993853,
+      "log": "[本机路径已隐藏]"
+    },
+    {
+      "label": "k0_compiler_validate",
+      "command": [
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
+      ],
+      "exit_code": 0,
+      "seconds": 2.702999999979511,
+      "log": "[本机路径已隐藏]"
+    },
+    {
+      "label": "k0_validate",
+      "command": [
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
+      ],
+      "exit_code": 0,
+      "seconds": 2.75,
+      "log": "[本机路径已隐藏]"
+    },
+    {
+      "label": "k1_compile",
+      "command": [
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]",
+        "--target",
+        "vulkan",
+        "-o",
+        "[本机路径已隐藏]"
+      ],
+      "exit_code": 0,
+      "seconds": 264.125,
+      "log": "[本机路径已隐藏]"
+    },
+    {
+      "label": "k1_compiler_validate",
+      "command": [
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
+      ],
+      "exit_code": 0,
+      "seconds": 2.672000000020489,
+      "log": "[本机路径已隐藏]"
+    },
+    {
+      "label": "k1_validate",
+      "command": [
+        "[本机路径已隐藏]",
+        "[本机路径已隐藏]"
+      ],
+      "exit_code": 0,
+      "seconds": 2.640000000130385,
+      "log": "[本机路径已隐藏]"
+    },
+    {
+      "label": "host_build",
+      "command": [
+        "[本机路径已隐藏]",
+        "build",
+        "--offline",
+        "--release",
+        "-p",
+        "rurix-render",
+        "--bin",
+        "hq_quality_lane",
+        "--features",
+        "vendor-upscale,gltf-textures"
+      ],
+      "exit_code": 0,
+      "seconds": 19.108999999938533,
+      "log": "[本机路径已隐藏]"
+    }
+  ],
+  "parent_bundle": "[本机路径已隐藏]",
+  "new_kernels": [
+    "hq_sun_diffuse_path_material_nee_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface",
+    "hq_water_sun_ray_mesh_full_brdf_strat8_thin_shadow_ns_cloud_sun_finite_cloud_surface"
+  ],
+  "scope": "Two same-ABI cloud secondary strat8 modules plus host; no rendering or quality acceptance.",
+  "bundle": "[本机路径已隐藏]",
+  "candidate": "[本机路径已隐藏]"
+}

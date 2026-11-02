@@ -1,0 +1,44 @@
+{
+  "status": "VISUALLY_REVIEWED_AVAILABLE_OPTION",
+  "candidate": "[本机路径已隐藏]",
+  "comparison": "同一当帧 guide 空间结果：current.png 无历史；output.png 为有限三帧历史。未用旧整批固定屏幕交集输出归因。",
+  "viewing": "原尺寸实际 PNG 与原生 ROI 双行接触图；上 current，下 finite。没有新增图片、OIDN、GPU 或算法修改。",
+  "inspected": [
+    "frame_000007/comparison_native.png",
+    "frame_000017/comparison_native.png",
+    "frame_000023/comparison_native.png",
+    "review/left_shop_04_07.png",
+    "review/left_shop_12_15.png",
+    "review/left_shop_16_19.png",
+    "review/left_shop_20_23.png",
+    "review/distant_windows_12_15.png",
+    "review/distant_windows_16_19.png",
+    "review/distant_windows_20_23.png",
+    "review/moving_edges_16_19.png",
+    "review/moving_edges_20_23.png",
+    "review/foreground_12_15.png",
+    "review/foreground_20_23.png"
+  ],
+  "observations": {
+    "net_gain": "净改善较轻微。路面与部分墙面的细碎起伏略平顺；原尺寸全图中两列大部分区域仍很接近，没有清楚的细节恢复。",
+    "moving_edges": "f16–19、20–23 的黑栏柱、右侧立柱、窗框和红色檐口未见明显新增双轮廓或长拖影；移动揭露处未见可辨的旧颜色带。",
+    "windows_shop": "远处窗格与左店面主要结构保留，未见明显新假纹。原有细纹理软化、局部逐帧软硬变化仍存在，候选没有将这些问题消除。",
+    "foreground": "近景铺装与道路略更平滑，部分低对比起伏也略变软；主要砖缝和路缘线仍保留，未见明显新的结构断裂。",
+    "coverage_transitions": "重点看了 f16→17 与 f21→22。未见对应覆盖下降的明显硬接缝、局部亮度跳阶或整块闪变；这一判断限于原生接触图和选定完整帧，不能证明播放时完全无闪烁。",
+    "protected_regions": "选定全帧中水洼轮廓、玻璃区域和稀疏雨线未见明显新变化。雨很弱，静态接触图不足以评价雨的完整运动连续性。"
+  },
+  "decision": {
+    "retain_as_available_offline_option": true,
+    "replace_unique_default_based_on_this_visual_review": false,
+    "reason": "未发现明显可见回归，有限局部平顺收益足以作为离线推荐中的可选短历史处理保留，并保留无历史控制；收益不足以宣称动态细节已修复或据此替换唯一默认。"
+  },
+  "supporting_metrics": {
+    "source": "candidate_v1/review/comparison.json",
+    "usage": "仅作支持：既有几何匹配差异指标下降且空间梯度略降，与平顺及少量软化的目视趋势相符；未用指标直接批准。"
+  },
+  "limits": [
+    "24 帧仅覆盖约 0.383333 秒、约 0.821429 米 dolly；未覆盖更长时域、快速运动或复杂失遮挡。",
+    "接触图不是实时播放或时域稳定性证明；没有宣称无闪烁。",
+    "这是现有渲染数据的 CPU 离线候选，未证明实时成本或 GPU 集成效果。"
+  ]
+}

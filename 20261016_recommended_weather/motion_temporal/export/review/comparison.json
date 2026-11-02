@@ -1,0 +1,825 @@
+{
+  "scope": "Display-space finite-sequence diagnostics; a smaller difference alone is not a quality proof.",
+  "rois_xyxy": {
+    "distant_windows": [
+      260,
+      70,
+      430,
+      220
+    ],
+    "left_shop": [
+      100,
+      65,
+      285,
+      280
+    ],
+    "moving_edges": [
+      390,
+      60,
+      625,
+      340
+    ],
+    "foreground": [
+      90,
+      270,
+      610,
+      360
+    ]
+  },
+  "summary": {
+    "distant_windows": {
+      "current_reprojected_mean_abs_displayY": 6.342199074115828,
+      "current_mean_spatial_gradient": 10.456159840459408,
+      "output_reprojected_mean_abs_displayY": 5.257596628050185,
+      "output_mean_spatial_gradient": 10.364591930223549,
+      "temporal_difference_ratio": 0.8289863762725157,
+      "gradient_ratio": 0.9912426826260303
+    },
+    "left_shop": {
+      "current_reprojected_mean_abs_displayY": 4.130959761566207,
+      "current_mean_spatial_gradient": 6.8373583503391435,
+      "output_reprojected_mean_abs_displayY": 2.940738439257926,
+      "output_mean_spatial_gradient": 6.67307594548101,
+      "temporal_difference_ratio": 0.7118777739299446,
+      "gradient_ratio": 0.9759728251116185
+    },
+    "moving_edges": {
+      "current_reprojected_mean_abs_displayY": 2.864292308719331,
+      "current_mean_spatial_gradient": 4.652731916178828,
+      "output_reprojected_mean_abs_displayY": 2.026374790841221,
+      "output_mean_spatial_gradient": 4.539229683254076,
+      "temporal_difference_ratio": 0.707460891708795,
+      "gradient_ratio": 0.9756052497823755
+    },
+    "foreground": {
+      "current_reprojected_mean_abs_displayY": 2.2172005650525124,
+      "current_mean_spatial_gradient": 2.0545013572858726,
+      "output_reprojected_mean_abs_displayY": 1.3394599197720563,
+      "output_mean_spatial_gradient": 1.937163663947064,
+      "temporal_difference_ratio": 0.6041221262905155,
+      "gradient_ratio": 0.9428875075099394
+    }
+  },
+  "frames": [
+    {
+      "frame": 1,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5581,
+          "current_reprojected_mean_abs_displayY": 6.398647308349609,
+          "current_mean_spatial_gradient": 10.546302795410156,
+          "output_reprojected_mean_abs_displayY": 5.7919921875,
+          "output_mean_spatial_gradient": 10.486456871032715
+        },
+        "left_shop": {
+          "valid_pixels": 24661,
+          "current_reprojected_mean_abs_displayY": 4.140869617462158,
+          "current_mean_spatial_gradient": 6.670940399169922,
+          "output_reprojected_mean_abs_displayY": 3.3203916549682617,
+          "output_mean_spatial_gradient": 6.555655479431152
+        },
+        "moving_edges": {
+          "valid_pixels": 43071,
+          "current_reprojected_mean_abs_displayY": 2.7769758701324463,
+          "current_mean_spatial_gradient": 4.48008918762207,
+          "output_reprojected_mean_abs_displayY": 2.255980968475342,
+          "output_mean_spatial_gradient": 4.407660484313965
+        },
+        "foreground": {
+          "valid_pixels": 27779,
+          "current_reprojected_mean_abs_displayY": 2.118222951889038,
+          "current_mean_spatial_gradient": 2.1801280975341797,
+          "output_reprojected_mean_abs_displayY": 1.5450654029846191,
+          "output_mean_spatial_gradient": 2.1161670684814453
+        }
+      }
+    },
+    {
+      "frame": 2,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5559,
+          "current_reprojected_mean_abs_displayY": 6.399380683898926,
+          "current_mean_spatial_gradient": 10.143633842468262,
+          "output_reprojected_mean_abs_displayY": 5.381361961364746,
+          "output_mean_spatial_gradient": 10.060808181762695
+        },
+        "left_shop": {
+          "valid_pixels": 24433,
+          "current_reprojected_mean_abs_displayY": 3.9825472831726074,
+          "current_mean_spatial_gradient": 6.797924995422363,
+          "output_reprojected_mean_abs_displayY": 2.9246559143066406,
+          "output_mean_spatial_gradient": 6.625823974609375
+        },
+        "moving_edges": {
+          "valid_pixels": 43448,
+          "current_reprojected_mean_abs_displayY": 2.874188184738159,
+          "current_mean_spatial_gradient": 4.72419548034668,
+          "output_reprojected_mean_abs_displayY": 2.005812883377075,
+          "output_mean_spatial_gradient": 4.578164577484131
+        },
+        "foreground": {
+          "valid_pixels": 28345,
+          "current_reprojected_mean_abs_displayY": 2.3855326175689697,
+          "current_mean_spatial_gradient": 2.260436773300171,
+          "output_reprojected_mean_abs_displayY": 1.4526368379592896,
+          "output_mean_spatial_gradient": 2.1535258293151855
+        }
+      }
+    },
+    {
+      "frame": 3,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5541,
+          "current_reprojected_mean_abs_displayY": 7.030576229095459,
+          "current_mean_spatial_gradient": 11.22979736328125,
+          "output_reprojected_mean_abs_displayY": 5.7713623046875,
+          "output_mean_spatial_gradient": 11.12199592590332
+        },
+        "left_shop": {
+          "valid_pixels": 24575,
+          "current_reprojected_mean_abs_displayY": 4.240981101989746,
+          "current_mean_spatial_gradient": 6.800597190856934,
+          "output_reprojected_mean_abs_displayY": 2.9436655044555664,
+          "output_mean_spatial_gradient": 6.646692276000977
+        },
+        "moving_edges": {
+          "valid_pixels": 43283,
+          "current_reprojected_mean_abs_displayY": 2.922740936279297,
+          "current_mean_spatial_gradient": 4.654300212860107,
+          "output_reprojected_mean_abs_displayY": 2.082166910171509,
+          "output_mean_spatial_gradient": 4.543085098266602
+        },
+        "foreground": {
+          "valid_pixels": 28578,
+          "current_reprojected_mean_abs_displayY": 2.189007520675659,
+          "current_mean_spatial_gradient": 2.322357654571533,
+          "output_reprojected_mean_abs_displayY": 1.326032042503357,
+          "output_mean_spatial_gradient": 2.199681282043457
+        }
+      }
+    },
+    {
+      "frame": 4,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 7004,
+          "current_reprojected_mean_abs_displayY": 4.873544216156006,
+          "current_mean_spatial_gradient": 10.75295639038086,
+          "output_reprojected_mean_abs_displayY": 4.014805793762207,
+          "output_mean_spatial_gradient": 10.683501243591309
+        },
+        "left_shop": {
+          "valid_pixels": 25064,
+          "current_reprojected_mean_abs_displayY": 3.3406922817230225,
+          "current_mean_spatial_gradient": 6.610987663269043,
+          "output_reprojected_mean_abs_displayY": 2.4485135078430176,
+          "output_mean_spatial_gradient": 6.494871139526367
+        },
+        "moving_edges": {
+          "valid_pixels": 43540,
+          "current_reprojected_mean_abs_displayY": 2.5799081325531006,
+          "current_mean_spatial_gradient": 4.63271427154541,
+          "output_reprojected_mean_abs_displayY": 1.8109300136566162,
+          "output_mean_spatial_gradient": 4.5481486320495605
+        },
+        "foreground": {
+          "valid_pixels": 28948,
+          "current_reprojected_mean_abs_displayY": 1.9748928546905518,
+          "current_mean_spatial_gradient": 2.184664487838745,
+          "output_reprojected_mean_abs_displayY": 1.27627694606781,
+          "output_mean_spatial_gradient": 2.0829434394836426
+        }
+      }
+    },
+    {
+      "frame": 5,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5996,
+          "current_reprojected_mean_abs_displayY": 6.669085502624512,
+          "current_mean_spatial_gradient": 9.808456420898438,
+          "output_reprojected_mean_abs_displayY": 5.490732192993164,
+          "output_mean_spatial_gradient": 9.727231979370117
+        },
+        "left_shop": {
+          "valid_pixels": 24365,
+          "current_reprojected_mean_abs_displayY": 4.0896477699279785,
+          "current_mean_spatial_gradient": 6.649265289306641,
+          "output_reprojected_mean_abs_displayY": 2.874422788619995,
+          "output_mean_spatial_gradient": 6.503509044647217
+        },
+        "moving_edges": {
+          "valid_pixels": 44458,
+          "current_reprojected_mean_abs_displayY": 3.1842947006225586,
+          "current_mean_spatial_gradient": 4.532460689544678,
+          "output_reprojected_mean_abs_displayY": 2.176198720932007,
+          "output_mean_spatial_gradient": 4.405149459838867
+        },
+        "foreground": {
+          "valid_pixels": 29696,
+          "current_reprojected_mean_abs_displayY": 2.749178171157837,
+          "current_mean_spatial_gradient": 2.144820213317871,
+          "output_reprojected_mean_abs_displayY": 1.612634301185608,
+          "output_mean_spatial_gradient": 2.02622127532959
+        }
+      }
+    },
+    {
+      "frame": 6,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5512,
+          "current_reprojected_mean_abs_displayY": 5.943358898162842,
+          "current_mean_spatial_gradient": 11.004035949707031,
+          "output_reprojected_mean_abs_displayY": 4.9498491287231445,
+          "output_mean_spatial_gradient": 10.894658088684082
+        },
+        "left_shop": {
+          "valid_pixels": 24325,
+          "current_reprojected_mean_abs_displayY": 3.9017035961151123,
+          "current_mean_spatial_gradient": 6.69736385345459,
+          "output_reprojected_mean_abs_displayY": 2.8338186740875244,
+          "output_mean_spatial_gradient": 6.550948143005371
+        },
+        "moving_edges": {
+          "valid_pixels": 44194,
+          "current_reprojected_mean_abs_displayY": 2.586902618408203,
+          "current_mean_spatial_gradient": 4.73637056350708,
+          "output_reprojected_mean_abs_displayY": 1.8693835735321045,
+          "output_mean_spatial_gradient": 4.622479438781738
+        },
+        "foreground": {
+          "valid_pixels": 29939,
+          "current_reprojected_mean_abs_displayY": 2.1720707416534424,
+          "current_mean_spatial_gradient": 2.227559804916382,
+          "output_reprojected_mean_abs_displayY": 1.3051483631134033,
+          "output_mean_spatial_gradient": 2.1067054271698
+        }
+      }
+    },
+    {
+      "frame": 7,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5597,
+          "current_reprojected_mean_abs_displayY": 6.579480171203613,
+          "current_mean_spatial_gradient": 9.675724983215332,
+          "output_reprojected_mean_abs_displayY": 5.404946327209473,
+          "output_mean_spatial_gradient": 9.603780746459961
+        },
+        "left_shop": {
+          "valid_pixels": 24422,
+          "current_reprojected_mean_abs_displayY": 4.321933746337891,
+          "current_mean_spatial_gradient": 6.697140693664551,
+          "output_reprojected_mean_abs_displayY": 2.9644410610198975,
+          "output_mean_spatial_gradient": 6.555483341217041
+        },
+        "moving_edges": {
+          "valid_pixels": 43931,
+          "current_reprojected_mean_abs_displayY": 2.882157564163208,
+          "current_mean_spatial_gradient": 4.4603047370910645,
+          "output_reprojected_mean_abs_displayY": 2.0451998710632324,
+          "output_mean_spatial_gradient": 4.374234676361084
+        },
+        "foreground": {
+          "valid_pixels": 30274,
+          "current_reprojected_mean_abs_displayY": 2.236006498336792,
+          "current_mean_spatial_gradient": 2.0701756477355957,
+          "output_reprojected_mean_abs_displayY": 1.340788722038269,
+          "output_mean_spatial_gradient": 1.9986684322357178
+        }
+      }
+    },
+    {
+      "frame": 8,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5229,
+          "current_reprojected_mean_abs_displayY": 5.8208770751953125,
+          "current_mean_spatial_gradient": 11.138809204101562,
+          "output_reprojected_mean_abs_displayY": 4.839200019836426,
+          "output_mean_spatial_gradient": 11.010847091674805
+        },
+        "left_shop": {
+          "valid_pixels": 24536,
+          "current_reprojected_mean_abs_displayY": 3.63254451751709,
+          "current_mean_spatial_gradient": 6.876307487487793,
+          "output_reprojected_mean_abs_displayY": 2.6134252548217773,
+          "output_mean_spatial_gradient": 6.702747344970703
+        },
+        "moving_edges": {
+          "valid_pixels": 44256,
+          "current_reprojected_mean_abs_displayY": 2.9185314178466797,
+          "current_mean_spatial_gradient": 4.577672481536865,
+          "output_reprojected_mean_abs_displayY": 2.039033889770508,
+          "output_mean_spatial_gradient": 4.461300849914551
+        },
+        "foreground": {
+          "valid_pixels": 30970,
+          "current_reprojected_mean_abs_displayY": 2.3204891681671143,
+          "current_mean_spatial_gradient": 2.1536355018615723,
+          "output_reprojected_mean_abs_displayY": 1.4687522649765015,
+          "output_mean_spatial_gradient": 2.04441237449646
+        }
+      }
+    },
+    {
+      "frame": 9,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5465,
+          "current_reprojected_mean_abs_displayY": 6.646701812744141,
+          "current_mean_spatial_gradient": 9.577299118041992,
+          "output_reprojected_mean_abs_displayY": 5.386875152587891,
+          "output_mean_spatial_gradient": 9.497581481933594
+        },
+        "left_shop": {
+          "valid_pixels": 24415,
+          "current_reprojected_mean_abs_displayY": 4.366486549377441,
+          "current_mean_spatial_gradient": 6.613882541656494,
+          "output_reprojected_mean_abs_displayY": 3.0178282260894775,
+          "output_mean_spatial_gradient": 6.459529876708984
+        },
+        "moving_edges": {
+          "valid_pixels": 44483,
+          "current_reprojected_mean_abs_displayY": 2.9703187942504883,
+          "current_mean_spatial_gradient": 4.755784511566162,
+          "output_reprojected_mean_abs_displayY": 2.1195108890533447,
+          "output_mean_spatial_gradient": 4.63041353225708
+        },
+        "foreground": {
+          "valid_pixels": 31234,
+          "current_reprojected_mean_abs_displayY": 2.0500214099884033,
+          "current_mean_spatial_gradient": 2.0604848861694336,
+          "output_reprojected_mean_abs_displayY": 1.2308459281921387,
+          "output_mean_spatial_gradient": 1.9677385091781616
+        }
+      }
+    },
+    {
+      "frame": 10,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5683,
+          "current_reprojected_mean_abs_displayY": 5.970139980316162,
+          "current_mean_spatial_gradient": 10.562140464782715,
+          "output_reprojected_mean_abs_displayY": 4.97516393661499,
+          "output_mean_spatial_gradient": 10.457905769348145
+        },
+        "left_shop": {
+          "valid_pixels": 24270,
+          "current_reprojected_mean_abs_displayY": 4.127324104309082,
+          "current_mean_spatial_gradient": 6.9650750160217285,
+          "output_reprojected_mean_abs_displayY": 2.966107130050659,
+          "output_mean_spatial_gradient": 6.758302688598633
+        },
+        "moving_edges": {
+          "valid_pixels": 44879,
+          "current_reprojected_mean_abs_displayY": 2.516832113265991,
+          "current_mean_spatial_gradient": 4.576895713806152,
+          "output_reprojected_mean_abs_displayY": 1.7730501890182495,
+          "output_mean_spatial_gradient": 4.490099906921387
+        },
+        "foreground": {
+          "valid_pixels": 31658,
+          "current_reprojected_mean_abs_displayY": 1.9331854581832886,
+          "current_mean_spatial_gradient": 2.0830435752868652,
+          "output_reprojected_mean_abs_displayY": 1.2009398937225342,
+          "output_mean_spatial_gradient": 1.9753119945526123
+        }
+      }
+    },
+    {
+      "frame": 11,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5145,
+          "current_reprojected_mean_abs_displayY": 6.885251045227051,
+          "current_mean_spatial_gradient": 10.051648139953613,
+          "output_reprojected_mean_abs_displayY": 5.6948137283325195,
+          "output_mean_spatial_gradient": 9.969200134277344
+        },
+        "left_shop": {
+          "valid_pixels": 24026,
+          "current_reprojected_mean_abs_displayY": 4.285797595977783,
+          "current_mean_spatial_gradient": 6.52265739440918,
+          "output_reprojected_mean_abs_displayY": 2.9110634326934814,
+          "output_mean_spatial_gradient": 6.439347267150879
+        },
+        "moving_edges": {
+          "valid_pixels": 44519,
+          "current_reprojected_mean_abs_displayY": 3.1990792751312256,
+          "current_mean_spatial_gradient": 4.704655647277832,
+          "output_reprojected_mean_abs_displayY": 2.2883400917053223,
+          "output_mean_spatial_gradient": 4.572420120239258
+        },
+        "foreground": {
+          "valid_pixels": 32344,
+          "current_reprojected_mean_abs_displayY": 2.5594191551208496,
+          "current_mean_spatial_gradient": 2.0797078609466553,
+          "output_reprojected_mean_abs_displayY": 1.4945073127746582,
+          "output_mean_spatial_gradient": 1.9519479274749756
+        }
+      }
+    },
+    {
+      "frame": 12,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5945,
+          "current_reprojected_mean_abs_displayY": 5.226602554321289,
+          "current_mean_spatial_gradient": 10.294792175292969,
+          "output_reprojected_mean_abs_displayY": 4.400632858276367,
+          "output_mean_spatial_gradient": 10.23031997680664
+        },
+        "left_shop": {
+          "valid_pixels": 24919,
+          "current_reprojected_mean_abs_displayY": 3.386349678039551,
+          "current_mean_spatial_gradient": 6.412419319152832,
+          "output_reprojected_mean_abs_displayY": 2.4749746322631836,
+          "output_mean_spatial_gradient": 6.279187202453613
+        },
+        "moving_edges": {
+          "valid_pixels": 45223,
+          "current_reprojected_mean_abs_displayY": 2.6387672424316406,
+          "current_mean_spatial_gradient": 4.5986504554748535,
+          "output_reprojected_mean_abs_displayY": 1.8476024866104126,
+          "output_mean_spatial_gradient": 4.501304626464844
+        },
+        "foreground": {
+          "valid_pixels": 32648,
+          "current_reprojected_mean_abs_displayY": 1.9826149940490723,
+          "current_mean_spatial_gradient": 2.1132795810699463,
+          "output_reprojected_mean_abs_displayY": 1.2870581150054932,
+          "output_mean_spatial_gradient": 1.9839882850646973
+        }
+      }
+    },
+    {
+      "frame": 13,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5519,
+          "current_reprojected_mean_abs_displayY": 6.888360023498535,
+          "current_mean_spatial_gradient": 10.84733772277832,
+          "output_reprojected_mean_abs_displayY": 5.715975284576416,
+          "output_mean_spatial_gradient": 10.745792388916016
+        },
+        "left_shop": {
+          "valid_pixels": 24071,
+          "current_reprojected_mean_abs_displayY": 4.490732669830322,
+          "current_mean_spatial_gradient": 7.126491546630859,
+          "output_reprojected_mean_abs_displayY": 3.1405816078186035,
+          "output_mean_spatial_gradient": 6.895291805267334
+        },
+        "moving_edges": {
+          "valid_pixels": 44956,
+          "current_reprojected_mean_abs_displayY": 2.9096853733062744,
+          "current_mean_spatial_gradient": 4.661800861358643,
+          "output_reprojected_mean_abs_displayY": 2.052643060684204,
+          "output_mean_spatial_gradient": 4.5654802322387695
+        },
+        "foreground": {
+          "valid_pixels": 33078,
+          "current_reprojected_mean_abs_displayY": 2.213533401489258,
+          "current_mean_spatial_gradient": 2.108253002166748,
+          "output_reprojected_mean_abs_displayY": 1.3013155460357666,
+          "output_mean_spatial_gradient": 1.9830479621887207
+        }
+      }
+    },
+    {
+      "frame": 14,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 6349,
+          "current_reprojected_mean_abs_displayY": 6.57102632522583,
+          "current_mean_spatial_gradient": 10.375885963439941,
+          "output_reprojected_mean_abs_displayY": 5.4217705726623535,
+          "output_mean_spatial_gradient": 10.292343139648438
+        },
+        "left_shop": {
+          "valid_pixels": 24059,
+          "current_reprojected_mean_abs_displayY": 4.218382358551025,
+          "current_mean_spatial_gradient": 6.764298915863037,
+          "output_reprojected_mean_abs_displayY": 2.9223270416259766,
+          "output_mean_spatial_gradient": 6.6535210609436035
+        },
+        "moving_edges": {
+          "valid_pixels": 46568,
+          "current_reprojected_mean_abs_displayY": 3.0061001777648926,
+          "current_mean_spatial_gradient": 4.596682548522949,
+          "output_reprojected_mean_abs_displayY": 2.0063390731811523,
+          "output_mean_spatial_gradient": 4.474905967712402
+        },
+        "foreground": {
+          "valid_pixels": 33908,
+          "current_reprojected_mean_abs_displayY": 2.3857638835906982,
+          "current_mean_spatial_gradient": 1.9500579833984375,
+          "output_reprojected_mean_abs_displayY": 1.38334059715271,
+          "output_mean_spatial_gradient": 1.8665157556533813
+        }
+      }
+    },
+    {
+      "frame": 15,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5472,
+          "current_reprojected_mean_abs_displayY": 6.538288593292236,
+          "current_mean_spatial_gradient": 9.807098388671875,
+          "output_reprojected_mean_abs_displayY": 5.386667251586914,
+          "output_mean_spatial_gradient": 9.724729537963867
+        },
+        "left_shop": {
+          "valid_pixels": 24012,
+          "current_reprojected_mean_abs_displayY": 4.309652328491211,
+          "current_mean_spatial_gradient": 6.904192924499512,
+          "output_reprojected_mean_abs_displayY": 3.0573654174804688,
+          "output_mean_spatial_gradient": 6.7073163986206055
+        },
+        "moving_edges": {
+          "valid_pixels": 45445,
+          "current_reprojected_mean_abs_displayY": 2.837273359298706,
+          "current_mean_spatial_gradient": 4.573875904083252,
+          "output_reprojected_mean_abs_displayY": 2.0555408000946045,
+          "output_mean_spatial_gradient": 4.453929424285889
+        },
+        "foreground": {
+          "valid_pixels": 34301,
+          "current_reprojected_mean_abs_displayY": 2.078258991241455,
+          "current_mean_spatial_gradient": 1.9120469093322754,
+          "output_reprojected_mean_abs_displayY": 1.2679705619812012,
+          "output_mean_spatial_gradient": 1.7842226028442383
+        }
+      }
+    },
+    {
+      "frame": 16,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5595,
+          "current_reprojected_mean_abs_displayY": 5.792159557342529,
+          "current_mean_spatial_gradient": 10.554340362548828,
+          "output_reprojected_mean_abs_displayY": 4.833762168884277,
+          "output_mean_spatial_gradient": 10.440214157104492
+        },
+        "left_shop": {
+          "valid_pixels": 24178,
+          "current_reprojected_mean_abs_displayY": 3.6661109924316406,
+          "current_mean_spatial_gradient": 6.861528396606445,
+          "output_reprojected_mean_abs_displayY": 2.670679807662964,
+          "output_mean_spatial_gradient": 6.659879684448242
+        },
+        "moving_edges": {
+          "valid_pixels": 45877,
+          "current_reprojected_mean_abs_displayY": 2.599348783493042,
+          "current_mean_spatial_gradient": 4.6214399337768555,
+          "output_reprojected_mean_abs_displayY": 1.8408846855163574,
+          "output_mean_spatial_gradient": 4.5099310874938965
+        },
+        "foreground": {
+          "valid_pixels": 34724,
+          "current_reprojected_mean_abs_displayY": 1.882498025894165,
+          "current_mean_spatial_gradient": 1.903807282447815,
+          "output_reprojected_mean_abs_displayY": 1.1552555561065674,
+          "output_mean_spatial_gradient": 1.8026384115219116
+        }
+      }
+    },
+    {
+      "frame": 17,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5159,
+          "current_reprojected_mean_abs_displayY": 7.201024532318115,
+          "current_mean_spatial_gradient": 10.441925048828125,
+          "output_reprojected_mean_abs_displayY": 5.8225274085998535,
+          "output_mean_spatial_gradient": 10.331008911132812
+        },
+        "left_shop": {
+          "valid_pixels": 23918,
+          "current_reprojected_mean_abs_displayY": 4.329255104064941,
+          "current_mean_spatial_gradient": 7.097280025482178,
+          "output_reprojected_mean_abs_displayY": 3.0222628116607666,
+          "output_mean_spatial_gradient": 6.92173957824707
+        },
+        "moving_edges": {
+          "valid_pixels": 45364,
+          "current_reprojected_mean_abs_displayY": 3.1267592906951904,
+          "current_mean_spatial_gradient": 4.720302104949951,
+          "output_reprojected_mean_abs_displayY": 2.1423490047454834,
+          "output_mean_spatial_gradient": 4.6068549156188965
+        },
+        "foreground": {
+          "valid_pixels": 35330,
+          "current_reprojected_mean_abs_displayY": 2.2908873558044434,
+          "current_mean_spatial_gradient": 1.8591187000274658,
+          "output_reprojected_mean_abs_displayY": 1.3047208786010742,
+          "output_mean_spatial_gradient": 1.7567684650421143
+        }
+      }
+    },
+    {
+      "frame": 18,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5463,
+          "current_reprojected_mean_abs_displayY": 6.308395862579346,
+          "current_mean_spatial_gradient": 10.857175827026367,
+          "output_reprojected_mean_abs_displayY": 5.171095371246338,
+          "output_mean_spatial_gradient": 10.764537811279297
+        },
+        "left_shop": {
+          "valid_pixels": 23938,
+          "current_reprojected_mean_abs_displayY": 4.010336399078369,
+          "current_mean_spatial_gradient": 6.946079730987549,
+          "output_reprojected_mean_abs_displayY": 2.901895761489868,
+          "output_mean_spatial_gradient": 6.778951644897461
+        },
+        "moving_edges": {
+          "valid_pixels": 46010,
+          "current_reprojected_mean_abs_displayY": 2.574671983718872,
+          "current_mean_spatial_gradient": 4.751548767089844,
+          "output_reprojected_mean_abs_displayY": 1.8837816715240479,
+          "output_mean_spatial_gradient": 4.619049072265625
+        },
+        "foreground": {
+          "valid_pixels": 35860,
+          "current_reprojected_mean_abs_displayY": 2.019700050354004,
+          "current_mean_spatial_gradient": 1.9898359775543213,
+          "output_reprojected_mean_abs_displayY": 1.2582205533981323,
+          "output_mean_spatial_gradient": 1.819411277770996
+        }
+      }
+    },
+    {
+      "frame": 19,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5411,
+          "current_reprojected_mean_abs_displayY": 6.801605701446533,
+          "current_mean_spatial_gradient": 10.596059799194336,
+          "output_reprojected_mean_abs_displayY": 5.6483306884765625,
+          "output_mean_spatial_gradient": 10.493406295776367
+        },
+        "left_shop": {
+          "valid_pixels": 23818,
+          "current_reprojected_mean_abs_displayY": 4.552696704864502,
+          "current_mean_spatial_gradient": 7.0319976806640625,
+          "output_reprojected_mean_abs_displayY": 3.2084295749664307,
+          "output_mean_spatial_gradient": 6.810020446777344
+        },
+        "moving_edges": {
+          "valid_pixels": 45525,
+          "current_reprojected_mean_abs_displayY": 2.7859718799591064,
+          "current_mean_spatial_gradient": 4.647864818572998,
+          "output_reprojected_mean_abs_displayY": 2.007387638092041,
+          "output_mean_spatial_gradient": 4.529501914978027
+        },
+        "foreground": {
+          "valid_pixels": 36311,
+          "current_reprojected_mean_abs_displayY": 2.1679837703704834,
+          "current_mean_spatial_gradient": 1.9275577068328857,
+          "output_reprojected_mean_abs_displayY": 1.2135636806488037,
+          "output_mean_spatial_gradient": 1.8009419441223145
+        }
+      }
+    },
+    {
+      "frame": 20,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 6210,
+          "current_reprojected_mean_abs_displayY": 5.458548069000244,
+          "current_mean_spatial_gradient": 10.165403366088867,
+          "output_reprojected_mean_abs_displayY": 4.5159831047058105,
+          "output_mean_spatial_gradient": 10.106660842895508
+        },
+        "left_shop": {
+          "valid_pixels": 24730,
+          "current_reprojected_mean_abs_displayY": 3.8073606491088867,
+          "current_mean_spatial_gradient": 6.837444305419922,
+          "output_reprojected_mean_abs_displayY": 2.6801979541778564,
+          "output_mean_spatial_gradient": 6.680234909057617
+        },
+        "moving_edges": {
+          "valid_pixels": 45621,
+          "current_reprojected_mean_abs_displayY": 2.9825985431671143,
+          "current_mean_spatial_gradient": 4.718930244445801,
+          "output_reprojected_mean_abs_displayY": 2.0647919178009033,
+          "output_mean_spatial_gradient": 4.603629112243652
+        },
+        "foreground": {
+          "valid_pixels": 37095,
+          "current_reprojected_mean_abs_displayY": 2.3197336196899414,
+          "current_mean_spatial_gradient": 1.9515979290008545,
+          "output_reprojected_mean_abs_displayY": 1.335105538368225,
+          "output_mean_spatial_gradient": 1.80442214012146
+        }
+      }
+    },
+    {
+      "frame": 21,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5416,
+          "current_reprojected_mean_abs_displayY": 7.063594818115234,
+          "current_mean_spatial_gradient": 10.48954963684082,
+          "output_reprojected_mean_abs_displayY": 5.8479905128479,
+          "output_mean_spatial_gradient": 10.388666152954102
+        },
+        "left_shop": {
+          "valid_pixels": 23864,
+          "current_reprojected_mean_abs_displayY": 4.742410182952881,
+          "current_mean_spatial_gradient": 7.234735488891602,
+          "output_reprojected_mean_abs_displayY": 3.3496780395507812,
+          "output_mean_spatial_gradient": 7.006740093231201
+        },
+        "moving_edges": {
+          "valid_pixels": 45251,
+          "current_reprojected_mean_abs_displayY": 2.9804112911224365,
+          "current_mean_spatial_gradient": 4.736355781555176,
+          "output_reprojected_mean_abs_displayY": 2.0633976459503174,
+          "output_mean_spatial_gradient": 4.618034362792969
+        },
+        "foreground": {
+          "valid_pixels": 37590,
+          "current_reprojected_mean_abs_displayY": 2.205214500427246,
+          "current_mean_spatial_gradient": 1.909541130065918,
+          "output_reprojected_mean_abs_displayY": 1.2974960803985596,
+          "output_mean_spatial_gradient": 1.766460657119751
+        }
+      }
+    },
+    {
+      "frame": 22,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 5612,
+          "current_reprojected_mean_abs_displayY": 6.352343559265137,
+          "current_mean_spatial_gradient": 11.264228820800781,
+          "output_reprojected_mean_abs_displayY": 5.217426776885986,
+          "output_mean_spatial_gradient": 11.155890464782715
+        },
+        "left_shop": {
+          "valid_pixels": 23817,
+          "current_reprojected_mean_abs_displayY": 4.335444927215576,
+          "current_mean_spatial_gradient": 7.183329105377197,
+          "output_reprojected_mean_abs_displayY": 3.0748775005340576,
+          "output_mean_spatial_gradient": 7.004307746887207
+        },
+        "moving_edges": {
+          "valid_pixels": 45744,
+          "current_reprojected_mean_abs_displayY": 2.5736091136932373,
+          "current_mean_spatial_gradient": 4.829416275024414,
+          "output_reprojected_mean_abs_displayY": 1.8598823547363281,
+          "output_mean_spatial_gradient": 4.708447456359863
+        },
+        "foreground": {
+          "valid_pixels": 38013,
+          "current_reprojected_mean_abs_displayY": 2.0921740531921387,
+          "current_mean_spatial_gradient": 1.952561378479004,
+          "output_reprojected_mean_abs_displayY": 1.2748907804489136,
+          "output_mean_spatial_gradient": 1.7994426488876343
+        }
+      }
+    },
+    {
+      "frame": 23,
+      "regions": {
+        "distant_windows": {
+          "valid_pixels": 6742,
+          "current_reprojected_mean_abs_displayY": 6.949301242828369,
+          "current_mean_spatial_gradient": 10.307074546813965,
+          "output_reprojected_mean_abs_displayY": 5.667346000671387,
+          "output_mean_spatial_gradient": 10.198077201843262
+        },
+        "left_shop": {
+          "valid_pixels": 23717,
+          "current_reprojected_mean_abs_displayY": 4.832216262817383,
+          "current_mean_spatial_gradient": 6.957302093505859,
+          "output_reprojected_mean_abs_displayY": 3.372528076171875,
+          "output_mean_spatial_gradient": 6.790645599365234
+        },
+        "moving_edges": {
+          "valid_pixels": 46104,
+          "current_reprojected_mean_abs_displayY": 3.4405970573425293,
+          "current_mean_spatial_gradient": 4.720522880554199,
+          "output_reprojected_mean_abs_displayY": 2.3256168365478516,
+          "output_mean_spatial_gradient": 4.578057765960693
+        },
+        "foreground": {
+          "valid_pixels": 38814,
+          "current_reprojected_mean_abs_displayY": 2.6512222290039062,
+          "current_mean_spatial_gradient": 1.908859133720398,
+          "output_reprojected_mean_abs_displayY": 1.5498296022415161,
+          "output_mean_spatial_gradient": 1.763580560684204
+        }
+      }
+    }
+  ],
+  "native_contacts": "Top: current-frame guides without history. Bottom: same spatial result with finite history. No image resizing."
+}

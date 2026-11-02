@@ -1,6 +1,6 @@
 {
   "label": "Exterior motion8 ON frame3 EV8",
-  "input_path": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000003_scene.raw",
+  "input_path": "[本机路径已隐藏]",
   "dimensions": [
     640,
     360
@@ -18,8 +18,8 @@
   },
   "variants": {
     "original": {
-      "linear_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000003_scene.raw",
-      "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\original.png",
+      "linear_RAW": "[本机路径已隐藏]",
+      "display_PNG": "[本机路径已隐藏]",
       "source_reference_only": true,
       "HDR_stats": {
         "shape": [
@@ -43,8 +43,8 @@
       }
     },
     "oidn100": {
-      "linear_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\oidn100.raw",
-      "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\oidn100.png",
+      "linear_RAW": "[本机路径已隐藏]",
+      "display_PNG": "[本机路径已隐藏]",
       "source_reference_only": false,
       "HDR_stats": {
         "shape": [
@@ -68,8 +68,8 @@
       }
     },
     "mix50": {
-      "linear_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\mix50.raw",
-      "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\mix50.png",
+      "linear_RAW": "[本机路径已隐藏]",
+      "display_PNG": "[本机路径已隐藏]",
       "source_reference_only": false,
       "HDR_stats": {
         "shape": [
@@ -106,28 +106,28 @@
   "source_HDR_modified": false,
   "CPU_OIDN_wall_s_this_export": 0.47400759998708963,
   "export_command": [
-    "C:\\Users\\wcj20\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+    "[本机路径已隐藏]",
     "-B",
-    "C:\\Users\\wcj20\\Documents\\Codex\\2026-10-13\\task-2\\current_delivery\\export_hdr_triplet.py",
+    "[本机路径已隐藏]",
     "--input",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000003_scene.raw",
+    "[本机路径已隐藏]",
     "--out",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003",
+    "[本机路径已隐藏]",
     "--ev",
     "8",
     "--label",
     "Exterior motion8 ON frame3 EV8"
   ],
   "command": [
-    "E:\\rurix_quality_runs\\20261015_oidn_offline\\tool\\oidn-2.5.1.x64.windows\\bin\\oidnDenoise.exe",
+    "[本机路径已隐藏]",
     "--device",
     "cpu",
     "--filter",
     "RT",
     "--hdr",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\oidn_rp60ax3u\\input.pfm",
+    "[本机路径已隐藏]",
     "--output",
-    "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\oidn_rp60ax3u\\output.pfm",
+    "[本机路径已隐藏]",
     "--type",
     "float",
     "--quality",
@@ -142,8 +142,8 @@
   "oidn_version": "2.5.1",
   "source_receipt": null,
   "actual_presented": {
-    "source_RAW": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\capture\\frame_000003_presented.raw",
-    "display_PNG": "E:\\rurix_quality_runs\\20261015_normal_support\\motion8_on\\preview_motion\\frame_000003\\actual_presented.png",
+    "source_RAW": "[本机路径已隐藏]",
+    "display_PNG": "[本机路径已隐藏]",
     "format": "u32le width,height + BGRA8 sRGB alpha255",
     "processing": "BGRA to RGB channel reorder only; no HDR mapping, OIDN, or exposure",
     "headless_capture_not_window_presentation": true

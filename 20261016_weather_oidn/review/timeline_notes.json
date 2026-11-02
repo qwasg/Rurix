@@ -1,0 +1,267 @@
+{
+  "recorded_utc": "2026-10-16T00:51:38.226695+00:00",
+  "scope": "Read-only existing weather8/source inspection; no render, OIDN, source edits or D/E writes.",
+  "run": "[本机路径已隐藏]",
+  "receipt": "[本机路径已隐藏]",
+  "completed_frames": 8,
+  "hdr_semantics": {
+    "scene": {
+      "pattern": "[本机路径已隐藏]",
+      "dimensions": [
+        640,
+        360
+      ],
+      "header": "8-byte u32le width,height",
+      "dtype": "f32le interleaved RGB",
+      "domain": "scene-linear HDR, already containing cloud/water and sorted rain composite; before TSR/exposure/bloom/tonemap/sRGB",
+      "resource": 1054,
+      "actual_producer": {
+        "logical_index": 5111,
+        "kernel": "hq_rain_sorted_surface_camera_relative_v1"
+      },
+      "manifest": "[本机路径已隐藏]"
+    },
+    "presented": {
+      "pattern": "[本机路径已隐藏]",
+      "header": "8-byte u32le width,height",
+      "dtype": "BGRA8 sRGB alpha255",
+      "resource": 53,
+      "domain": "actual GPU final image after TSR, exposure, display transform and encoding; not the raw scene re-exposed by the CPU"
+    },
+    "offline_oidn_input": "Use original scene RGB float32; OIDN100 and 50% linear blend are independent offline treatments of the rain-inclusive image. Do not denoise or re-expose actual presented.",
+    "offline_display": "Use the existing fixed EV8 multiplier256 exactly once, wide-C1 then sRGB. Keep actual presented as a distinct display stage. No rainfall-free HDR is present in this retained scene stage.",
+    "proof": [
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]"
+    ]
+  },
+  "current_timeline": {
+    "config_frame_count": 8,
+    "dt_config_seconds": 0.016666667,
+    "dt_uploaded_f32_seconds": 0.01666666753590107,
+    "actual_pre_submit_clocks": [
+      {
+        "frame_index": 0,
+        "sample_frame": 0,
+        "physical_step": 0
+      },
+      {
+        "frame_index": 1,
+        "sample_frame": 1,
+        "physical_step": 1
+      },
+      {
+        "frame_index": 2,
+        "sample_frame": 2,
+        "physical_step": 2
+      },
+      {
+        "frame_index": 3,
+        "sample_frame": 3,
+        "physical_step": 3
+      },
+      {
+        "frame_index": 4,
+        "sample_frame": 4,
+        "physical_step": 4
+      },
+      {
+        "frame_index": 5,
+        "sample_frame": 5,
+        "physical_step": 5
+      },
+      {
+        "frame_index": 6,
+        "sample_frame": 6,
+        "physical_step": 6
+      },
+      {
+        "frame_index": 7,
+        "sample_frame": 7,
+        "physical_step": 7
+      }
+    ],
+    "cloud_time_formula": "physical_step * float32(dt_s)",
+    "first_last_cloud_time_seconds": [
+      0,
+      0.11666667461395264
+    ],
+    "rain": "Each graph execution integrates existing particles by one dt and then emits the new particles. Frame0 already includes that first integration; cloud physical_step is 0. Never claim all rain particles have a common absolute age.",
+    "advance": "EffectsLane.step starts0; prepare uses step*dt; successful frame publication then commit advances step by1. Reset/still_snapshot restarts at0. Current dynamic weather is not a still snapshot.",
+    "camera": "frame-origin0; sample_frame=fi; dolly eye+=forward*0.25*fi/(frames-1). Original8 covers the full0.25m in7 intervals. Increasing frames preserves endpoints but changes camera speed per physical second.",
+    "frame_origin_limit": "frame-origin offsets sampling and camera t, not effects.step or skipped rain/wave evolution. A new process at frame-origin60 is not a continued weather state.",
+    "proof": [
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]"
+    ]
+  },
+  "future_sparse_capture_not_executed": {
+    "shared_cli_keep": {
+      "--frame-origin": "0",
+      "--warmup": "0",
+      "--camera-motion": "dolly",
+      "--camera-distance": "0.25",
+      "--diagnostics": "checkpoint_hdr",
+      "--capture-raw-profile": "scene_presented_v1"
+    },
+    "remove_cli_pair": [
+      "--capture-sequence-stages",
+      "presented,scene"
+    ],
+    "one_second": {
+      "config_frame_count": 61,
+      "--frames": "61",
+      "--capture-every": "6",
+      "retained_frame_indices": [
+        0,
+        6,
+        12,
+        18,
+        24,
+        30,
+        36,
+        42,
+        48,
+        54,
+        60
+      ],
+      "retained_stage_names": [
+        "scene",
+        "presented"
+      ],
+      "first_last_physical_span_s": 1.0000000521540642,
+      "review_rate_for_physical_timing_fps": 10
+    },
+    "two_seconds": {
+      "config_frame_count": 121,
+      "--frames": "121",
+      "--capture-every": "12",
+      "retained_frame_indices": [
+        0,
+        12,
+        24,
+        36,
+        48,
+        60,
+        72,
+        84,
+        96,
+        108,
+        120
+      ],
+      "retained_stage_names": [
+        "scene",
+        "presented"
+      ],
+      "first_last_physical_span_s": 2.0000001043081284,
+      "review_rate_for_physical_timing_fps": 5
+    },
+    "config_change_only": "Copy the original weather8 configuration to a fresh run, change top-level frame_count only, keep dt_s, seed, sampling, weather and history settings. Use a new contract/capture directory. No run proposed here is executed.",
+    "capture_effect": "Every intermediate frame still executes the full graph, simulates rain/waves and commits history. Sparse capture only reduces retained files and some optional readbacks; presented/mandatory error controls are still read every frame. It is not cheaper simulation-only stepping.",
+    "sequence_override": "capture-sequence-stages names are retained every frame regardless of capture-every. Remove the flag for sparse scene and presented; keeping presented would intentionally store all presented frames.",
+    "checkpoint_rule": "fi % capture_every == 0 OR final frame (ordinary dynamic path; no convergence mode).",
+    "disk_hdr_presented_only_bytes_per_11_frames": 40550576,
+    "storage_limit": "That number excludes journals/metadata/readbacks; it is not total run storage.",
+    "no_shortcut": "Do not increase dt_s for only8 outputs to imitate1–2s: rain integration, emission per frame, wave evolution and temporal history would change. Playback slow motion creates no new physical samples.",
+    "proof": [
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]",
+      "[本机路径已隐藏]"
+    ]
+  },
+  "validated_headers": [
+    {
+      "frame": 0,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 0,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 1,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 1,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 2,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 2,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 3,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 3,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 4,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 4,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 5,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 5,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 6,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 6,
+      "stage": "presented",
+      "bytes": 921608
+    },
+    {
+      "frame": 7,
+      "stage": "scene",
+      "bytes": 2764808
+    },
+    {
+      "frame": 7,
+      "stage": "presented",
+      "bytes": 921608
+    }
+  ],
+  "limits": [
+    "Stage membership is verified by actual retained logical manifest plus source; no per-pixel rain decomposition performed.",
+    "No claim that OIDN preserves small raindrops or improves temporal stability; root will judge the actual eight-frame offline outputs."
+  ]
+}

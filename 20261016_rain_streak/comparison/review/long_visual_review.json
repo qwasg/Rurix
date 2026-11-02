@@ -1,0 +1,31 @@
+{
+  "assessment": "RAIN_VISIBLE_LATE_BUT_UNNATURAL_NO_PRESET_PROMOTION",
+  "reviewer": "road_bsdf_probe independent visual review",
+  "source": "[本机路径已隐藏]",
+  "viewed": [
+    "original_rain_f0_18_36_54_60_native1to1.png",
+    "presented_rain_f0_18_36_54_60_native1to1.png",
+    "original_water_road_f0_18_36_54_60_native1to1.png",
+    "presented_water_road_f0_18_36_54_60_native1to1.png",
+    "frame_000000/presented.png",
+    "frame_000030/presented.png",
+    "frame_000060/presented.png",
+    "frame_000060/original.png"
+  ],
+  "observations": {
+    "direction_and_visibility": "雨粒群从上方建筑区域进入中下方道路，后段原尺寸可辨；局部多为近竖向、略倾斜的短段。只观察群体位置变化，没有逐粒子跟踪。",
+    "naturalness": "f54/f60道路上出现显眼的高对比白色短矩形/小棒，边缘偏硬，像白屑或稀疏喷点，尚不自然。f60 original也能直接看到，因此不是actual presented单独产生的现象。",
+    "trails_and_changes": "所看检查点未见跨大范围的长拖尾。后段进入道路的白短条明显抢眼；0.1秒保留间隔不能判断中间帧是否跳变，也不能证明稳定出生、消失或完整生命周期。",
+    "occlusion": "没有看到明确的大范围物体穿透、轮廓破坏或遮挡边缘长条泄漏。缺少逐粒子coverage/depth和连续全部帧，不能据此确认每个雨粒遮挡正确。",
+    "water_and_road": "水面轮廓、内部建筑暗反射及路缘台阶仍可辨，未看到明显新增方形水边或大范围断裂；后段白短条横跨水面前景，显著增加视觉干扰。",
+    "whole_frame": "街道和墙面原有密集细颗粒仍重，天空仍近乎均匀浅灰。后段雨更可见，但没有形成可信的整体天气画质改善。"
+  },
+  "decision": "保留为候选观察结果，不建议提升默认预设或宣告雨画质接受。可见性增加与自然感改善不是同一结论。",
+  "limits": [
+    "这是61帧候选较慢dolly，非旧八帧matched A/B，不能称总体净收益或回归比较。",
+    "输出保留11个检查点、间隔0.1秒；此次实看四联系图及首/中/末整图，不是61帧连续播放。",
+    "检查点未见明显长拖尾不等于完整生命周期或遮挡验证。",
+    "640x360观察不证明1080p表现。"
+  ],
+  "actions": "Read existing images and metadata; wrote this C report only. No GPU run or source change."
+}

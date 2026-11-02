@@ -1,0 +1,78 @@
+{
+  "run": "[本机路径已隐藏]",
+  "camera_frames": 24,
+  "world_origin_m": [
+    0.0,
+    0.0,
+    32.0
+  ],
+  "scope": "Geometry-only helper checks; no OIDN/GPU/temporal RGB evaluation. Actual checks use opaque static hits, not the caller reliable air/water mask.",
+  "self_projection": [
+    {
+      "frame": 0,
+      "hits": 221928,
+      "pixel_error_p50_p99_max": [
+        4.447021312614652e-05,
+        0.0003896212755330464,
+        0.0008549840943032905
+      ],
+      "view_depth_max_error_m": 1.1652914841064899e-05
+    },
+    {
+      "frame": 23,
+      "hits": 221858,
+      "pixel_error_p50_p99_max": [
+        4.395008673441225e-05,
+        0.0003890111462499131,
+        0.0008566804590373067
+      ],
+      "view_depth_max_error_m": 1.537741840884621e-05
+    }
+  ],
+  "direct_maps": [
+    {
+      "current": 1,
+      "previous": 0,
+      "eligible_current_static_opaque_hits": 221967,
+      "supported_pixels": 184794,
+      "support_mass_p10_p50_p90": [
+        0.44824079871177674,
+        1.0,
+        1.0
+      ],
+      "constant_and_zero_preserved": true
+    },
+    {
+      "current": 2,
+      "previous": 0,
+      "eligible_current_static_opaque_hits": 221908,
+      "supported_pixels": 187816,
+      "support_mass_p10_p50_p90": [
+        0.49544166028499603,
+        0.9999999403953552,
+        1.0
+      ],
+      "constant_and_zero_preserved": true
+    },
+    {
+      "current": 23,
+      "previous": 2,
+      "eligible_current_static_opaque_hits": 221858,
+      "supported_pixels": 184589,
+      "support_mass_p10_p50_p90": [
+        0.46362427473068235,
+        0.9999999403953552,
+        1.0
+      ],
+      "constant_and_zero_preserved": true
+    }
+  ],
+  "wrong_material_wrong_primitive_moving_rejected": true,
+  "limits": [
+    "CPU f64 transforms actual f32 packets; not a bitwise GPU-FMA replay.",
+    "Same primitive is conservative and may reject adjacent triangles of the same surface.",
+    "Bilinear support does not certify lighting/view-dependent radiance constancy.",
+    "All current/previous reliable opaque masks must come from the caller. No optical/rain history.",
+    "No temporal candidate quality or noise-variance claim follows from these geometry checks."
+  ]
+}
